@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import AppLogoIcon from '@/Components/AppLogoIcon.vue';
 import { usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import type { PageProps as InertiaPageProps } from '@inertiajs/core';
