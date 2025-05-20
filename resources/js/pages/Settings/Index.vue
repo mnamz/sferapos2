@@ -27,17 +27,34 @@
                                     <!-- Logo -->
                                     <div>
                                         <Label for="logo">Shop Logo</Label>
-                                        <Input
-                                            id="logo"
-                                            type="file"
-                                            @input="form.logo = $event.target.files[0]"
-                                            accept="image/*"
-                                            class="mt-1 block w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-                                        />
-                                        <InputError :message="form.errors.logo" class="mt-2" />
-                                        <div v-if="settings.logo_path" class="mt-2">
-                                            <img :src="'/storage/' + settings.logo_path" alt="Shop Logo" class="h-20 w-auto">
+                                        <div class="mt-2 flex items-center gap-4">
+                                            <div v-if="settings.logo_path" class="relative">
+                                                <img 
+                                                    :src="'/storage/' + settings.logo_path" 
+                                                    alt="Shop Logo" 
+                                                    class="h-20 w-auto rounded-lg object-contain border border-gray-200 dark:border-gray-700"
+                                                >
+                                            </div>
+                                            <div class="flex-1">
+                                                <Input
+                                                    id="logo"
+                                                    type="file"
+                                                    @input="handleLogoUpload"
+                                                    accept="image/jpeg,image/png,image/jpg,image/gif"
+                                                    class="block w-full text-sm text-gray-500 dark:text-gray-400
+                                                        file:mr-4 file:py-2 file:px-4
+                                                        file:rounded-md file:border-0
+                                                        file:text-sm file:font-semibold
+                                                        file:bg-indigo-50 file:text-indigo-700
+                                                        dark:file:bg-indigo-900 dark:file:text-indigo-300
+                                                        hover:file:bg-indigo-100 dark:hover:file:bg-indigo-800"
+                                                />
+                                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                                    Recommended size: 200x200px. Max file size: 2MB
+                                                </p>
+                                            </div>
                                         </div>
+                                        <InputError :message="form.errors.logo" class="mt-2" />
                                     </div>
 
                                     <!-- Email -->
@@ -232,5 +249,27 @@ const submit = () => {
             });
         },
     });
+};
+
+const handleLogoUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        // Validate file size (2MB max)
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error('Logo file size must be less than 2MB');
+            event.target.value = '';
+            return;
+        }
+        
+        // Validate file type
+        const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif'];
+        if (!validTypes.includes(file.type)) {
+            toast.error('Invalid file type. Please upload a JPEG, PNG, or GIF image.');
+            event.target.value = '';
+            return;
+        }
+
+        form.logo = file;
+    }
 };
 </script> 

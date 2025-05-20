@@ -9,9 +9,17 @@ class ShopSettings extends Model
     protected $table = 'shop_settings';
     
     protected $fillable = [
+        'shop_name',
+        'shop_address',
+        'shop_phone',
+        'shop_email',
         'currency',
         'tax_percentage',
-        // Add other settings fields here
+        'logo_path',
+        'company_number',
+        'tax_number',
+        'payment_details',
+        'footer_text'
     ];
 
     protected $casts = [

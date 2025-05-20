@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ShopSettings;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Storage;
 
 class ShopSettingsController extends Controller
 {
@@ -42,6 +43,7 @@ class ShopSettingsController extends Controller
             'tax_number' => 'nullable|string|max:255',
             'payment_details' => 'nullable|string',
             'footer_text' => 'nullable|string',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
         ]);
 
         $settings = ShopSettings::first();
@@ -51,6 +53,12 @@ class ShopSettingsController extends Controller
 
         // Handle logo upload if present
         if ($request->hasFile('logo')) {
+            // Delete old logo if exists
+            if ($settings->logo_path && Storage::disk('public')->exists($settings->logo_path)) {
+                Storage::disk('public')->delete($settings->logo_path);
+            }
+            
+            // Store new logo
             $path = $request->file('logo')->store('logos', 'public');
             $settings->logo_path = $path;
         }
