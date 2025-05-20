@@ -153,9 +153,9 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import AppLayout from '@/layouts/AppLayout.vue';
+import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import Pagination from '@/components/Pagination.vue';
+import Pagination from '@/Components/Pagination.vue';
 import debounce from 'lodash/debounce';
 
 const props = defineProps({

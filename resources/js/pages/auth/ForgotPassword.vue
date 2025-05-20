@@ -4,7 +4,7 @@ import TextLink from '@/Components/TextLink.vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import AuthLayout from '@/layouts/AuthLayout.vue';
+import AuthLayout from '@/Layouts/AuthLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { LoaderCircle } from 'lucide-vue-next';
 

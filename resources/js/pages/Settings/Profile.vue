@@ -7,8 +7,8 @@ import InputError from '@/Components/InputError.vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import AppLayout from '@/layouts/AppLayout.vue';
-import SettingsLayout from '@/layouts/settings/Layout.vue';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import SettingsLayout from '@/Layouts/settings/Layout.vue';
 import { type BreadcrumbItem, type SharedData, type User } from '@/types';
 
 interface Props {

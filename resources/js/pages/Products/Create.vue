@@ -164,7 +164,7 @@
 </template>
 
 <script setup>
-import AppLayout from '@/layouts/AppLayout.vue';
+import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';

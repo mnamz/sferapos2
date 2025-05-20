@@ -154,11 +154,11 @@
 </template>
 
 <script setup>
-import AppLayout from '@/layouts/AppLayout.vue';
+import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref, onMounted, computed } from 'vue';
 import Chart from 'chart.js/auto';
-import Pagination from '@/components/Pagination.vue';
+import Pagination from '@/Components/Pagination.vue';
 import { FileSpreadsheet } from 'lucide-vue-next';
 
 const props = defineProps({

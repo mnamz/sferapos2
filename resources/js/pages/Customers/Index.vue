@@ -136,7 +136,7 @@ import { ref } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import Pagination from '@/Components/Pagination.vue';
 import debounce from 'lodash/debounce';
-import AppLayout from '@/layouts/AppLayout.vue';
+import AppLayout from '@/Layouts/AppLayout.vue';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 

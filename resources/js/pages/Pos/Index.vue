@@ -391,7 +391,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import AppLayout from '@/layouts/AppLayout.vue';
+import AppLayout from '@/Layouts/AppLayout.vue';
 import axios from 'axios';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';

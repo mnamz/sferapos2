@@ -73,14 +73,14 @@
 </template>
 
 <script setup>
-import AppLayout from '@/layouts/AppLayout.vue';
+import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import InputError from '@/components/InputError.vue';
+import { Button } from '@/Components/ui/button';
+import { Input } from '@/Components/ui/input';
+import { Label } from '@/Components/ui/label';
+import { Select } from '@/Components/ui/select';
+import { Textarea } from '@/Components/ui/textarea';
+import InputError from '@/Components/InputError.vue';
 
 const props = defineProps({
     category: {
