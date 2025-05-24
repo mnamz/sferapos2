@@ -124,6 +124,7 @@
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Price</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Quantity</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Remark</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                                         </tr>
                                     </thead>
@@ -146,6 +147,14 @@
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                                 {{ currency }}{{ item.total }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                                <input
+                                                    type="text"
+                                                    v-model="item.remark"
+                                                    class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-1 px-2"
+                                                    placeholder="Remark (optional)"
+                                                >
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                                 <button
@@ -375,7 +384,8 @@ const form = ref({
         product_name: item.product_name,
         quantity: item.quantity,
         price: parseFloat(item.price),
-        total: parseFloat(item.total)
+        total: parseFloat(item.total),
+        remark: item.remark || ''
     })),
     payment_method: props.order.payment_method,
     delivery_method: props.order.delivery_method,
@@ -458,7 +468,8 @@ const addProduct = (product) => {
         product_name: product.name,
         quantity: 1,
         price: parseFloat(product.price),
-        total: parseFloat(product.price)
+        total: parseFloat(product.price),
+        remark: ''
     });
     showProductModal.value = false;
     updatePaymentAmounts();

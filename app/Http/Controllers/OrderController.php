@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\ShopSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -40,9 +41,13 @@ class OrderController extends Controller
             })
             ->withQueryString();
 
+        $settings = ShopSettings::first();
+        $taxPercentage = $settings ? $settings->tax_percentage : 0;
+
         return Inertia::render('Orders/Index', [
             'orders' => $orders,
             'filters' => request()->only(['search']),
+            'tax_percentage' => $taxPercentage,
         ]);
     }
 
@@ -67,10 +72,12 @@ class OrderController extends Controller
             'items' => $order->items->map(function ($item) {
                 return [
                     'id' => $item->id,
+                    'product_id' => $item->product_id,
                     'product_name' => $item->product_name,
                     'quantity' => $item->quantity,
                     'price' => number_format($item->price, 2),
                     'total' => number_format($item->total, 2),
+                    'remark' => $item->remark,
                 ];
             }),
             'subtotal' => number_format($order->subtotal, 2),
@@ -100,6 +107,7 @@ class OrderController extends Controller
             'items' => 'required|array',
             'items.*.id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
+            'items.*.remark' => 'nullable|string',
             'customer_id' => 'nullable|exists:customers,id',
             'subtotal' => 'required|numeric|min:0',
             'tax' => 'required|numeric|min:0',
@@ -150,6 +158,7 @@ class OrderController extends Controller
                     'quantity' => $item['quantity'],
                     'price' => $product->price,
                     'total' => $product->price * $item['quantity'],
+                    'remark' => $item['remark'] ?? null,
                 ]);
 
                 // Update product stock
@@ -200,6 +209,7 @@ class OrderController extends Controller
                         'quantity' => $item->quantity,
                         'price' => number_format($item->price, 2),
                         'total' => number_format($item->total, 2),
+                        'remark' => $item->remark,
                     ];
                 }),
                 'subtotal' => number_format($order->subtotal, 2),
@@ -232,6 +242,7 @@ class OrderController extends Controller
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric|min:0',
             'items.*.total' => 'required|numeric|min:0',
+            'items.*.remark' => 'nullable|string',
             'payment_method' => 'required|in:cash,card,bank_transfer',
             'delivery_method' => 'required|in:pickup,delivery',
             'delivery_cost' => 'required|numeric|min:0',
@@ -271,6 +282,7 @@ class OrderController extends Controller
                     'quantity' => $item['quantity'],
                     'price' => $item['price'],
                     'total' => $item['total'],
+                    'remark' => $item['remark'] ?? null,
                 ]);
 
                 // Update product stock if product still exists
@@ -296,5 +308,14 @@ class OrderController extends Controller
             DB::rollBack();
             return back()->with('error', 'Failed to update order: ' . $e->getMessage());
         }
+    }
+
+    public function create()
+    {
+        $settings = ShopSettings::first();
+        $taxPercentage = $settings ? $settings->tax_percentage : 0;
+        return Inertia::render('Orders/Create', [
+            'tax_percentage' => $taxPercentage,
+        ]);
     }
 } 

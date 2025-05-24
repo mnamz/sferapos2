@@ -40,6 +40,11 @@ const mainNavItems: NavItem[] = [
         icon: ShoppingCart,
     },
     {
+        title: 'Create Order',
+        href: route('orders.create'),
+        icon: ClipboardList,
+    },
+    {
         title: 'Orders',
         href: route('orders.index'),
         icon: Receipt,

@@ -23,6 +23,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/shop-settings', [ShopSettingsController::class, 'index'])->name('settings.index');
     Route::post('/shop-settings', [ShopSettingsController::class, 'update'])->name('settings.update');
     Route::get('/orders/{order}/invoice', [InvoiceController::class, 'generate'])->name('orders.invoice');
+    Route::get('/orders/create', [\App\Http\Controllers\OrderController::class, 'create'])->name('orders.create');
 });
 
 require __DIR__.'/settings.php';
