@@ -16,13 +16,31 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::factory()->create([
+        $this->call(RoleSeeder::class);
+
+        $admin = User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
             'password' => Hash::make('password'),
-            'role_id' => 1,
             'status' => true,
         ]);
+        $admin->assignRole('admin');
+
+        $manager = User::factory()->create([
+            'name' => 'Manager User',
+            'email' => 'manager@example.com',
+            'password' => Hash::make('password'),
+            'status' => true,
+        ]);
+        $manager->assignRole('manager');
+
+        $staff = User::factory()->create([
+            'name' => 'Staff User',
+            'email' => 'staff@example.com',
+            'password' => Hash::make('password'),
+            'status' => true,
+        ]);
+        $staff->assignRole('staff');
 
         $this->call([
             ShopSettingsSeeder::class, // First, create shop settings
@@ -30,5 +48,6 @@ class DatabaseSeeder extends Seeder
             ProductSeeder::class,       // Then create products (needs categories)
             CustomerSeeder::class,      // Finally create customers
         ]);
+
     }
 }

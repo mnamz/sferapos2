@@ -77,6 +77,10 @@ class ProductSeeder extends Seeder
         ];
 
         foreach ($products as $product) {
+            // Add cost_price if not set
+            if (!isset($product['cost_price'])) {
+                $product['cost_price'] = isset($product['price']) ? round($product['price'] * 0.7, 2) : 1.00;
+            }
             Product::create($product);
         }
     }
@@ -114,6 +118,10 @@ class ProductSeeder extends Seeder
         ];
 
         foreach ($products as $product) {
+            // Add cost_price if not set
+            if (!isset($product['cost_price'])) {
+                $product['cost_price'] = isset($product['price']) ? round($product['price'] * 0.7, 2) : 1.00;
+            }
             Product::create($product);
         }
     }
@@ -151,6 +159,10 @@ class ProductSeeder extends Seeder
         ];
 
         foreach ($products as $product) {
+            // Add cost_price if not set
+            if (!isset($product['cost_price'])) {
+                $product['cost_price'] = isset($product['price']) ? round($product['price'] * 0.7, 2) : 1.00;
+            }
             Product::create($product);
         }
     }
@@ -188,6 +200,10 @@ class ProductSeeder extends Seeder
         ];
 
         foreach ($products as $product) {
+            // Add cost_price if not set
+            if (!isset($product['cost_price'])) {
+                $product['cost_price'] = isset($product['price']) ? round($product['price'] * 0.7, 2) : 1.00;
+            }
             Product::create($product);
         }
     }
@@ -225,6 +241,10 @@ class ProductSeeder extends Seeder
         ];
 
         foreach ($products as $product) {
+            // Add cost_price if not set
+            if (!isset($product['cost_price'])) {
+                $product['cost_price'] = isset($product['price']) ? round($product['price'] * 0.7, 2) : 1.00;
+            }
             Product::create($product);
         }
     }

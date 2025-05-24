@@ -13,19 +13,22 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        $query = User::query()
-            ->with('role')
+        $users = User::with('roles')
             ->when($request->input('search'), function ($query, $search) {
-                $query->where(function ($query) use ($search) {
-                    $query->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
-                });
+                $query->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
             })
-            ->orderBy('created_at', 'desc');
+            ->paginate(10)
+            ->withQueryString();
+
+        $users->getCollection()->transform(function ($user) {
+            $user->roles = $user->roles->pluck('name');
+            return $user;
+        });
 
         return Inertia::render('Users/Index', [
-            'users' => $query->paginate(10)->withQueryString(),
-            'filters' => $request->only(['search'])
+            'users' => $users,
+            'filters' => $request->only(['search']),
         ]);
     }
 
@@ -57,7 +60,7 @@ class UserController extends Controller
     public function edit(User $user)
     {
         return Inertia::render('Users/Edit', [
-            'user' => $user->load('role'),
+            'user' => $user->load('roles'),
             'roles' => Role::all()
         ]);
     }

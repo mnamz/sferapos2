@@ -11,7 +11,6 @@ return new class extends Migration
         Schema::table('orders', function (Blueprint $table) {
             
             // Add payment related fields
-            $table->decimal('paid_amount', 10, 2)->default(0);
             $table->decimal('due_amount', 10, 2)->default(0);
             $table->decimal('delivery_cost', 10, 2)->default(0);
             

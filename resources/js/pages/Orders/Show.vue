@@ -132,6 +132,7 @@
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Price</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Quantity</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Profit</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Remark</th>
                                         </tr>
                                     </thead>
@@ -141,6 +142,7 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ currency }}{{ item.price }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ item.quantity }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ currency }}{{ item.total }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 dark:text-green-400">{{ currency }}{{ item.profit }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ item.remark || '-' }}</td>
                                         </tr>
                                     </tbody>
@@ -167,6 +169,10 @@
                                 <div class="flex justify-between font-semibold border-t dark:border-gray-600 pt-2">
                                     <span>Total</span>
                                     <span>{{ currency }}{{ order.total }}</span>
+                                </div>
+                                <div class="flex justify-between text-green-600 dark:text-green-400 font-semibold border-t dark:border-gray-600 pt-2">
+                                    <span>Total Profit</span>
+                                    <span>{{ currency }}{{ order.profit }}</span>
                                 </div>
                                 <div class="flex justify-between text-green-600 dark:text-green-400">
                                     <span>Paid Amount</span>

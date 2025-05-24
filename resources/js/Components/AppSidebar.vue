@@ -6,8 +6,9 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/vue3';
 import { Settings, LayoutGrid, ShoppingCart, Package, ClipboardList, Tags, Users, Truck, Receipt, BarChart3, FolderTree, Users2 } from 'lucide-vue-next';
-import { onMounted, ref, watch } from 'vue';
+import { onMounted, ref, watch, computed } from 'vue';
 import AppLogo from './AppLogo.vue';
+import { usePage } from '@inertiajs/vue3';
 
 interface Props {
     collapsed?: boolean;
@@ -16,6 +17,9 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
     collapsed: false,
 });
+
+const page = usePage();
+const roles = page.props.auth?.roles || [];
 
 const isCollapsed = ref(props.collapsed);
 
@@ -81,6 +85,21 @@ const mainNavItems: NavItem[] = [
     },
 ];
 
+const filteredNavItems = computed(() => {
+    return mainNavItems.filter(item => {
+        if (item.title === 'Reports' && roles.includes('staff')) {
+            return false;
+        }
+        if (item.title === 'Suppliers' && roles.includes('staff')) {
+            return false;
+        }
+        if (item.title === 'Users' && roles.includes('staff')) {
+            return false;
+        }
+        return true;
+    });
+});
+
 const footerNavItems: NavItem[] = [
     {
         title: 'Shop Settings',
@@ -105,7 +124,7 @@ const footerNavItems: NavItem[] = [
         </SidebarHeader>
 
         <SidebarContent>
-            <NavMain :items="mainNavItems" />
+            <NavMain :items="filteredNavItems" />
         </SidebarContent>
 
         <SidebarFooter>

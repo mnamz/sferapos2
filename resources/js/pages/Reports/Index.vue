@@ -75,6 +75,13 @@
                             <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ currency }}{{ formatNumber(summary.total_tax) }}</p>
                         </div>
                     </div>
+
+                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
+                        <div class="p-6">
+                            <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Total Profit</h3>
+                            <p class="text-3xl font-bold text-green-600 dark:text-green-400">{{ currency }}{{ formatNumber(summary.total_profit) }}</p>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Sales Chart -->
@@ -83,6 +90,52 @@
                         <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Daily Sales</h3>
                         <div class="h-64">
                             <canvas ref="salesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Profit Details Table -->
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg mb-6">
+                    <div class="p-6">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Profit Details</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead class="bg-gray-50 dark:bg-gray-700">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Product</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Quantity Sold</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Cost Price</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Selling Price</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total Revenue</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total Cost</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Profit</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                    <tr v-for="item in profitDetails" :key="item.product_id">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <Link 
+                                                :href="route('products.show', item.product_id)"
+                                                class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
+                                            >
+                                                {{ item.product_name }}
+                                            </Link>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ item.quantity_sold }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ formatNumber(item.cost_price) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ formatNumber(item.selling_price) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ formatNumber(item.total_revenue) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ formatNumber(item.total_cost) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-green-600 dark:text-green-400">{{ currency }}{{ formatNumber(item.profit) }}</td>
+                                    </tr>
+                                </tbody>
+                                <tfoot class="bg-gray-50 dark:bg-gray-700">
+                                    <tr>
+                                        <td colspan="5" class="px-6 py-4 text-right font-semibold">Total Profit:</td>
+                                        <td colspan="2" class="px-6 py-4 text-green-600 dark:text-green-400 font-semibold">{{ currency }}{{ formatNumber(summary.total_profit) }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -166,6 +219,7 @@ const props = defineProps({
     dailySales: Array,
     orders: Object,
     filters: Object,
+    profitDetails: Array,
 });
 
 const page = usePage();

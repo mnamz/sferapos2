@@ -40,6 +40,21 @@
                                         <InputError :message="form.errors.price" class="mt-2" />
                                     </div>
 
+                                    <!-- Cost Price -->
+                                    <div>
+                                        <Label for="cost_price" class="text-gray-900 dark:text-gray-100">Cost Price</Label>
+                                        <Input
+                                            id="cost_price"
+                                            v-model="form.cost_price"
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            class="mt-1 block w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                                            required
+                                        />
+                                        <InputError :message="form.errors.cost_price" class="mt-2" />
+                                    </div>
+
                                     <!-- Stock -->
                                     <div>
                                         <Label for="stock" class="text-gray-900 dark:text-gray-100">Stock</Label>
@@ -198,6 +213,7 @@ const form = useForm({
     name: props.product.name,
     description: props.product.description,
     price: props.product.price,
+    cost_price: props.product.cost_price,
     stock: props.product.stock,
     barcode: props.product.barcode,
     category_id: props.product.category_id,

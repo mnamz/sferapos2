@@ -74,7 +74,7 @@
                                         <div class="text-sm text-gray-500 dark:text-gray-300">{{ product.category?.name }}</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-900 dark:text-white">${{ product.price }}</div>
+                                        <div class="text-sm text-gray-900 dark:text-white">RM {{ product.price }}</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm text-gray-900 dark:text-white">{{ product.stock }}</div>
@@ -89,12 +89,20 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <Link
+                                            :href="route('products.show', product.id)"
+                                            class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-4"
+                                        >
+                                            View
+                                        </Link>
+                                        <Link
+                                            v-if="!roles.includes('staff')"
                                             :href="route('products.edit', product.id)"
                                             class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-4"
                                         >
                                             Edit
                                         </Link>
                                         <button
+                                            v-if="!roles.includes('staff')"
                                             @click="destroy(product.id)"
                                             class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                                         >
@@ -140,12 +148,20 @@
                                 </div>
                                 <div class="flex justify-end space-x-3 pt-2 border-t dark:border-gray-700">
                                     <Link
+                                        :href="route('products.show', product.id)"
+                                        class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                    >
+                                        View
+                                    </Link>
+                                    <Link
+                                        v-if="!roles.includes('staff')"
                                         :href="route('products.edit', product.id)"
                                         class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
                                     >
                                         Edit
                                     </Link>
                                     <button
+                                        v-if="!roles.includes('staff')"
                                         @click="destroy(product.id)"
                                         class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                                     >
@@ -173,6 +189,9 @@ import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 
 const page = usePage();
+const roles = page.props.auth?.roles || [];
+console.log('Auth:', page.props.auth);
+console.log('Roles:', roles);
 const props = defineProps({
     products: Object,
     filters: Object

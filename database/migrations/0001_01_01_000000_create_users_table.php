@@ -19,22 +19,10 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->foreignId('role_id')->constrained('roles')->onDelete('cascade');
             $table->boolean('status')->default(true);
             $table->rememberToken();
             $table->timestamps();
         });
-
-        // Assign super admin role to the first user that will be created
-        DB::table('users')->insert([
-            'name' => 'Super Admin',
-            'email' => 'admin@admin.com',
-            'password' => Hash::make('password'),
-            'role_id' => 1, // Super Admin role
-            'status' => true,
-            'created_at' => now(),
-            'updated_at' => now()
-        ]);
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();

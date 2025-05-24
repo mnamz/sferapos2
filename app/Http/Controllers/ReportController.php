@@ -27,6 +27,7 @@ class ReportController extends Controller
             'total_orders' => $query->clone()->count(),
             'average_order_value' => $query->clone()->avg('total'),
             'total_tax' => $query->clone()->sum('tax'),
+            'total_profit' => $query->clone()->sum('profit'),
         ];
 
         // Get daily sales data for the chart
@@ -61,10 +62,29 @@ class ReportController extends Controller
                 ];
             });
 
+        // Get profit details
+        $profitDetails = DB::table('order_items')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->select(
+                'order_items.product_id',
+                'order_items.product_name',
+                DB::raw('SUM(order_items.quantity) as quantity_sold'),
+                DB::raw('AVG(order_items.cost_price) as cost_price'),
+                DB::raw('AVG(order_items.price) as selling_price'),
+                DB::raw('SUM(order_items.total) as total_revenue'),
+                DB::raw('SUM(order_items.cost_price * order_items.quantity) as total_cost'),
+                DB::raw('SUM(order_items.profit) as profit')
+            )
+            ->groupBy('order_items.product_id', 'order_items.product_name')
+            ->orderByDesc('profit')
+            ->get();
+
         return Inertia::render('Reports/Index', [
             'summary' => $summary,
             'dailySales' => $dailySales,
             'orders' => $orders,
+            'profitDetails' => $profitDetails,
             'filters' => [
                 'start_date' => $startDate,
                 'end_date' => $endDate,

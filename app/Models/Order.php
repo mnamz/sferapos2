@@ -24,6 +24,7 @@ class Order extends Model
         'payment_method',
         'remarks',
         'status',
+        'profit',
     ];
 
     protected $casts = [

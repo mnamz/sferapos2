@@ -51,6 +51,42 @@ class OrderController extends Controller
         ]);
     }
 
+    public function mySales()
+    {
+        $orders = Order::with(['customer', 'user', 'items.product'])
+            ->where('user_id', auth()->id())
+            ->when(request('search'), function($query, $search) {
+                $query->where(function($q) use ($search) {
+                    $q->where('order_number', 'like', "%{$search}%")
+                      ->orWhereHas('customer', function($q) use ($search) {
+                          $q->where('name', 'like', "%{$search}%");
+                      });
+                });
+            })
+            ->latest()
+            ->paginate(10)
+            ->through(function ($order) {
+                return [
+                    'id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'customer_name' => $order->customer ? $order->customer->name : 'Walk-in Customer',
+                    'total_amount' => number_format($order->total, 2),
+                    'payment_method' => ucfirst($order->payment_method),
+                    'payment_status' => $order->paid_amount >= $order->total ? 'paid' : 
+                        ($order->paid_amount > 0 ? 'partial' : 'pending'),
+                    'status' => $order->status,
+                    'created_at' => $order->created_at->format('Y-m-d H:i:s'),
+                    'items_count' => $order->items->count(),
+                ];
+            })
+            ->withQueryString();
+
+        return Inertia::render('Orders/MySales', [
+            'orders' => $orders,
+            'filters' => request()->only(['search']),
+        ]);
+    }
+
     public function show(Order $order)
     {
         $order->load(['customer', 'user', 'items.product']);
@@ -77,6 +113,7 @@ class OrderController extends Controller
                     'quantity' => $item->quantity,
                     'price' => number_format($item->price, 2),
                     'total' => number_format($item->total, 2),
+                    'profit' => number_format($item->profit, 2),
                     'remark' => $item->remark,
                 ];
             }),
@@ -84,6 +121,7 @@ class OrderController extends Controller
             'tax' => number_format($order->tax, 2),
             'delivery_cost' => number_format($order->delivery_cost, 2),
             'total' => number_format($order->total, 2),
+            'profit' => number_format($order->profit, 2),
             'paid_amount' => number_format($order->paid_amount, 2),
             'due_amount' => number_format($order->due_amount, 2),
             'change_amount' => number_format($order->change_amount, 2),
@@ -124,10 +162,18 @@ class OrderController extends Controller
         try {
             DB::beginTransaction();
 
+            // Calculate total profit
+            $totalProfit = 0;
+            foreach ($validated['items'] as $item) {
+                $product = Product::find($item['id']);
+                $itemProfit = ($product->price - $product->cost_price) * $item['quantity'];
+                $totalProfit += $itemProfit;
+            }
+
             // Create the order
             $order = Order::create([
                 'customer_id' => $validated['customer_id'],
-                'user_id' => auth()->id(), // Add the authenticated user's ID
+                'user_id' => auth()->id(),
                 'subtotal' => $validated['subtotal'],
                 'tax' => $validated['tax'],
                 'delivery_cost' => $validated['delivery_cost'],
@@ -139,6 +185,7 @@ class OrderController extends Controller
                 'delivery_method' => $validated['delivery_method'],
                 'remarks' => $validated['remarks'],
                 'status' => 'pending',
+                'profit' => $totalProfit,
             ]);
 
             // Create order items and update product stock
@@ -157,7 +204,9 @@ class OrderController extends Controller
                     'product_name' => $product->name,
                     'quantity' => $item['quantity'],
                     'price' => $product->price,
+                    'cost_price' => $product->cost_price,
                     'total' => $product->price * $item['quantity'],
+                    'profit' => ($product->price - $product->cost_price) * $item['quantity'],
                     'remark' => $item['remark'] ?? null,
                 ]);
 
@@ -255,6 +304,16 @@ class OrderController extends Controller
         try {
             DB::beginTransaction();
 
+            // Calculate total profit
+            $totalProfit = 0;
+            foreach ($validated['items'] as $item) {
+                $product = Product::find($item['product_id']);
+                if ($product) {
+                    $itemProfit = ($item['price'] - $product->cost_price) * $item['quantity'];
+                    $totalProfit += $itemProfit;
+                }
+            }
+
             // Update order details
             $order->update([
                 'customer_id' => $validated['customer_id'],
@@ -270,18 +329,25 @@ class OrderController extends Controller
                 'total' => collect($validated['items'])->sum('total') + 
                           (collect($validated['items'])->sum('total') * (settings('tax_percentage', 0) / 100)) + 
                           $validated['delivery_cost'],
+                'profit' => $totalProfit,
             ]);
 
             // Update order items
             $order->items()->delete(); // Remove existing items
             foreach ($validated['items'] as $item) {
+                $product = Product::find($item['product_id']);
+                $costPrice = $product ? $product->cost_price : 0;
+                $itemProfit = ($item['price'] - $costPrice) * $item['quantity'];
+                
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $item['product_id'],
                     'product_name' => $item['product_name'],
                     'quantity' => $item['quantity'],
                     'price' => $item['price'],
+                    'cost_price' => $costPrice,
                     'total' => $item['total'],
+                    'profit' => $itemProfit,
                     'remark' => $item['remark'] ?? null,
                 ]);
 

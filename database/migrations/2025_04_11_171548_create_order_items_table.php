@@ -18,8 +18,10 @@ return new class extends Migration
             $table->string('product_name');
             $table->integer('quantity');
             $table->decimal('price', 10, 2);
+            $table->decimal('cost_price', 10, 2)->default(0);
             $table->decimal('total', 10, 2);
-            $table->string('remark')->nullable();
+            $table->decimal('profit', 10, 2)->default(0);
+            $table->text('remark')->nullable();
             $table->timestamps();
         });
     }

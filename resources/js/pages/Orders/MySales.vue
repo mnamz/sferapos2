@@ -1,31 +1,20 @@
 <template>
-    <Head title="Orders" />
+    <Head title="My Sales" />
 
     <AppLayout :breadcrumbs="[
-        { name: 'Orders', href: route('orders.index') }
+        { name: 'Orders', href: route('orders.index') },
+        { name: 'My Sales', href: route('sales.index') }
     ]">
         <div class="container mx-auto py-6 px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between">
-                <h1 class="text-2xl font-semibold text-gray-900">Orders</h1>
+                <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">My Sales</h1>
                 <div class="flex gap-2">
                     <Link
-                        :href="route('sales.index')"
+                        :href="route('orders.index')"
                         class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700"
                     >
-                        My Sales
+                        Back to Orders
                     </Link>
-                    <Link
-                        :href="route('orders.create')"
-                        class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700"
-                    >
-                        Add New Order
-                    </Link>
-                </div>
-            </div>
-
-            <div v-if="$page.props.flash?.success" class="mb-4">
-                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
-                    <span class="block sm:inline">{{ $page.props.flash.success }}</span>
                 </div>
             </div>
 
@@ -178,10 +167,6 @@ const props = defineProps({
         required: true,
     },
     filters: Object,
-    tax_percentage: {
-        type: Number,
-        default: 0
-    }
 });
 
 const page = usePage();
@@ -191,7 +176,7 @@ const search = ref(props.filters?.search || '');
 
 const debouncedSearch = debounce(() => {
     router.get(
-        route('orders.index'),
+        route('sales.index'),
         { search: search.value },
         { preserveState: true, preserveScroll: true }
     );

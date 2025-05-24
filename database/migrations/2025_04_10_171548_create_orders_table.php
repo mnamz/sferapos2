@@ -18,6 +18,8 @@ return new class extends Migration
             $table->decimal('subtotal', 10, 2);
             $table->decimal('tax', 10, 2);
             $table->decimal('total', 10, 2);
+            $table->decimal('profit', 10, 2)->default(0);
+            $table->decimal('paid_amount', 10, 2);
             $table->decimal('change_amount', 10, 2)->default(0);
             $table->enum('status', ['pending', 'processing', 'completed', 'cancelled'])->default('pending');
             $table->timestamps();

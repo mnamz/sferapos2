@@ -60,8 +60,8 @@
                                         <div class="text-sm text-gray-500 dark:text-gray-300">{{ user.email }}</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                            {{ user.role.name }}
+                                        <span v-for="role in user.roles" :key="role" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 mr-1">
+                                            {{ role.name }}
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
@@ -80,6 +80,7 @@
                                             Edit
                                         </Link>
                                         <button
+                                            v-if="!roles.includes('staff')"
                                             @click="destroy(user.id)"
                                             class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                                         >
@@ -108,8 +109,8 @@
                                     </span>
                                 </div>
                                 <div class="flex items-center space-x-2">
-                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                        {{ user.role.name }}
+                                    <span v-for="role in user.roles" :key="role" class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 mr-1">
+                                        {{ role }}
                                     </span>
                                 </div>
                                 <div class="flex justify-end space-x-3 pt-2 border-t dark:border-gray-700">
@@ -120,6 +121,7 @@
                                         Edit
                                     </Link>
                                     <button
+                                        v-if="!roles.includes('staff')"
                                         @click="destroy(user.id)"
                                         class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                                     >
@@ -145,6 +147,7 @@ import debounce from 'lodash/debounce';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const page = usePage();
+const roles = page.props.auth?.roles || [];
 const props = defineProps({
     users: Object,
     filters: Object
