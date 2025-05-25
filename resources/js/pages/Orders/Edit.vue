@@ -91,6 +91,7 @@
                                         >
                                             <option value="pickup">Pickup</option>
                                             <option value="delivery">Delivery</option>
+                                            <option value="walk-in">Walk-in</option>
                                         </select>
                                     </div>
                                     <div class="mb-4">

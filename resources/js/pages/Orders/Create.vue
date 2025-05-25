@@ -251,7 +251,7 @@ const deliveryCost = ref(0);
 const paid = ref(0);
 const remark = ref('');
 const paymentMethod = ref('cash');
-const deliveryMethod = ref('pickup');
+const deliveryMethod = ref('walk-in');
 const paymentMethods = [
   {
     value: 'cash',
@@ -280,7 +280,7 @@ const paymentMethods = [
   }
 ];
 const deliveryMethods = [
-  { value: 'pickup', label: 'Pickup' },
+  { value: 'walk-in', label: 'Walk-in' },
   { value: 'delivery', label: 'Delivery' }
 ];
 
