@@ -3,11 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
@@ -45,13 +45,19 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'string', 'min:8'],
-            'role_id' => ['required', 'exists:roles,id'],
+            'roles' => ['required', 'array'],
+            'roles.*' => ['exists:roles,name'],
             'status' => ['boolean']
         ]);
 
-        $validated['password'] = Hash::make($validated['password']);
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'status' => $validated['status'] ?? true,
+        ]);
 
-        User::create($validated);
+        $user->syncRoles($validated['roles']);
 
         return redirect()->route('users.index')
             ->with('success', 'User created successfully.');
@@ -71,17 +77,23 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'password' => ['nullable', 'string', 'min:8'],
-            'role_id' => ['required', 'exists:roles,id'],
+            'roles' => ['required', 'array'],
+            'roles.*' => ['exists:roles,name'],
             'status' => ['boolean']
         ]);
 
+        $userData = [
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'status' => $validated['status'] ?? true,
+        ];
+
         if (isset($validated['password'])) {
-            $validated['password'] = Hash::make($validated['password']);
-        } else {
-            unset($validated['password']);
+            $userData['password'] = Hash::make($validated['password']);
         }
 
-        $user->update($validated);
+        $user->update($userData);
+        $user->syncRoles($validated['roles']);
 
         return redirect()->route('users.index')
             ->with('success', 'User updated successfully.');
@@ -90,10 +102,8 @@ class UserController extends Controller
     public function destroy(User $user)
     {
         // Prevent deleting the last super admin
-        if ($user->role->slug === 'superadmin') {
-            $superAdminCount = User::whereHas('role', function ($query) {
-                $query->where('slug', 'superadmin');
-            })->count();
+        if ($user->hasRole('super-admin')) {
+            $superAdminCount = User::role('super-admin')->count();
 
             if ($superAdminCount <= 1) {
                 return back()->with('error', 'Cannot delete the last super admin user.');

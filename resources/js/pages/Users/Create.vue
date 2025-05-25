@@ -2,8 +2,8 @@
     <Head title="Create User" />
 
     <AppLayout :breadcrumbs="[
-        { name: 'Users', href: route('users.index') },
-        { name: 'Create', href: route('users.create') }
+        { title: 'Users', href: route('users.index') },
+        { title: 'Create', href: route('users.create') }
     ]">
         <div class="container mx-auto py-6 px-4 sm:px-6 lg:px-8">
             <div class="max-w-7xl mx-auto">
@@ -54,16 +54,16 @@
                                         <Label for="role" class="text-gray-900 dark:text-gray-100">Role</Label>
                                         <Select
                                             id="role"
-                                            v-model="form.role_id"
+                                            v-model="selectedRole"
                                             class="mt-1 block w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                                             required
                                         >
                                             <option value="">Select a role</option>
-                                            <option v-for="role in roles" :key="role.id" :value="role.id">
-                                                {{ role.name }}
+                                            <option v-for="role in roles" :key="role.name" :value="role.name">
+                                                {{ role.name.charAt(0).toUpperCase() + role.name.slice(1) }}
                                             </option>
                                         </Select>
-                                        <InputError :message="form.errors.role_id" class="mt-2" />
+                                        <InputError :message="form.errors.roles" class="mt-2" />
                                     </div>
 
                                     <div>
@@ -107,17 +107,25 @@ import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Select } from '@/Components/ui/select';
 import InputError from '@/Components/InputError.vue';
+import { ref, watch } from 'vue';
 
 const props = defineProps({
     roles: Array
 });
 
+const selectedRole = ref('');
+
 const form = useForm({
     name: '',
     email: '',
     password: '',
-    role_id: '',
+    roles: [],
     status: true
+});
+
+// Watch for changes in selectedRole and update form.roles
+watch(selectedRole, (newValue) => {
+    form.roles = newValue ? [newValue] : [];
 });
 
 const submit = () => {
