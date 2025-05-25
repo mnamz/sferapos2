@@ -55,11 +55,11 @@ class DashboardController extends Controller
             ->get();
 
         // Low stock alerts
-        $lowStockProducts = Product::where('stock', '<=', function($query) {
-            $query->select('low_stock_threshold')
-                ->from('shop_settings')
-                ->limit(1);
-        })->get();
+        $lowStockProducts = Product::where('stock', '<=', 10)
+            ->where('status', 'active')
+            ->select('id', 'name', 'stock')
+            ->orderBy('stock')
+            ->get();
 
         // Sales chart data (last 7 days)
         $salesChart = Order::select(
@@ -87,5 +87,20 @@ class DashboardController extends Controller
             'lowStockProducts' => $lowStockProducts,
             'salesChart' => $salesChart,
         ]);
+    }
+
+    private function getSalesChartData()
+    {
+        $days = collect(range(6, 0))->map(function ($day) {
+            return Carbon::now()->subDays($day);
+        });
+
+        return $days->map(function ($date) {
+            return [
+                'date' => $date->format('M d'),
+                'sales' => Order::whereDate('created_at', $date)->sum('total'),
+                'orders' => Order::whereDate('created_at', $date)->count(),
+            ];
+        });
     }
 } 

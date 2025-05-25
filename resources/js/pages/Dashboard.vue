@@ -135,15 +135,23 @@ onMounted(() => {
                     <!-- Low Stock Alerts -->
                     <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
                         <div class="p-6">
-                            <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Low Stock Alerts</h3>
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Low Stock Alerts</h3>
+                                <Link :href="route('products.low-stock')" class="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
+                                    View All
+                                </Link>
+                            </div>
                             <div class="space-y-4">
                                 <div v-if="lowStockProducts.length === 0" class="text-gray-500 dark:text-gray-400">
                                     No products are low in stock
                                 </div>
                                 <div v-else class="space-y-2">
-                                    <div v-for="product in lowStockProducts" :key="product.id" class="flex justify-between items-center">
+                                    <div v-for="product in lowStockProducts.slice(0, 5)" :key="product.id" class="flex justify-between items-center">
                                         <span class="text-gray-600 dark:text-gray-400">{{ product.name }}</span>
                                         <span class="text-red-600 dark:text-red-400 font-semibold">{{ product.stock }} left</span>
+                                    </div>
+                                    <div v-if="lowStockProducts.length > 5" class="text-sm text-gray-500 dark:text-gray-400 text-center">
+                                        +{{ lowStockProducts.length - 5 }} more products
                                     </div>
                                 </div>
                             </div>

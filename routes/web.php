@@ -8,6 +8,7 @@ use App\Http\Controllers\ShopSettingsController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ProductController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -25,6 +26,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/orders/{order}/invoice', [InvoiceController::class, 'generate'])->name('orders.invoice');
     Route::get('/orders/create', [\App\Http\Controllers\OrderController::class, 'create'])->name('orders.create');
     Route::get('/sales', [\App\Http\Controllers\OrderController::class, 'mySales'])->name(name: 'sales.index');
+    
+    // Add low stock products route
+    Route::get('/products/low-stock', [ProductController::class, 'lowStock'])->name('products.low-stock');
 });
 
 require __DIR__.'/settings.php';

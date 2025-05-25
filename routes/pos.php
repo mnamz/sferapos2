@@ -17,6 +17,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Products Routes
     Route::resource('products', ProductController::class);
     Route::get('/pos-products', [ProductController::class, 'getPosProducts'])->name('pos.products');
+    Route::get('products/low-stock', [ProductController::class, 'lowStock'])->name('products.low-stock');
 
     // Categories Routes
     Route::resource('categories', CategoryController::class);

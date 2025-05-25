@@ -44,10 +44,8 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             ShopSettingsSeeder::class, // First, create shop settings
-            CategorySeeder::class,      // Then create categories
-            ProductSeeder::class,       // Then create products (needs categories)
+            // ProductRepairSeeder::class, // Create categories and products from CSV
             CustomerSeeder::class,      // Finally create customers
         ]);
-
     }
 }

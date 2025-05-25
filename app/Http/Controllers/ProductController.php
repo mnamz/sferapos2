@@ -30,10 +30,13 @@ class ProductController extends Controller
                           });
                     });
                 })
+                ->when($request->input('filter') === 'low-stock', function($query) {
+                    $query->where('stock', '<=', 10);
+                })
                 ->latest()
                 ->paginate(10)
                 ->withQueryString(),
-            'filters' => $request->only(['search']),
+            'filters' => $request->only(['search', 'filter']),
         ]);
     }
 
@@ -138,6 +141,30 @@ class ProductController extends Controller
     {
         return Inertia::render('Products/Show', [
             'product' => $product->load(['category', 'supplier'])
+        ]);
+    }
+
+    public function lowStock(Request $request)
+    {
+        return Inertia::render('Products/LowStock', [
+            'products' => Product::query()
+                ->with(['category:id,name', 'supplier:id,name'])
+                ->where('stock', '<=', 10)
+                ->where('status', 'active')
+                ->when($request->input('search'), function($query, $search) {
+                    $query->where(function($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%")
+                          ->orWhere('description', 'like', "%{$search}%")
+                          ->orWhere('barcode', 'like', "%{$search}%")
+                          ->orWhereHas('category', function($q) use ($search) {
+                              $q->where('name', 'like', "%{$search}%");
+                          });
+                    });
+                })
+                ->orderBy('stock')
+                ->paginate(10)
+                ->withQueryString(),
+            'filters' => $request->only(['search']),
         ]);
     }
 } 
