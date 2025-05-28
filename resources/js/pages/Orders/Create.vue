@@ -125,7 +125,17 @@
                     <input :value="item.stock" readonly class="w-20 px-2 py-1 border rounded-lg bg-gray-100 dark:bg-gray-700 dark:border-gray-600 text-center" />
                   </td>
                   <td class="px-4 py-2">
-                    <input :value="item.price" readonly class="w-24 px-2 py-1 border rounded-lg bg-gray-100 dark:bg-gray-700 dark:border-gray-600 text-center" />
+                    <div class="space-y-1">
+                      <input 
+                        type="number" 
+                        v-model.number="item.price" 
+                        @input="updateTotal(idx)" 
+                        class="w-24 px-2 py-1 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-center" 
+                      />
+                      <div v-if="item.product && item.price !== item.product.price" class="text-xs text-gray-500 dark:text-gray-400">
+                        Original: {{ item.product.price }}
+                      </div>
+                    </div>
                   </td>
                   <td class="px-4 py-2">
                     <input type="number" v-model.number="item.quantity" @input="updateTotal(idx)" class="w-20 px-2 py-1 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-center" />
@@ -320,7 +330,7 @@ const selectProduct = (idx, product) => {
   items.value[idx].product = product;
   items.value[idx].productSearch = product.name;
   items.value[idx].stock = product.stock;
-  items.value[idx].price = product.price;
+  items.value[idx].price = parseFloat(product.price);
   items.value[idx].quantity = 1;
   items.value[idx].total = product.price;
   items.value[idx].showDropdown = false;
@@ -328,7 +338,7 @@ const selectProduct = (idx, product) => {
 const updateTotal = (idx) => {
   const item = items.value[idx];
   if (item.product) {
-    item.total = (item.price * item.quantity).toFixed(2);
+    item.total = (parseFloat(item.price) * item.quantity).toFixed(2);
   }
 };
 const subtotal = computed(() => {
