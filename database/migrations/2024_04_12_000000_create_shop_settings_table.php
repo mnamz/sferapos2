@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('currency', 3)->default('USD');
             $table->decimal('tax_percentage', 5, 2)->default(0);
             $table->string('logo_path')->nullable();
+            $table->string('invoice_logo_path')->nullable();
             $table->string('company_number')->nullable();
             $table->string('tax_number')->nullable();
             $table->text('payment_details')->nullable();

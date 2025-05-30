@@ -5,13 +5,21 @@
         <div class="container mx-auto py-6 px-4 sm:px-6 lg:px-8">
             <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                 <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Products</h1>
-                            <Link
-                                :href="route('products.create')"
-                    class="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition text-center"
-                            >
-                                Add New Product
-                            </Link>
-                        </div>
+                <div class="flex gap-2 print:hidden">
+                    <Link
+                        :href="route('products.create')"
+                        class="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition text-center"
+                    >
+                        Add New Product
+                    </Link>
+                    <button
+                        @click="exportCSV"
+                        class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition text-center"
+                    >
+                        Export CSV
+                    </button>
+                </div>
+            </div>
 
             <div v-if="$page.props.flash?.success" class="mb-4">
                 <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
@@ -216,4 +224,30 @@ const destroy = (id) => {
         });
     }
 };
+
+function exportCSV() {
+    if (!props.products.data || props.products.data.length === 0) {
+        alert('No products to export.');
+        return;
+    }
+    const header = ['Name', 'Description', 'Category', 'Price', 'Stock', 'Status'];
+    const rows = props.products.data.map(p => [
+        p.name,
+        p.description || '',
+        p.category?.name || '',
+        p.price,
+        p.stock,
+        p.status
+    ]);
+    const csvContent = [header, ...rows]
+        .map(e => e.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'products.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
 </script> 

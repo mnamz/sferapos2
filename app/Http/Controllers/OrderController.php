@@ -17,10 +17,15 @@ class OrderController extends Controller
         $orders = Order::with(['customer', 'user', 'items.product'])
             ->when(request('search'), function($query, $search) {
                 $query->where(function($q) use ($search) {
-                    $q->where('order_number', 'like', "%{$search}%")
+                    $q->where('id', 'like', "%{$search}%")
                       ->orWhereHas('customer', function($q) use ($search) {
                           $q->where('name', 'like', "%{$search}%");
                       });
+                });
+            })
+            ->when(request('remark'), function($query, $remark) {
+                $query->whereHas('items', function($q) use ($remark) {
+                    $q->where('remark', 'like', "%{$remark}%");
                 });
             })
             ->latest()
@@ -28,7 +33,6 @@ class OrderController extends Controller
             ->through(function ($order) {
                 return [
                     'id' => $order->id,
-                    'order_number' => $order->order_number,
                     'customer_name' => $order->customer ? $order->customer->name : 'Walk-in Customer',
                     'total_amount' => number_format($order->total, 2),
                     'payment_method' => ucfirst($order->payment_method),
@@ -46,7 +50,7 @@ class OrderController extends Controller
 
         return Inertia::render('Orders/Index', [
             'orders' => $orders,
-            'filters' => request()->only(['search']),
+            'filters' => request()->only(['search', 'remark']),
             'tax_percentage' => $taxPercentage,
         ]);
     }
@@ -146,6 +150,7 @@ class OrderController extends Controller
             'items.*.id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.remark' => 'nullable|string',
+            'items.*.price' => 'required|numeric|min:0',
             'customer_id' => 'nullable|exists:customers,id',
             'subtotal' => 'required|numeric|min:0',
             'tax' => 'required|numeric|min:0',
@@ -166,7 +171,7 @@ class OrderController extends Controller
             $totalProfit = 0;
             foreach ($validated['items'] as $item) {
                 $product = Product::find($item['id']);
-                $itemProfit = ($product->price - $product->cost_price) * $item['quantity'];
+                $itemProfit = ($item['price'] - $product->cost_price) * $item['quantity'];
                 $totalProfit += $itemProfit;
             }
 
@@ -203,10 +208,10 @@ class OrderController extends Controller
                     'product_id' => $item['id'],
                     'product_name' => $product->name,
                     'quantity' => $item['quantity'],
-                    'price' => $product->price,
+                    'price' => $item['price'],
                     'cost_price' => $product->cost_price,
-                    'total' => $product->price * $item['quantity'],
-                    'profit' => ($product->price - $product->cost_price) * $item['quantity'],
+                    'total' => $item['price'] * $item['quantity'],
+                    'profit' => ($item['price'] - $product->cost_price) * $item['quantity'],
                     'remark' => $item['remark'] ?? null,
                 ]);
 

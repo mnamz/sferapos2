@@ -5,12 +5,20 @@
         <div class="container mx-auto py-6 px-4 sm:px-6 lg:px-8">
             <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                 <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Customers</h1>
-                <Link
-                    :href="route('customers.create')"
-                    class="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition text-center"
-                >
-                    Add New Customer
-                </Link>
+                <div class="flex gap-2 print:hidden">
+                    <Link
+                        :href="route('customers.create')"
+                        class="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition text-center"
+                    >
+                        Add New Customer
+                    </Link>
+                    <button
+                        @click="exportCSV"
+                        class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition text-center"
+                    >
+                        Export CSV
+                    </button>
+                </div>
             </div>
 
             <div v-if="$page.props.flash?.success" class="mb-4">
@@ -38,7 +46,7 @@
                     </div>
 
                     <!-- Desktop Table View -->
-                    <div class="hidden md:block">
+                    <div class="hidden md:block print-customers-table">
                         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                             <thead class="bg-gray-50 dark:bg-gray-700">
                                 <tr>
@@ -165,4 +173,52 @@ const destroy = (id) => {
         });
     }
 };
-</script> 
+
+function exportCSV() {
+    const header = ['Name', 'Email', 'Phone', 'Status'];
+    const rows = props.customers.data.map(c => [
+        c.name,
+        c.email,
+        c.phone,
+        c.status ? 'Active' : 'Inactive'
+    ]);
+    const csvContent = [header, ...rows]
+        .map(e => e.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'customers.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function printCustomers() {
+    window.print();
+}
+</script>
+
+<style>
+@media print {
+  .print\:hidden {
+    display: none !important;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  .print-customers-table, .print-customers-table * {
+    visibility: visible !important;
+  }
+  .print-customers-table {
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    background: white;
+    z-index: 9999;
+    padding: 0;
+    margin: 0;
+  }
+}
+</style> 

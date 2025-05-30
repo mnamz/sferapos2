@@ -7,19 +7,31 @@
         <div class="container mx-auto py-6 px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between">
                 <h1 class="text-2xl font-semibold text-gray-900">Orders</h1>
-                <div class="flex gap-2">
+                <div class="flex gap-2 print:hidden">
                     <Link
                         :href="route('sales.index')"
-                        class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700"
+                        class="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700 transition text-center"
                     >
                         My Sales
                     </Link>
                     <Link
                         :href="route('orders.create')"
-                        class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700"
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition text-center"
                     >
                         Add New Order
                     </Link>
+                    <button
+                        @click="exportCSV"
+                        class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition text-center"
+                    >
+                        Export CSV
+                    </button>
+                    <button
+                        @click="printOrders"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-center"
+                    >
+                        Print
+                    </button>
                 </div>
             </div>
 
@@ -31,7 +43,7 @@
 
             <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
                 <div class="p-4">
-                    <div class="flex items-center mb-4">
+                    <div class="flex items-center mb-4 gap-2">
                         <input
                             v-model="search"
                             type="text"
@@ -39,10 +51,17 @@
                             class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             @input="debouncedSearch"
                         >
+                        <input
+                            v-model="remarkSearch"
+                            type="text"
+                            placeholder="Search by product remark or S/N"
+                            class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            @input="debouncedSearch"
+                        >
                     </div>
 
                     <!-- Desktop Table View -->
-                    <div class="overflow-x-auto">
+                    <div class="overflow-x-auto print-orders-table">
                         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
                             <thead class="bg-gray-50 dark:bg-gray-700">
                                 <tr>
@@ -54,7 +73,7 @@
                                     <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Payment Status</th>
                                     <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
                                     <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden md:table-cell">Date</th>
-                                    <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                                    <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider print:hidden">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
@@ -86,7 +105,7 @@
                                         </span>
                                     </td>
                                     <td class="px-4 py-2 text-gray-500 dark:text-gray-400 hidden md:table-cell">{{ order.created_at }}</td>
-                                    <td class="px-4 py-2">
+                                    <td class="px-4 py-2 print:hidden">
                                         <div class="flex gap-2">
                                             <Link
                                                 :href="route('orders.show', order.id)"
@@ -108,7 +127,7 @@
                     </div>
 
                     <!-- Mobile Card View -->
-                    <div class="md:hidden space-y-4">
+                    <div class="md:hidden space-y-4 print:hidden">
                         <div v-for="order in orders.data" :key="order.id" class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border dark:border-gray-700">
                             <div class="flex flex-col space-y-2">
                                 <div class="flex justify-between items-start">
@@ -158,7 +177,7 @@
                         </div>
                     </div>
 
-                    <Pagination v-if="orders.links" :links="orders.links" class="mt-6" />
+                    <Pagination v-if="orders.links" :links="orders.links" class="mt-6 print:hidden" />
                 </div>
             </div>
         </div>
@@ -188,12 +207,74 @@ const page = usePage();
 const currency = computed(() => page.props.settings?.currency || 'USD');
 
 const search = ref(props.filters?.search || '');
+const remarkSearch = ref(props.filters?.remark || '');
 
 const debouncedSearch = debounce(() => {
     router.get(
         route('orders.index'),
-        { search: search.value },
+        { search: search.value, remark: remarkSearch.value },
         { preserveState: true, preserveScroll: true }
     );
 }, 300);
-</script> 
+
+function exportCSV() {
+    const header = [
+        'Order #',
+        'Customer',
+        'Total',
+        'Items',
+        'Payment',
+        'Payment Status',
+        'Status',
+        'Date'
+    ];
+    const rows = props.orders.data.map(order => [
+        order.id,
+        order.customer_name,
+        `${currency.value}${order.total_amount}`,
+        order.items_count,
+        order.payment_method,
+        order.payment_status,
+        order.status,
+        order.created_at
+    ]);
+    const csvContent = [header, ...rows]
+        .map(e => e.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'orders.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function printOrders() {
+    window.print();
+}
+</script>
+
+<style>
+@media print {
+  .print\:hidden {
+    display: none !important;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  .print-orders-table, .print-orders-table * {
+    visibility: visible !important;
+  }
+  .print-orders-table {
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    background: white;
+    z-index: 9999;
+    padding: 0;
+    margin: 0;
+  }
+}
+</style> 

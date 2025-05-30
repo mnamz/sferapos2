@@ -16,7 +16,7 @@ class ShopSettingsController extends Controller
             'shop_address' => '',
             'shop_phone' => '',
             'shop_email' => '',
-            'currency' => 'MYR',
+            'currency' => 'RM',
             'tax_percentage' => 0,
             'logo_path' => null,
             'company_number' => null,
@@ -37,13 +37,14 @@ class ShopSettingsController extends Controller
             'shop_address' => 'required|string|max:500',
             'shop_phone' => 'required|string|max:20',
             'shop_email' => 'required|email|max:255',
-            'currency' => 'required|string|size:3|in:MYR,SGD,USD',
+            'currency' => 'required|string|in:RM,SGD,USD',
             'tax_percentage' => 'required|numeric|min:0|max:100',
             'company_number' => 'nullable|string|max:255',
             'tax_number' => 'nullable|string|max:255',
             'payment_details' => 'nullable|string',
             'footer_text' => 'nullable|string',
-            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'invoice_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         $settings = ShopSettings::first();
@@ -63,7 +64,16 @@ class ShopSettingsController extends Controller
             $settings->logo_path = $path;
         }
 
-        $settings->fill($request->except('logo'));
+        // Handle invoice_logo upload if present
+        if ($request->hasFile('invoice_logo')) {
+            if ($settings->invoice_logo_path && Storage::disk('public')->exists($settings->invoice_logo_path)) {
+                Storage::disk('public')->delete($settings->invoice_logo_path);
+            }
+            $invoiceLogoPath = $request->file('invoice_logo')->store('logos', 'public');
+            $settings->invoice_logo_path = $invoiceLogoPath;
+        }
+
+        $settings->fill($request->except(['logo', 'invoice_logo']));
         $settings->save();
 
         return redirect()->back()->with('success', 'Shop settings updated successfully.');

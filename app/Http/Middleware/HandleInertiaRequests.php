@@ -45,7 +45,7 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'settings' => fn () => ShopSettings::first() ?? new ShopSettings([
                 'shop_name' => 'POS System',
-                'currency' => 'MYR',
+                'currency' => 'RM',
                 'tax_percentage' => 0,
             ]),
             'quote' => ['message' => trim($message), 'author' => trim($author)],

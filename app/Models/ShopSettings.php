@@ -16,6 +16,7 @@ class ShopSettings extends Model
         'currency',
         'tax_percentage',
         'logo_path',
+        'invoice_logo_path',
         'company_number',
         'tax_number',
         'payment_details',

@@ -6,7 +6,7 @@ export interface Currency {
 
 export const currencies: Currency[] = [
     {
-        code: 'MYR',
+        code: 'RM',
         symbol: 'RM',
         name: 'Malaysian Ringgit'
     },

@@ -17,7 +17,7 @@ class ShopSettingsSeeder extends Seeder
             'shop_address' => '123 Main Street, City, Country',
             'shop_phone' => '+1234567890',
             'shop_email' => 'info@sferapos.com',
-            'currency' => 'MYR',
+            'currency' => 'RM',
             'tax_percentage' => 10.00,
             'default_payment_method' => 'cash',
             'default_delivery_method' => 'pickup',

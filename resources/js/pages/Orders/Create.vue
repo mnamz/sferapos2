@@ -405,7 +405,8 @@ const saveOrder = async () => {
       items: validItems.map(item => ({
         id: item.product.id,
         quantity: item.quantity,
-        remark: item.remark || null
+        remark: item.remark || null,
+        price: item.price
       })),
       customer_id: selectedCustomer.value?.id || null,
       subtotal: parseFloat(subtotal.value),

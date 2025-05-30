@@ -36,7 +36,7 @@
                                                 >
                                             </div>
                                             <div class="flex-1">
-                                                <Input
+                                                <input
                                                     id="logo"
                                                     type="file"
                                                     @input="handleLogoUpload"
@@ -126,6 +126,39 @@
                                             required
                                         />
                                         <InputError :message="form.errors.tax_percentage" class="mt-2" />
+                                    </div>
+
+                                    <!-- Invoice Logo -->
+                                    <div>
+                                        <Label for="invoice_logo">Invoice Logo</Label>
+                                        <div class="mt-2 flex items-center gap-4">
+                                            <div v-if="settings.invoice_logo_path" class="relative">
+                                                <img 
+                                                    :src="'/storage/' + settings.invoice_logo_path" 
+                                                    alt="Invoice Logo" 
+                                                    class="h-20 w-auto rounded-lg object-contain border border-gray-200 dark:border-gray-700"
+                                                >
+                                            </div>
+                                            <div class="flex-1">
+                                                <input
+                                                    id="invoice_logo"
+                                                    type="file"
+                                                    @input="handleInvoiceLogoUpload"
+                                                    accept="image/jpeg,image/png,image/jpg,image/gif"
+                                                    class="block w-full text-sm text-gray-500 dark:text-gray-400
+                                                        file:mr-4 file:py-2 file:px-4
+                                                        file:rounded-md file:border-0
+                                                        file:text-sm file:font-semibold
+                                                        file:bg-indigo-50 file:text-indigo-700
+                                                        dark:file:bg-indigo-900 dark:file:text-indigo-300
+                                                        hover:file:bg-indigo-100 dark:hover:file:bg-indigo-800"
+                                                />
+                                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                    Recommended size: 200x200px. Max file size: 2MB
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <InputError :message="form.errors.invoice_logo" class="mt-2" />
                                     </div>
                                 </div>
 
@@ -221,6 +254,7 @@ const props = defineProps<{
         tax_number?: string;
         payment_details?: string;
         footer_text?: string;
+        invoice_logo_path?: string;
     };
 }>();
 
@@ -232,6 +266,7 @@ const form = useForm({
     currency: props.settings.currency || defaultCurrency.code,
     tax_percentage: props.settings.tax_percentage,
     logo: null,
+    invoice_logo: null,
     company_number: props.settings.company_number || '',
     tax_number: props.settings.tax_number || '',
     payment_details: props.settings.payment_details || '',
@@ -243,6 +278,7 @@ const submit = () => {
         preserveScroll: true,
         onSuccess: () => {
             form.logo = null;
+            form.invoice_logo = null;
             toast.success('Settings saved successfully!', {
                 autoClose: 3000,
                 position: toast.POSITION.TOP_RIGHT,
@@ -270,6 +306,28 @@ const handleLogoUpload = (event) => {
         }
 
         form.logo = file;
+    }
+};
+
+const handleInvoiceLogoUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        // Validate file size (2MB max)
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error('Invoice logo file size must be less than 2MB');
+            event.target.value = '';
+            return;
+        }
+        
+        // Validate file type
+        const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif'];
+        if (!validTypes.includes(file.type)) {
+            toast.error('Invalid file type. Please upload a JPEG, PNG, or GIF image.');
+            event.target.value = '';
+            return;
+        }
+
+        form.invoice_logo = file;
     }
 };
 </script> 

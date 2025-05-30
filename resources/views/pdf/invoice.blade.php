@@ -52,110 +52,142 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>{{ $settings->shop_name }}</h1>
-            @if($settings->receipt_header)
-                <p>{{ $settings->receipt_header }}</p>
-            @endif
-        </div>
-
-        <div class="shop-info">
-            <p>{{ $settings->shop_address }}</p>
-            <p>Phone: {{ $settings->shop_phone }}</p>
-            <p>Email: {{ $settings->shop_email }}</p>
-            @if($settings->company_number)
-                <p>Company No: {{ $settings->company_number }}</p>
-            @endif
-            @if($settings->tax_number)
-                <p>Tax No: {{ $settings->tax_number }}</p>
-            @endif
-        </div>
-
-        <div class="order-info">
-            <h2>Invoice #{{ $order->order_number }}</h2>
-            <p>Date: {{ $order->created_at->format($settings->date_format) }}</p>
-            <p>Status: {{ ucfirst($order->status) }}</p>
-            <p>Payment Status: {{ ucfirst($order->payment_status) }}</p>
-            <p>Payment Method: {{ ucfirst($order->payment_method) }}</p>
-            
-            @if($order->customer)
-            <div style="margin-top: 20px;">
-                <h3>Customer Information</h3>
-                <p>Name: {{ $order->customer->name }}</p>
-                <p>Email: {{ $order->customer->email }}</p>
-                <p>Phone: {{ $order->customer->phone }}</p>
-                <p>Address: {{ $order->customer->address }}</p>
+        <div style="position: relative; min-height: 90px; margin-bottom: 10px;">
+            <div style="width: 60%;">
+                <span style="font-weight: bold;">Bill From:</span><br>
+                <span>{{ $settings->shop_name }}</span><br>
+                @if($settings->company_number)
+                    <span>{{ $settings->company_number }}</span><br>
+                @endif
+                <span>{{ $settings->shop_address }}</span><br>
+                @if($settings->shop_phone)
+                    <span style="font-weight: bold;">Tel:</span> <span>{{ $settings->shop_phone }}</span><br>
+                @endif
+                @if($settings->shop_email)
+                    <span style="font-weight: bold;">Email:</span> <span>{{ $settings->shop_email }}</span><br>
+                @endif
             </div>
+            @if($settings->invoice_logo_path)
+                <img src="{{ public_path('storage/'.$settings->invoice_logo_path) }}" alt="Logo" style="position: absolute; top: 0; right: 0; max-width: 320px; max-height: 80px;">
+            @elseif($settings->logo_path)
+                <img src="{{ public_path('storage/'.$settings->logo_path) }}" alt="Logo" style="position: absolute; top: 0; right: 0; max-width: 320px; max-height: 80px;">
             @endif
         </div>
 
-        <table>
+        <hr style="margin: 20px 0;">
+
+        <table style="width: 100%; margin-bottom: 10px; margin-top: 5px; border: none;">
+            <tr>
+                <td style="width: 50%; vertical-align: top; border: none;">
+                    <span style="font-weight: bold;">Attn:</span><br>
+                    @if($order->customer)
+                        <span>{{ $order->customer->name }}</span><br>
+                        @if($order->customer->phone)
+                            <span style="font-weight: bold;">Tel:</span> <span>{{ $order->customer->phone }}</span><br>
+                        @endif
+                        @if($order->customer->email)
+                            <span style="font-weight: bold;">Email:</span> <span>{{ $order->customer->email }}</span><br>
+                        @endif
+                        @if($order->customer->address)
+                            <span style="font-weight: bold;">Address:</span> <span>{{ $order->customer->address }}</span><br>
+                        @endif
+                    @endif
+                </td>
+                <td style="width: 50%; vertical-align: top; border: none;">
+                    <table style="width: 100%; border: none; font-size: 14px;">
+                        <tr>
+                            <td style="border: none; font-weight: bold; padding: 1px 0;">Invoice</td>
+                            <td style="border: none; text-align: right; padding: 1px 0;">{{ $order->id }}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: none; font-weight: bold; padding: 1px 0;">Invoice Date</td>
+                            <td style="border: none; text-align: right; padding: 1px 0;">{{ $order->created_at->format($settings->date_format) }}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: none; font-weight: bold; padding: 1px 0;">Salesman</td>
+                            <td style="border: none; text-align: right; padding: 1px 0;">{{ $order->user->name ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: none; font-weight: bold; padding: 1px 0;">Amount Due</td>
+                            <td style="border: none; text-align: right; padding: 1px 0;">{{ $settings->currency }}{{ number_format($order->due_amount, 2) }}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: none; font-weight: bold; background: #ddd; padding: 1px 0;">Payment Status</td>
+                            <td style="border: none; background: #ddd; text-align: right; padding: 1px 0;">{{ ucfirst($order->status) }}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        <!-- <div style="margin-bottom: 10px;">
+            @if($order->customer && $order->customer->phone)
+                <strong>Tel:</strong> {{ $order->customer->phone }}<br>
+            @endif
+            @if($order->customer && $order->customer->email)
+                <strong>Email:</strong> {{ $order->customer->email }}<br>
+            @endif
+        </div> -->
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
             <thead>
-                <tr>
-                    <th>Product</th>
-                    <th>Price</th>
-                    <th>Quantity</th>
-                    <th>Total</th>
+                <tr style="background: #ddd;">
+                    <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Item</th>
+                    <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Quantity</th>
+                    <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Unit Price</th>
+                    <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Total</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($order->items as $item)
-                <tr>
-                    <td>{{ $item->product_name }}</td>
-                    <td>{{ $settings->currency }}{{ number_format($item->price, 2) }}</td>
-                    <td>{{ $item->quantity }}</td>
-                    <td>{{ $settings->currency }}{{ number_format($item->total, 2) }}</td>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 6px 4px; border: none; text-align: left;">{{ $item->product_name }}</td>
+                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ $item->quantity }}</td>
+                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ $settings->currency }} {{ number_format($item->price, 0) }}</td>
+                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ $settings->currency }} {{ number_format($item->total, 0) }}</td>
                 </tr>
                 @endforeach
             </tbody>
         </table>
 
-        <div class="totals">
-            <table>
-                <tr>
-                    <td>Subtotal:</td>
-                    <td>{{ $settings->currency }}{{ number_format($order->subtotal, 2) }}</td>
-                </tr>
-                <tr>
-                    <td>Tax ({{ $settings->tax_percentage }}%):</td>
-                    <td>{{ $settings->currency }}{{ number_format($order->tax, 2) }}</td>
-                </tr>
-                @if($order->delivery_cost > 0)
-                <tr>
-                    <td>Delivery Cost:</td>
-                    <td>{{ $settings->currency }}{{ number_format($order->delivery_cost, 2) }}</td>
-                </tr>
-                @endif
-                <tr>
-                    <td><strong>Total:</strong></td>
-                    <td><strong>{{ $settings->currency }}{{ number_format($order->total, 2) }}</strong></td>
-                </tr>
-                <tr>
-                    <td>Paid Amount:</td>
-                    <td>{{ $settings->currency }}{{ number_format($order->paid_amount, 2) }}</td>
-                </tr>
-                @if($order->due_amount > 0)
-                <tr>
-                    <td>Due Amount:</td>
-                    <td>{{ $settings->currency }}{{ number_format($order->due_amount, 2) }}</td>
-                </tr>
-                @endif
-                @if($order->change_amount > 0)
-                <tr>
-                    <td>Change:</td>
-                    <td>{{ $settings->currency }}{{ number_format($order->change_amount, 2) }}</td>
-                </tr>
-                @endif
-            </table>
-        </div>
+        <table style="width: 100%; margin-top: 30px; margin-bottom: 10px; border: none;">
+            <tr>
+                <td style="width: 50%; vertical-align: top; border: none;">
+                    <span style="font-weight: bold;">Payment Method</span><br>
+                    {{ ucfirst($order->payment_method) }}<br>
+                    <span style="font-weight: bold;">Delivery Method</span><br>
+                    {{ $order->delivery_method ?? '-' }}
+                </td>
+                <td style="width: 50%; vertical-align: top; border: none;">
+                    <table style="width: 100%; border: none; font-size: 14px;">
+                        <tr>
+                            <td style="border: none; font-weight: bold; padding: 1px 0;">Subtotal</td>
+                            <td style="border: none; text-align: right; padding: 1px 0;">{{ $settings->currency }} {{ number_format($order->subtotal, 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: none; font-weight: bold; padding: 1px 0;">Tax</td>
+                            <td style="border: none; text-align: right; padding: 1px 0;">{{ $settings->currency }} {{ number_format($order->tax, 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: none; font-weight: bold; padding: 1px 0;">Discount</td>
+                            <td style="border: none; text-align: right; padding: 1px 0;">{{ $settings->currency }} {{ number_format($order->discount ?? 0, 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: none; font-weight: bold; background: #ddd; padding: 1px 0;">Total</td>
+                            <td style="border: none; background: #ddd; text-align: right; font-weight: bold; padding: 1px 0;">{{ $settings->currency }} {{ number_format($order->total, 0) }}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
 
-        <div class="footer">
-            @if($settings->receipt_footer)
-                <p>{{ $settings->receipt_footer }}</p>
-            @endif
-            @if($order->remarks)
-                <p>Remarks: {{ $order->remarks }}</p>
-            @endif
+        <div style="margin-top: 40px; margin-left: 10px;">
+            <div style="float: left; width: 30%;">
+                <strong>Bank No :</strong><br>
+                @if($settings->footer_text)
+                    {{ $settings->footer_text }}<br>
+                @endif
+            </div>
         </div>
     </div>
 </body>

@@ -135,7 +135,14 @@
                                                 {{ item.product_name }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                                {{ currency }}{{ item.price }}
+                                                <input
+                                                    type="number"
+                                                    v-model="item.price"
+                                                    min="0"
+                                                    step="0.01"
+                                                    class="block w-24 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-1 px-2"
+                                                    @change="updateItemTotal(index)"
+                                                >
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                                 <input
