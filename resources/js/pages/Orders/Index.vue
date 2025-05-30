@@ -70,7 +70,6 @@
                                     <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total</th>
                                     <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden md:table-cell">Items</th>
                                     <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden lg:table-cell">Payment</th>
-                                    <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Payment Status</th>
                                     <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
                                     <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden md:table-cell">Date</th>
                                     <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider print:hidden">Actions</th>
@@ -83,16 +82,6 @@
                                     <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.total_amount }}</td>
                                     <td class="px-4 py-2 text-gray-500 dark:text-gray-400 hidden md:table-cell">{{ order.items_count }}</td>
                                     <td class="px-4 py-2 text-gray-500 dark:text-gray-400 hidden lg:table-cell">{{ order.payment_method }}</td>
-                                    <td class="px-4 py-2">
-                                        <span :class="{
-                                            'px-2 py-1 text-xs rounded-full': true,
-                                            'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': order.payment_status === 'paid',
-                                            'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200': order.payment_status === 'partial',
-                                            'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': order.payment_status === 'pending'
-                                        }">
-                                            {{ order.payment_status }}
-                                        </span>
-                                    </td>
                                     <td class="px-4 py-2">
                                         <span :class="{
                                             'px-2 py-1 text-xs rounded-full': true,

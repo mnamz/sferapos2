@@ -86,14 +86,6 @@
                                         </div>
                                     </div>
                                 </div>
-                                <span :class="{
-                                    'px-3 py-1 text-sm rounded-full': true,
-                                    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200': order.payment_status === 'paid',
-                                    'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200': order.payment_status === 'partial',
-                                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200': order.payment_status === 'pending'
-                                }">
-                                    {{ order.payment_status }}
-                                </span>
                             </div>
                             <div class="text-sm text-gray-500 dark:text-gray-400">
                                 {{ order.created_at }}
@@ -240,14 +232,17 @@ const showStatusDropdown = ref(false);
 
 const updateStatus = (status) => {
     if (confirm(`Are you sure you want to change the order status to ${status}?`)) {
-        router.put(route('orders.update', props.order.id), {
-            status: status
-        }, {
-            preserveScroll: true,
-            onSuccess: () => {
-                showStatusDropdown.value = false;
-            },
-        });
+        router.put(
+            route('orders.updateStatus', props.order.id),
+            { status },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    showStatusDropdown.value = false;
+                    router.reload({ only: ['order'] });
+                },
+            }
+        );
     }
 };
 

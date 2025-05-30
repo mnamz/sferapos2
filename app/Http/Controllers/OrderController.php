@@ -389,4 +389,15 @@ class OrderController extends Controller
             'tax_percentage' => $taxPercentage,
         ]);
     }
+
+    public function updateStatus(Request $request, Order $order)
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:pending,processing,completed,cancelled',
+        ]);
+
+        $order->update(['status' => $validated['status'], 'payment_status' => $validated['status']]);
+
+        return back()->with('success', 'Order status updated successfully');
+    }
 } 
