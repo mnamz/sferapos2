@@ -140,11 +140,11 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                                 <input
                                                     type="number"
-                                                    v-model="item.price"
+                                                    :value="item.price"
+                                                    @input="e => { item.price = e.target.value; updateItemTotal(index); }"
                                                     min="0"
                                                     step="0.01"
                                                     class="block w-24 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-1 px-2"
-                                                    @change="updateItemTotal(index)"
                                                 >
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
@@ -354,7 +354,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import Modal from '@/Components/Modal.vue';
@@ -394,8 +394,8 @@ const form = ref({
         product_id: item.product_id,
         product_name: item.product_name,
         quantity: item.quantity,
-        price: parseFloat(item.price),
-        total: parseFloat(item.total),
+        price: parseFloat(item.price.toString().replace(/,/g, '')).toFixed(2),
+        total: parseFloat(item.total.toString().replace(/,/g, '')).toFixed(2),
         remark: item.remark || ''
     })),
     payment_method: props.order.payment_method,
@@ -406,6 +406,8 @@ const form = ref({
     change_amount: parseFloat(props.order.change_amount),
     remarks: props.order.remarks
 });
+
+console.log(form.value.items);
 
 // Computed properties for calculations
 const calculateSubtotal = computed(() => {
@@ -445,7 +447,9 @@ const filteredProducts = computed(() => {
 // Methods
 const updateItemTotal = (index) => {
     const item = form.value.items[index];
-    item.total = (item.quantity * item.price).toFixed(2);
+    const price = parseFloat(item.price.toString().replace(/,/g, ''));
+    const quantity = parseInt(item.quantity);
+    item.total = (quantity * price).toFixed(2);
     updatePaymentAmounts();
 };
 
@@ -461,6 +465,21 @@ const updatePaymentAmounts = () => {
         form.value.change_amount = 0;
     }
 };
+
+// Add watchers for price and quantity changes
+watch(() => form.value.items, (items) => {
+    items.forEach((item, index) => {
+        watch(() => item.price, () => updateItemTotal(index));
+        watch(() => item.quantity, () => updateItemTotal(index));
+    });
+}, { deep: true, immediate: true });
+
+// Initialize totals on mount
+onMounted(() => {
+    form.value.items.forEach((_, index) => {
+        updateItemTotal(index);
+    });
+});
 
 const removeItem = (index) => {
     form.value.items.splice(index, 1);
