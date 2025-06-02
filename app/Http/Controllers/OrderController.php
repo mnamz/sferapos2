@@ -212,8 +212,8 @@ class OrderController extends Controller
                 $subtotal += $item['price'] * $item['quantity'];
             }
 
-            // Adjust profit for discount proportionally
-            if ($subtotal > 0) {
+            // Adjust profit based on discount proportion
+            if ($subtotal > 0 && $validated['discount'] > 0) {
                 $discountRatio = $validated['discount'] / $subtotal;
                 $totalProfit = $totalProfit * (1 - $discountRatio);
             }
@@ -246,6 +246,13 @@ class OrderController extends Controller
                     throw new \Exception("Insufficient stock for product: {$product->name}");
                 }
 
+                // Calculate item profit with discount adjustment
+                $itemProfit = ($item['price'] - $product->cost_price) * $item['quantity'];
+                if ($subtotal > 0 && $validated['discount'] > 0) {
+                    $discountRatio = $validated['discount'] / $subtotal;
+                    $itemProfit = $itemProfit * (1 - $discountRatio);
+                }
+
                 // Create order item
                 OrderItem::create([
                     'order_id' => $order->id,
@@ -255,7 +262,7 @@ class OrderController extends Controller
                     'price' => $item['price'],
                     'cost_price' => $product->cost_price,
                     'total' => $item['price'] * $item['quantity'],
-                    'profit' => ($item['price'] - $product->cost_price) * $item['quantity'],
+                    'profit' => $itemProfit,
                     'remark' => $item['remark'] ?? null,
                 ]);
 
@@ -355,7 +362,7 @@ class OrderController extends Controller
         try {
             DB::beginTransaction();
 
-            // Calculate total profit
+            // Calculate total profit and subtotal
             $totalProfit = 0;
             $subtotal = 0;
             foreach ($validated['items'] as $item) {
@@ -367,8 +374,8 @@ class OrderController extends Controller
                 }
             }
 
-            // Adjust profit for discount proportionally
-            if ($subtotal > 0) {
+            // Adjust profit based on discount proportion
+            if ($subtotal > 0 && $validated['discount'] > 0) {
                 $discountRatio = $validated['discount'] / $subtotal;
                 $totalProfit = $totalProfit * (1 - $discountRatio);
             }
@@ -399,6 +406,12 @@ class OrderController extends Controller
                 $product = Product::find($item['product_id']);
                 $costPrice = $product ? $product->cost_price : 0;
                 $itemProfit = ($item['price'] - $costPrice) * $item['quantity'];
+                
+                // Adjust item profit based on discount proportion
+                if ($subtotal > 0 && $validated['discount'] > 0) {
+                    $discountRatio = $validated['discount'] / $subtotal;
+                    $itemProfit = $itemProfit * (1 - $discountRatio);
+                }
                 
                 OrderItem::create([
                     'order_id' => $order->id,
