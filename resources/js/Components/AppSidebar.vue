@@ -96,6 +96,9 @@ const filteredNavItems = computed(() => {
         if (item.title === 'Users' && roles.includes('staff')) {
             return false;
         }
+        if (item.title === 'Categories' && roles.includes('staff')) {
+            return false;
+        }
         return true;
     });
 });

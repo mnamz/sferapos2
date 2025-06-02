@@ -8,6 +8,7 @@
                 <div class="flex gap-2 print:hidden">
                     <Link
                         :href="route('products.create')"
+                        v-if="!roles.includes('staff')"
                         class="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition text-center"
                     >
                         Add New Product
