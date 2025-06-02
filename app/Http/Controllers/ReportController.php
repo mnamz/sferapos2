@@ -19,7 +19,14 @@ class ReportController extends Controller
         $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
 
         $query = Order::query()
-            ->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            ->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->when($request->input('delivery_method'), function($query, $method) {
+                if ($method === 'in-store') {
+                    $query->whereIn('delivery_method', ['walk-in', 'delivery']);
+                } else {
+                    $query->where('delivery_method', $method);
+                }
+            });
 
         // Calculate summary statistics
         $summary = [
@@ -136,6 +143,13 @@ class ReportController extends Controller
         $orders = Order::query()
             ->with(['customer', 'user'])
             ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->when($request->input('delivery_method'), function($query, $method) {
+                if ($method === 'in-store') {
+                    $query->whereIn('delivery_method', ['walk-in', 'delivery']);
+                } else {
+                    $query->where('delivery_method', $method);
+                }
+            })
             ->latest()
             ->get();
 

@@ -27,6 +27,21 @@
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
                             >
                         </div>
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Delivery Method
+                            </label>
+                            <select 
+                                v-model="filters.delivery_method"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
+                            >
+                                <option value="">All Methods</option>
+                                <option value="in-store">In-Store (Walk-in & Delivery)</option>
+                                <option value="shopee">Shopee</option>
+                                <option value="lazada">Lazada</option>
+                                <option value="tiktok">TikTok</option>
+                            </select>
+                        </div>
                         <div class="flex gap-2">
                             <button 
                                 @click="applyFilters"
@@ -35,7 +50,11 @@
                                 Apply Filters
                             </button>
                             <a
-                                :href="route('reports.export', { start_date: filters.start_date, end_date: filters.end_date })"
+                                :href="route('reports.export', { 
+                                    start_date: filters.start_date, 
+                                    end_date: filters.end_date,
+                                    delivery_method: filters.delivery_method 
+                                })"
                                 class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center gap-2"
                                 target="_blank"
                             >
@@ -192,6 +211,7 @@ const sortDirection = ref('asc');
 const filters = ref({
     start_date: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
     end_date: new Date().toISOString().split('T')[0],
+    delivery_method: '',
     ...props.filters
 });
 
@@ -210,6 +230,7 @@ function applyFilters() {
     router.get(route('reports.index'), {
         start_date: filters.value.start_date,
         end_date: filters.value.end_date,
+        delivery_method: filters.value.delivery_method,
         sort_column: sortColumn.value,
         sort_direction: sortDirection.value,
     }, {
