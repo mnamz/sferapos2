@@ -400,10 +400,10 @@ const form = ref({
     })),
     payment_method: props.order.payment_method,
     delivery_method: props.order.delivery_method,
-    delivery_cost: parseFloat(props.order.delivery_cost),
-    paid_amount: parseFloat(props.order.paid_amount),
-    due_amount: parseFloat(props.order.due_amount),
-    change_amount: parseFloat(props.order.change_amount),
+    delivery_cost: parseFloat(props.order.delivery_cost.toString().replace(/,/g, '')),
+    paid_amount: parseFloat(props.order.paid_amount.toString().replace(/,/g, '')),
+    due_amount: parseFloat(props.order.due_amount.toString().replace(/,/g, '')),
+    change_amount: parseFloat(props.order.change_amount.toString().replace(/,/g, '')),
     remarks: props.order.remarks
 });
 
@@ -454,8 +454,8 @@ const updateItemTotal = (index) => {
 };
 
 const updatePaymentAmounts = () => {
-    const total = parseFloat(calculateTotal.value);
-    const paid = parseFloat(form.value.paid_amount);
+    const total = parseFloat(calculateTotal.value.toString().replace(/,/g, ''));
+    const paid = parseFloat(form.value.paid_amount.toString().replace(/,/g, ''));
     
     if (paid >= total) {
         form.value.due_amount = 0;
