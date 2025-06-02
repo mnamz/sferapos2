@@ -169,4 +169,50 @@ class ProductController extends Controller
             'filters' => $request->only(['search']),
         ]);
     }
+
+    public function adjustStock(Request $request, Product $product)
+    {
+        $request->validate([
+            'quantity' => 'required|integer',
+            'type' => 'required|in:restock,withdraw',
+            'notes' => 'nullable|string|max:255'
+        ]);
+
+        $quantity = $request->quantity;
+        if ($request->type === 'withdraw') {
+            $quantity = -$quantity;
+        }
+
+        $oldStock = $product->stock;
+        $product->stock += $quantity;
+        
+        if ($product->stock < 0) {
+            return back()->with('error', 'Insufficient stock for withdrawal.');
+        }
+
+        // Create audit data
+        $auditData = [
+            'old_values' => ['stock' => $oldStock],
+            'new_values' => [
+                'stock' => $product->stock,
+                'adjustment' => $quantity,
+                'adjustment_type' => $request->type,
+                'adjustment_notes' => $request->notes
+            ],
+            'event' => 'updated',
+            'auditable_type' => get_class($product),
+            'auditable_id' => $product->id,
+            'user_id' => auth()->id(),
+            'url' => request()->fullUrl(),
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent()
+        ];
+
+        $product->save();
+        
+        // Create the audit record
+        $product->audits()->create($auditData);
+
+        return back()->with('success', 'Stock updated successfully.');
+    }
 } 

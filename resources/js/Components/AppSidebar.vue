@@ -72,11 +72,6 @@ const mainNavItems: NavItem[] = [
         icon: BarChart3,
     },
     {
-        title: 'Activity Log',
-        href: route('activity-log.index'),
-        icon: History,
-    },
-    {
         title: 'Products',
         href: route('products.index'),
         icon: Package,

@@ -73,6 +73,67 @@
                                     Back to Products
                                 </Link>
                             </div>
+
+                            <!-- Stock Management Section -->
+                            <div v-if="!roles.includes('staff')" class="mt-8 border-t border-gray-200 dark:border-gray-700 pt-8">
+                                <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Stock Management</h2>
+                                <!-- Success Message -->
+                                <div v-if="successMessage" class="mt-4 p-4 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200 rounded-md">
+                                    {{ successMessage }}
+                                </div>
+                                <form @submit.prevent="submit" class="space-y-6">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                Adjustment Type
+                                            </label>
+                                            <select 
+                                                v-model="form.type"
+                                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-2.5"
+                                            >
+                                                <option value="restock">Restock</option>
+                                                <option value="withdraw">Withdraw</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                Quantity
+                                            </label>
+                                            <input 
+                                                type="number" 
+                                                v-model="form.quantity"
+                                                min="1"
+                                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-2.5"
+                                            >
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            Notes (Optional)
+                                        </label>
+                                        <textarea 
+                                            v-model="form.notes"
+                                            rows="3"
+                                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-2.5"
+                                            placeholder="Add any notes about this stock adjustment..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div class="flex justify-end pt-2">
+                                        <button 
+                                            type="submit"
+                                            class="inline-flex items-center px-6 py-2.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition text-sm font-medium"
+                                            :disabled="form.processing"
+                                        >
+                                            {{ form.type === 'restock' ? 'Restock' : 'Withdraw' }} Stock
+                                        </button>
+                                    </div>
+                                </form>
+
+                                
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -82,16 +143,45 @@
 </template>
 
 <script setup>
-import { Link, usePage } from '@inertiajs/vue3';
+import { Link, usePage, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const page = usePage();
 const roles = page.props.auth?.roles || [];
 
-defineProps({
+const props = defineProps({
     product: {
         type: Object,
         required: true
     }
 });
-</script> 
+
+const form = useForm({
+    type: 'restock',
+    quantity: 1,
+    notes: ''
+});
+
+const successMessage = ref('');
+
+const submit = () => {
+    form.post(route('products.adjust-stock', props.product.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            form.reset();
+            successMessage.value = 'Stock updated successfully';
+            setTimeout(() => successMessage.value = '', 3000);
+        }
+    });
+};
+</script>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}
+</style> 
