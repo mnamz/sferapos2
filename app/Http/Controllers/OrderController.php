@@ -204,10 +204,18 @@ class OrderController extends Controller
 
             // Calculate total profit
             $totalProfit = 0;
+            $subtotal = 0;
             foreach ($validated['items'] as $item) {
                 $product = Product::find($item['id']);
                 $itemProfit = ($item['price'] - $product->cost_price) * $item['quantity'];
                 $totalProfit += $itemProfit;
+                $subtotal += $item['price'] * $item['quantity'];
+            }
+
+            // Adjust profit for discount proportionally
+            if ($subtotal > 0) {
+                $discountRatio = $validated['discount'] / $subtotal;
+                $totalProfit = $totalProfit * (1 - $discountRatio);
             }
 
             // Create the order
@@ -349,12 +357,20 @@ class OrderController extends Controller
 
             // Calculate total profit
             $totalProfit = 0;
+            $subtotal = 0;
             foreach ($validated['items'] as $item) {
                 $product = Product::find($item['product_id']);
                 if ($product) {
                     $itemProfit = ($item['price'] - $product->cost_price) * $item['quantity'];
                     $totalProfit += $itemProfit;
+                    $subtotal += $item['price'] * $item['quantity'];
                 }
+            }
+
+            // Adjust profit for discount proportionally
+            if ($subtotal > 0) {
+                $discountRatio = $validated['discount'] / $subtotal;
+                $totalProfit = $totalProfit * (1 - $discountRatio);
             }
 
             // Update order details
