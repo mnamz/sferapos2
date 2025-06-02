@@ -225,11 +225,11 @@
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paid Amount</label>
                                         <input
                                             type="number"
-                                            v-model="form.paid_amount"
+                                            v-model.number="form.paid_amount"
+                                            @input="updatePaymentAmounts"
                                             min="0"
                                             step="0.01"
                                             class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm text-2xl font-bold py-2 px-3"
-                                            @input="updatePaymentAmounts"
                                         >
                                     </div>
                                 </div>
@@ -454,8 +454,13 @@ const updateItemTotal = (index) => {
 };
 
 const updatePaymentAmounts = () => {
-    const total = parseFloat(calculateTotal.value.toString().replace(/,/g, ''));
-    const paid = parseFloat(form.value.paid_amount.toString().replace(/,/g, ''));
+    const total = parseFloat(calculateTotal.value);
+    const paid = parseFloat(form.value.paid_amount);
+    
+    // Ensure paid amount doesn't exceed total
+    if (paid > total) {
+        form.value.paid_amount = total;
+    }
     
     if (paid >= total) {
         form.value.due_amount = 0;
@@ -473,6 +478,11 @@ watch(() => form.value.items, (items) => {
         watch(() => item.quantity, () => updateItemTotal(index));
     });
 }, { deep: true, immediate: true });
+
+// Add a watcher for paid amount changes
+watch(() => form.value.paid_amount, (newValue) => {
+    updatePaymentAmounts();
+});
 
 // Initialize totals on mount
 onMounted(() => {

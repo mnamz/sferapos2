@@ -198,7 +198,15 @@
           <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-4">
             <div class="flex gap-2 items-center">
               <label class="w-28 text-gray-700 dark:text-gray-200">Paid</label>
-              <input type="number" v-model.number="paid" class="border rounded-lg px-3 py-1 flex-1 dark:bg-gray-700 dark:border-gray-600" />
+              <input 
+                type="number" 
+                :value="paid" 
+                @input="e => {
+                    const newPaid = parseFloat(e.target.value.toString().replace(/,/g, ''));
+                    paid = Math.min(newPaid, parseFloat(total));
+                }"
+                class="border rounded-lg px-3 py-1 flex-1 dark:bg-gray-700 dark:border-gray-600" 
+              />
             </div>
             <div class="flex gap-2 items-center">
               <label class="w-28 text-gray-700 dark:text-gray-200">Due</label>
