@@ -9,6 +9,7 @@ import { Settings, LayoutGrid, ShoppingCart, Package, ClipboardList, Tags, Users
 import { onMounted, ref, watch, computed } from 'vue';
 import AppLogo from './AppLogo.vue';
 import { usePage } from '@inertiajs/vue3';
+import type { PageProps as InertiaPageProps } from '@inertiajs/core';
 
 interface Props {
     collapsed?: boolean;
@@ -18,7 +19,19 @@ const props = withDefaults(defineProps<Props>(), {
     collapsed: false,
 });
 
-const page = usePage();
+interface User {
+    role: string;
+    roles?: string[];
+}
+
+interface PageProps extends InertiaPageProps {
+    auth: {
+        user: User;
+        roles?: string[];
+    };
+}
+
+const page = usePage<PageProps>();
 const roles = page.props.auth?.roles || [];
 
 const isCollapsed = ref(props.collapsed);
@@ -111,8 +124,9 @@ const footerNavItems: NavItem[] = [
         title: 'Shop Settings',
         href: route('pos.settings'),
         icon: Settings,
+        show: () => page.props.auth.user?.role === 'admin'
     },
-];
+].filter(item => item.show ? item.show() : true);
 </script>
 
 <template>
