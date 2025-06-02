@@ -87,7 +87,7 @@
                                         </Link>
                                         <button
                                             @click="destroy(customer.id)"
-                                            v-if="!roles.includes('staff')"
+                                            v-if="!roles.includes('staff')" 
                                             class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                                         >
                                             Delete
@@ -150,6 +150,7 @@ import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 
 const page = usePage();
+const roles = page.props.auth?.roles || [];
 const props = defineProps({
     customers: Object,
     filters: Object
