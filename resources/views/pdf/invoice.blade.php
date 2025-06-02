@@ -156,7 +156,7 @@
                     <span style="font-weight: bold;">Payment Method</span><br>
                     {{ ucfirst($order->payment_method) }}<br>
                     <span style="font-weight: bold;">Delivery Method</span><br>
-                    {{ $order->delivery_method ?? '-' }}
+                    {{ $order->delivery_method ?? '-' }}<br>
                     <span style="font-weight: bold;">Remark</span><br>
                     {{ $order->remarks ?? '-' }}
                 </td>
