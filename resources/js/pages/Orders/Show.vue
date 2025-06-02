@@ -155,6 +155,10 @@
                                     <span>{{ currency }}{{ order.tax }}</span>
                                 </div>
                                 <div class="flex justify-between">
+                                    <span>Discount</span>
+                                    <span>{{ currency }}{{ order.discount }}</span>
+                                </div>
+                                <div class="flex justify-between">
                                     <span>Delivery Cost</span>
                                     <span>{{ currency }}{{ order.delivery_cost }}</span>
                                 </div>

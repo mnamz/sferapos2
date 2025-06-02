@@ -157,6 +157,7 @@ class OrderController extends Controller
             'subtotal' => number_format($order->subtotal, 2),
             'tax' => number_format($order->tax, 2),
             'delivery_cost' => number_format($order->delivery_cost, 2),
+            'discount' => number_format($order->discount, 2),
             'total' => number_format($order->total, 2),
             'profit' => number_format($order->profit, 2),
             'paid_amount' => number_format($order->paid_amount, 2),
@@ -192,6 +193,7 @@ class OrderController extends Controller
             'paid_amount' => 'required|numeric|min:0',
             'due_amount' => 'required|numeric|min:0',
             'change_amount' => 'required|numeric|min:0',
+            'discount' => 'required|numeric|min:0',
             'payment_method' => 'required|in:cash,card,bank_transfer,shopee,tiktok,lazada',
             'delivery_method' => 'required|in:pickup,delivery,walk-in',
             'remarks' => 'nullable|string',
@@ -222,6 +224,7 @@ class OrderController extends Controller
                 'payment_method' => $validated['payment_method'],
                 'delivery_method' => $validated['delivery_method'],
                 'remarks' => $validated['remarks'],
+                'discount' => $validated['discount'],
                 'status' => 'pending',
                 'profit' => $totalProfit,
             ]);
@@ -302,6 +305,7 @@ class OrderController extends Controller
                 'subtotal' => number_format($order->subtotal, 2),
                 'tax' => number_format($order->tax, 2),
                 'delivery_cost' => number_format($order->delivery_cost, 2),
+                'discount' => number_format($order->discount, 2),
                 'total' => number_format($order->total, 2),
                 'paid_amount' => number_format($order->paid_amount, 2),
                 'due_amount' => number_format($order->due_amount, 2),
@@ -337,6 +341,7 @@ class OrderController extends Controller
             'due_amount' => 'required|numeric|min:0',
             'change_amount' => 'required|numeric|min:0',
             'remarks' => 'nullable|string',
+            'discount' => 'required|numeric|min:0',
         ]);
 
         try {
@@ -362,11 +367,13 @@ class OrderController extends Controller
                 'due_amount' => $validated['due_amount'],
                 'change_amount' => $validated['change_amount'],
                 'remarks' => $validated['remarks'],
+                'discount' => $validated['discount'],
                 'subtotal' => collect($validated['items'])->sum('total'),
                 'tax' => collect($validated['items'])->sum('total') * (settings('tax_percentage', 0) / 100),
                 'total' => collect($validated['items'])->sum('total') + 
                           (collect($validated['items'])->sum('total') * (settings('tax_percentage', 0) / 100)) + 
-                          $validated['delivery_cost'],
+                          $validated['delivery_cost'] -
+                          $validated['discount'],
                 'profit' => $totalProfit,
             ]);
 

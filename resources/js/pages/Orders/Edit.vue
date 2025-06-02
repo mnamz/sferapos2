@@ -204,6 +204,17 @@
                                     </div>
                                 </div>
                                 <div class="flex justify-between">
+                                    <span>Discount</span>
+                                    <input
+                                        type="number"
+                                        v-model.number="form.discount"
+                                        min="0"
+                                        step="0.01"
+                                        class="mt-1 block w-24 text-right rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm"
+                                        @input="updatePaymentAmounts"
+                                    >
+                                </div>
+                                <div class="flex justify-between">
                                     <span>Delivery Cost</span>
                                     <input
                                         type="number"
@@ -418,7 +429,8 @@ const form = ref({
     due_amount: parseFloat(props.order.due_amount.toString().replace(/,/g, '')),
     change_amount: parseFloat(props.order.change_amount.toString().replace(/,/g, '')),
     remarks: props.order.remarks,
-    tax_percentage: props.order.tax_percentage || props.tax_percentage
+    tax_percentage: props.order.tax_percentage || props.tax_percentage,
+    discount: parseFloat(props.order.discount?.toString().replace(/,/g, '') || '0')
 });
 
 console.log(form.value.items);
@@ -436,7 +448,8 @@ const calculateTotal = computed(() => {
     return (
         parseFloat(calculateSubtotal.value) +
         parseFloat(calculateTax.value) +
-        parseFloat(form.value.delivery_cost)
+        parseFloat(form.value.delivery_cost) -
+        parseFloat(form.value.discount)
     ).toFixed(2);
 });
 

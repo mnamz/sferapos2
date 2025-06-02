@@ -455,8 +455,6 @@ const saveOrder = async () => {
       delivery_method: deliveryMethod.value,
       remarks: remark.value,
     };
-    // Remove discount from payload if not needed by backend
-    // delete payload.discount;
 
     const response = await axios.post('/orders', payload);
     if (response.data.success) {

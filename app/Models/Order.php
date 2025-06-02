@@ -25,6 +25,7 @@ class Order extends Model
         'remarks',
         'status',
         'profit',
+        'discount',
     ];
 
     protected $casts = [
@@ -35,6 +36,7 @@ class Order extends Model
         'due_amount' => 'decimal:2',
         'change_amount' => 'decimal:2',
         'delivery_cost' => 'decimal:2',
+        'discount' => 'decimal:2',
     ];
 
     // Define the available delivery methods
