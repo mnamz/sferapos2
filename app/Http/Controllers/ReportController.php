@@ -144,7 +144,8 @@ class ReportController extends Controller
 
         // Set headers with styling
         $headers = ['A1' => 'Order #', 'B1' => 'Customer', 'C1' => 'Total', 'D1' => 'Tax', 
-                   'E1' => 'Status', 'F1' => 'Payment Status', 'G1' => 'Cashier', 'H1' => 'Date'];
+                   'E1' => 'Profit', 'F1' => 'Due', 'G1' => 'Payment', 'H1' => 'Status',
+                   'I1' => 'Payment Status', 'J1' => 'Cashier', 'K1' => 'Date'];
         
         foreach ($headers as $cell => $value) {
             $sheet->setCellValue($cell, $value);
@@ -158,16 +159,20 @@ class ReportController extends Controller
             $sheet->setCellValue('B' . $row, $order->customer ? $order->customer->name : 'Walk-in Customer');
             $sheet->setCellValue('C' . $row, $order->total);
             $sheet->setCellValue('D' . $row, $order->tax);
-            $sheet->setCellValue('E' . $row, ucfirst($order->status));
-            $sheet->setCellValue('F' . $row, $order->paid_amount >= $order->total ? 'Paid' : 
+            $sheet->setCellValue('E' . $row, $order->profit);
+            $sheet->setCellValue('F' . $row, $order->due_amount);
+            $sheet->setCellValue('G' . $row, $order->payment_method);
+            $sheet->setCellValue('H' . $row, ucfirst($order->status));
+            $sheet->setCellValue('I' . $row, $order->paid_amount >= $order->total ? 'Paid' : 
                 ($order->paid_amount > 0 ? 'Partial' : 'Pending'));
-            $sheet->setCellValue('G' . $row, $order->user->name);
-            $sheet->setCellValue('H' . $row, $order->created_at->format('Y-m-d H:i:s'));
+            $sheet->setCellValue('J' . $row, $order->user->name);
+            $sheet->setCellValue('K' . $row, $order->created_at->format('Y-m-d H:i:s'));
             
             // Format numbers
             $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
             $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
-            
+            $sheet->getStyle('E' . $row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
+            $sheet->getStyle('F' . $row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
             $row++;
         }
 
