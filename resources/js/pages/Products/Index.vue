@@ -13,6 +13,12 @@
                     >
                         Add New Product
                     </Link>
+                    <Link
+                        :href="route('products.inventory-cost')"
+                        class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition text-center"
+                    >
+                        Inventory Cost
+                    </Link>
                     <button
                         @click="exportCSV"
                         class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition text-center"

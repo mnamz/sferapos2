@@ -215,4 +215,96 @@ class ProductController extends Controller
 
         return back()->with('success', 'Stock updated successfully.');
     }
+
+    public function inventoryCost(Request $request)
+    {
+        $products = Product::query()
+            ->with(['category:id,name'])
+            ->select('id', 'name', 'cost_price', 'stock', 'category_id')
+            ->when($request->input('search'), function($query, $search) {
+                $query->where(function($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhereHas('category', function($q) use ($search) {
+                          $q->where('name', 'like', "%{$search}%");
+                      });
+                });
+            })
+            ->when($request->input('sort'), function($query, $sort) use ($request) {
+                $direction = $request->input('direction', 'asc');
+                switch($sort) {
+                    case 'name':
+                        $query->orderBy('name', $direction);
+                        break;
+                    case 'cost_price':
+                        $query->orderBy('cost_price', $direction);
+                        break;
+                    case 'stock':
+                        $query->orderBy('stock', $direction);
+                        break;
+                    case 'total_cost':
+                        $query->orderByRaw('cost_price * stock ' . $direction);
+                        break;
+                    default:
+                        $query->orderBy('name', 'asc');
+                }
+            }, function($query) {
+                $query->orderBy('name', 'asc');
+            })
+            ->paginate(10)
+            ->withQueryString();
+
+        $totalInventoryCost = (float) Product::sum(\DB::raw('cost_price * stock'));
+
+        return Inertia::render('Products/InventoryCost', [
+            'products' => $products,
+            'totalInventoryCost' => $totalInventoryCost,
+            'filters' => $request->only(['search', 'sort', 'direction'])
+        ]);
+    }
+
+    public function exportInventoryCost(Request $request)
+    {
+        $products = Product::query()
+            ->select('name', 'cost_price', 'stock', 'category_id')
+            ->with('category:id,name')
+            ->when($request->input('search'), function($query, $search) {
+                $query->where('name', 'like', "%{$search}%");
+            })
+            ->when($request->input('sort'), function($query, $sort) use ($request) {
+                $direction = $request->input('direction', 'asc');
+                if ($sort === 'total_cost') {
+                    $query->orderByRaw("cost_price * stock {$direction}");
+                } else {
+                    $query->orderBy($sort, $direction);
+                }
+            })
+            ->get();
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="inventory-cost.csv"',
+        ];
+
+        $callback = function() use ($products) {
+            $file = fopen('php://output', 'w');
+            
+            // Add headers
+            fputcsv($file, ['Product Name', 'Category', 'Cost Price', 'Stock', 'Total Cost']);
+            
+            // Add data
+            foreach ($products as $product) {
+                fputcsv($file, [
+                    $product->name,
+                    $product->category->name,
+                    number_format($product->cost_price, 2),
+                    $product->stock,
+                    number_format($product->cost_price * $product->stock, 2)
+                ]);
+            }
+            
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
 } 

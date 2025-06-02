@@ -5,7 +5,7 @@ import NavUser from '@/Components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/Components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { Settings, LayoutGrid, ShoppingCart, Package, ClipboardList, Tags, Users, Truck, Receipt, BarChart3, FolderTree, Users2, History } from 'lucide-vue-next';
+import { Settings, LayoutGrid, ShoppingCart, Package, ClipboardList, Tags, Users, Truck, Receipt, BarChart3, FolderTree, Users2, History, DollarSign } from 'lucide-vue-next';
 import { onMounted, ref, watch, computed } from 'vue';
 import AppLogo from './AppLogo.vue';
 import { usePage } from '@inertiajs/vue3';
