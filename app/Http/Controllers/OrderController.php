@@ -202,7 +202,7 @@ class OrderController extends Controller
         try {
             DB::beginTransaction();
 
-            // Calculate total profit
+            // Calculate total profit and subtotal
             $totalProfit = 0;
             $subtotal = 0;
             foreach ($validated['items'] as $item) {
@@ -212,10 +212,9 @@ class OrderController extends Controller
                 $subtotal += $item['price'] * $item['quantity'];
             }
 
-            // Adjust profit based on discount proportion
-            if ($subtotal > 0 && $validated['discount'] > 0) {
-                $discountRatio = $validated['discount'] / $subtotal;
-                $totalProfit = $totalProfit * (1 - $discountRatio);
+            // Adjust profit based on discount
+            if ($validated['discount'] > 0) {
+                $totalProfit -= $validated['discount'];
             }
 
             // Create the order
@@ -246,13 +245,6 @@ class OrderController extends Controller
                     throw new \Exception("Insufficient stock for product: {$product->name}");
                 }
 
-                // Calculate item profit with discount adjustment
-                $itemProfit = ($item['price'] - $product->cost_price) * $item['quantity'];
-                if ($subtotal > 0 && $validated['discount'] > 0) {
-                    $discountRatio = $validated['discount'] / $subtotal;
-                    $itemProfit = $itemProfit * (1 - $discountRatio);
-                }
-
                 // Create order item
                 OrderItem::create([
                     'order_id' => $order->id,
@@ -262,7 +254,7 @@ class OrderController extends Controller
                     'price' => $item['price'],
                     'cost_price' => $product->cost_price,
                     'total' => $item['price'] * $item['quantity'],
-                    'profit' => $itemProfit,
+                    'profit' => ($item['price'] - $product->cost_price) * $item['quantity'],
                     'remark' => $item['remark'] ?? null,
                 ]);
 
@@ -362,22 +354,19 @@ class OrderController extends Controller
         try {
             DB::beginTransaction();
 
-            // Calculate total profit and subtotal
+            // Calculate total profit
             $totalProfit = 0;
-            $subtotal = 0;
             foreach ($validated['items'] as $item) {
                 $product = Product::find($item['product_id']);
                 if ($product) {
                     $itemProfit = ($item['price'] - $product->cost_price) * $item['quantity'];
                     $totalProfit += $itemProfit;
-                    $subtotal += $item['price'] * $item['quantity'];
                 }
             }
 
-            // Adjust profit based on discount proportion
-            if ($subtotal > 0 && $validated['discount'] > 0) {
-                $discountRatio = $validated['discount'] / $subtotal;
-                $totalProfit = $totalProfit * (1 - $discountRatio);
+            // Adjust profit based on discount
+            if ($validated['discount'] > 0) {
+                $totalProfit -= $validated['discount'];
             }
 
             // Update order details
@@ -405,13 +394,6 @@ class OrderController extends Controller
             foreach ($validated['items'] as $item) {
                 $product = Product::find($item['product_id']);
                 $costPrice = $product ? $product->cost_price : 0;
-                $itemProfit = ($item['price'] - $costPrice) * $item['quantity'];
-                
-                // Adjust item profit based on discount proportion
-                if ($subtotal > 0 && $validated['discount'] > 0) {
-                    $discountRatio = $validated['discount'] / $subtotal;
-                    $itemProfit = $itemProfit * (1 - $discountRatio);
-                }
                 
                 OrderItem::create([
                     'order_id' => $order->id,
@@ -421,7 +403,7 @@ class OrderController extends Controller
                     'price' => $item['price'],
                     'cost_price' => $costPrice,
                     'total' => $item['total'],
-                    'profit' => $itemProfit,
+                    'profit' => ($item['price'] - $costPrice) * $item['quantity'],
                     'remark' => $item['remark'] ?? null,
                 ]);
 
