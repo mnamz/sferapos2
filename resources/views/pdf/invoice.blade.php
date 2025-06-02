@@ -141,7 +141,7 @@
             <tbody>
                 @foreach($order->items as $item)
                 <tr style="border-bottom: 1px solid #ccc;">
-                    <td style="padding: 6px 4px; border: none; text-align: left;">{{ $item->product_name }}</td>
+                    <td style="padding: 6px 4px; border: none; text-align: left;">{{ $item->product_name }} {{ $item->remark ? '('.$item->remark.')' : '' }}</td>
                     <td style="padding: 6px 4px; border: none; text-align: center;">{{ $item->quantity }}</td>
                     <td style="padding: 6px 4px; border: none; text-align: center;">{{ $settings->currency }} {{ number_format($item->price, 0) }}</td>
                     <td style="padding: 6px 4px; border: none; text-align: center;">{{ $settings->currency }} {{ number_format($item->total, 0) }}</td>
