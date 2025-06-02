@@ -287,6 +287,16 @@ const paymentMethods = [
     value: 'shopee',
     label: 'Shopee',
     icon: `<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'><rect x='4' y='4' width='16' height='16' rx='4' fill='#fff' stroke='#2563eb' stroke-width='2'/><text x='12' y='16' text-anchor='middle' fill='#2563eb' font-size='8'>S</text></svg>`
+  },
+  {
+    value: 'tiktok',
+    label: 'Tiktok',
+    icon: `<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'><rect x='4' y='4' width='16' height='16' rx='4' fill='#fff' stroke='#2563eb' stroke-width='2'/><text x='12' y='16' text-anchor='middle' fill='#2563eb' font-size='8'>T</text></svg>`
+  },
+  {
+    value: 'lazada',
+    label: 'Lazada',
+    icon: `<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'><rect x='4' y='4' width='16' height='16' rx='4' fill='#fff' stroke='#2563eb' stroke-width='2'/><text x='12' y='16' text-anchor='middle' fill='#2563eb' font-size='8'>L</text></svg>`
   }
 ];
 const deliveryMethods = [

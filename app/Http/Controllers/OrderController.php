@@ -192,7 +192,7 @@ class OrderController extends Controller
             'paid_amount' => 'required|numeric|min:0',
             'due_amount' => 'required|numeric|min:0',
             'change_amount' => 'required|numeric|min:0',
-            'payment_method' => 'required|in:cash,card,bank_transfer',
+            'payment_method' => 'required|in:cash,card,bank_transfer,shopee,tiktok,lazada',
             'delivery_method' => 'required|in:pickup,delivery,walk-in',
             'remarks' => 'nullable|string',
         ]);
@@ -330,7 +330,7 @@ class OrderController extends Controller
             'items.*.price' => 'required|numeric|min:0',
             'items.*.total' => 'required|numeric|min:0',
             'items.*.remark' => 'nullable|string',
-            'payment_method' => 'required|in:cash,card,bank_transfer',
+            'payment_method' => 'required|in:cash,card,bank_transfer,shopee,tiktok,lazada',
             'delivery_method' => 'required|in:pickup,delivery,walk-in',
             'delivery_cost' => 'required|numeric|min:0',
             'paid_amount' => 'required|numeric|min:0',

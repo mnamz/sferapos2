@@ -81,6 +81,9 @@
                                             <option value="cash">Cash</option>
                                             <option value="card">Card</option>
                                             <option value="bank_transfer">Bank Transfer</option>
+                                            <option value="shopee">Shopee</option>
+                                            <option value="tiktok">Tiktok</option>
+                                            <option value="lazada">Lazada</option>
                                         </select>
                                     </div>
                                     <div class="mb-4">
