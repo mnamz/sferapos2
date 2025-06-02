@@ -119,7 +119,9 @@
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                     <tr v-for="order in orders.data" :key="order.id">
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            #{{ order.id }}
+                                            <Link :href="route('orders.show', order.id)" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300">
+                                                #{{ order.id }}
+                                            </Link>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ order.customer_name }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ order.subtotal }}</td>
