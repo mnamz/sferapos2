@@ -99,6 +99,9 @@ const filteredNavItems = computed(() => {
         if (item.title === 'Categories' && roles.includes('staff')) {
             return false;
         }
+        if (item.title === 'Shop Settings' && roles.includes('staff')) {
+            return false;
+        }
         return true;
     });
 });
