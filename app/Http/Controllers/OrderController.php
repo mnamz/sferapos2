@@ -28,13 +28,46 @@ class OrderController extends Controller
                     $q->where('remark', 'like', "%{$remark}%");
                 });
             })
-            ->latest()
+            ->when(request('sort_column'), function($query, $column) {
+                $direction = request('sort_direction', 'asc');
+                
+                // Map frontend column names to database column names
+                $columnMap = [
+                    'id' => 'orders.id',
+                    'customer_name' => 'customers.name',
+                    'total_amount' => 'orders.total',
+                    'items_count' => 'orders.id',
+                    'payment_method' => 'orders.payment_method',
+                    'status' => 'orders.status',
+                    'created_at' => 'orders.created_at'
+                ];
+
+                $dbColumn = $columnMap[$column] ?? $column;
+
+                if ($dbColumn === 'customers.name') {
+                    $query->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
+                          ->select('orders.*')
+                          ->orderBy('customers.name', $direction)
+                          ->orderBy('orders.id', $direction);
+                } elseif ($dbColumn === 'items_count') {
+                    $query->withCount('items')
+                          ->orderBy('items_count', $direction);
+                } else {
+                    $query->orderBy($dbColumn, $direction);
+                }
+            }, function($query) {
+                $query->latest('orders.created_at');
+            })
             ->paginate(10)
             ->through(function ($order) {
                 return [
                     'id' => $order->id,
                     'customer_name' => $order->customer ? $order->customer->name : 'Walk-in Customer',
+                    'subtotal' => number_format($order->subtotal, 2),
+                    'tax' => number_format($order->tax, 2),
                     'total_amount' => number_format($order->total, 2),
+                    'profit' => number_format($order->profit, 2),
+                    'due' => number_format($order->due_amount, 2),
                     'payment_method' => ucfirst($order->payment_method),
                     'payment_status' => $order->paid_amount >= $order->total ? 'paid' : 
                         ($order->paid_amount > 0 ? 'partial' : 'pending'),

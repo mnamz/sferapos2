@@ -65,13 +65,35 @@
                         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
                             <thead class="bg-gray-50 dark:bg-gray-700">
                                 <tr>
-                                    <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Order #</th>
-                                    <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Customer</th>
-                                    <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total</th>
-                                    <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden md:table-cell">Items</th>
-                                    <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden lg:table-cell">Payment</th>
-                                    <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                                    <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden md:table-cell">Date</th>
+                                    <th 
+                                        v-for="column in [
+                                            { key: 'id', label: 'Order #' },
+                                            { key: 'customer_name', label: 'Customer' },
+                                            { key: 'subtotal', label: 'Subtotal' },
+                                            { key: 'tax', label: 'Tax' },
+                                            { key: 'total_amount', label: 'Total' },
+                                            { key: 'profit', label: 'Profit' },
+                                            { key: 'due', label: 'Due' },
+                                            { key: 'items_count', label: 'Items' },
+                                            { key: 'payment_method', label: 'Payment' },
+                                            { key: 'status', label: 'Status' },
+                                            { key: 'created_at', label: 'Date' }
+                                        ]" 
+                                        :key="column.key"
+                                        class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                                        @click="handleSort(column.key)"
+                                    >
+                                        <div class="flex items-center gap-1">
+                                            {{ column.label }}
+                                            <component 
+                                                :is="getSortIcon(column.key)" 
+                                                class="w-4 h-4"
+                                                :class="{
+                                                    'text-indigo-600 dark:text-indigo-400': sortColumn === column.key
+                                                }"
+                                            />
+                                        </div>
+                                    </th>
                                     <th class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider print:hidden">Actions</th>
                                 </tr>
                             </thead>
@@ -79,7 +101,11 @@
                                 <tr v-for="order in orders.data" :key="order.id">
                                     <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ order.id }}</td>
                                     <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ order.customer_name }}</td>
+                                    <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.subtotal }}</td>
+                                    <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.tax }}</td>
                                     <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.total_amount }}</td>
+                                    <td class="px-4 py-2 text-green-600 dark:text-green-400">{{ currency }}{{ order.profit }}</td>
+                                    <td class="px-4 py-2 text-red-600 dark:text-red-400">{{ currency }}{{ order.due }}</td>
                                     <td class="px-4 py-2 text-gray-500 dark:text-gray-400 hidden md:table-cell">{{ order.items_count }}</td>
                                     <td class="px-4 py-2 text-gray-500 dark:text-gray-400 hidden lg:table-cell">{{ order.payment_method }}</td>
                                     <td class="px-4 py-2">
@@ -179,6 +205,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import Pagination from '@/Components/Pagination.vue';
 import debounce from 'lodash/debounce';
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-vue-next';
 
 const props = defineProps({
     orders: {
@@ -197,14 +224,38 @@ const currency = computed(() => page.props.settings?.currency || 'USD');
 
 const search = ref(props.filters?.search || '');
 const remarkSearch = ref(props.filters?.remark || '');
+const sortColumn = ref('');
+const sortDirection = ref('asc');
 
 const debouncedSearch = debounce(() => {
     router.get(
         route('orders.index'),
-        { search: search.value, remark: remarkSearch.value },
+        { 
+            search: search.value, 
+            remark: remarkSearch.value,
+            sort_column: sortColumn.value,
+            sort_direction: sortDirection.value
+        },
         { preserveState: true, preserveScroll: true }
     );
 }, 300);
+
+function handleSort(column) {
+    if (sortColumn.value === column) {
+        sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortColumn.value = column;
+        sortDirection.value = 'asc';
+    }
+    debouncedSearch();
+}
+
+function getSortIcon(column) {
+    if (sortColumn.value !== column) {
+        return ArrowUpDown;
+    }
+    return sortDirection.value === 'asc' ? ArrowUp : ArrowDown;
+}
 
 function exportCSV() {
     const header = [

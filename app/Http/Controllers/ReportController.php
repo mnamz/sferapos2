@@ -19,24 +19,24 @@ class ReportController extends Controller
         $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
 
         $query = Order::query()
-            ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
+            ->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59']);
 
         // Calculate summary statistics
         $summary = [
-            'total_sales' => $query->clone()->sum('total'),
+            'total_sales' => $query->clone()->sum('orders.total'),
             'total_orders' => $query->clone()->count(),
-            'average_order_value' => $query->clone()->avg('total'),
-            'total_tax' => $query->clone()->sum('tax'),
-            'total_profit' => $query->clone()->sum('profit'),
+            'average_order_value' => $query->clone()->avg('orders.total'),
+            'total_tax' => $query->clone()->sum('orders.tax'),
+            'total_profit' => $query->clone()->sum('orders.profit'),
         ];
 
         // Get daily sales data for the chart
         $dailySales = $query->clone()
             ->select(
-                DB::raw('DATE(created_at) as date'),
+                DB::raw('DATE(orders.created_at) as date'),
                 DB::raw('COUNT(*) as orders'),
-                DB::raw('SUM(total) as total_sales'),
-                DB::raw('SUM(tax) as total_tax')
+                DB::raw('SUM(orders.total) as total_sales'),
+                DB::raw('SUM(orders.tax) as total_tax')
             )
             ->groupBy('date')
             ->orderBy('date')
@@ -45,15 +45,51 @@ class ReportController extends Controller
         // Get orders for the table
         $orders = $query->clone()
             ->with(['customer', 'user'])
-            ->latest()
+            ->when($request->input('sort_column'), function($query, $column) use ($request) {
+                $direction = $request->input('sort_direction', 'asc');
+                
+                // Map frontend column names to database column names
+                $columnMap = [
+                    'id' => 'orders.id',
+                    'customer_name' => 'customers.name',
+                    'subtotal' => 'orders.subtotal',
+                    'total' => 'orders.total',
+                    'tax' => 'orders.tax',
+                    'profit' => 'orders.profit',
+                    'due' => 'orders.due_amount',
+                    'status' => 'orders.status',
+                    'payment_status' => 'orders.paid_amount',
+                    'cashier_name' => 'user_id',
+                    'created_at' => 'orders.created_at'
+                ];
+
+                $dbColumn = $columnMap[$column] ?? $column;
+
+                if ($dbColumn === 'customers.name') {
+                    $query->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
+                          ->select('orders.*')  // Select all order fields
+                          ->orderBy('customers.name', $direction)
+                          ->orderBy('orders.id', $direction); // Secondary sort by order ID
+                } elseif ($dbColumn === 'user_id') {
+                    $query->join('users', 'orders.user_id', '=', 'users.id')
+                          ->select('orders.*')  // Select all order fields
+                          ->orderBy('users.name', $direction);
+                } else {
+                    $query->orderBy($dbColumn, $direction);
+                }
+            }, function($query) {
+                $query->latest('orders.created_at');
+            })
             ->paginate(10)
             ->through(function ($order) {
                 return [
                     'id' => $order->id,
-                    'order_number' => $order->order_number,
                     'customer_name' => $order->customer ? $order->customer->name : 'Walk-in Customer',
+                    'subtotal' => number_format($order->subtotal, 2),
                     'total' => number_format($order->total, 2),
                     'tax' => number_format($order->tax, 2),
+                    'profit' => number_format($order->profit, 2),
+                    'due' => number_format($order->due_amount, 2),
                     'status' => $order->status,
                     'payment_status' => $order->paid_amount >= $order->total ? 'paid' : 
                         ($order->paid_amount > 0 ? 'partial' : 'pending'),
@@ -118,7 +154,7 @@ class ReportController extends Controller
         // Add data
         $row = 2;
         foreach ($orders as $order) {
-            $sheet->setCellValue('A' . $row, $order->order_number);
+            $sheet->setCellValue('A' . $row, $order->id);
             $sheet->setCellValue('B' . $row, $order->customer ? $order->customer->name : 'Walk-in Customer');
             $sheet->setCellValue('C' . $row, $order->total);
             $sheet->setCellValue('D' . $row, $order->tax);

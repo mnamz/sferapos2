@@ -64,13 +64,6 @@
 
                     <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
                         <div class="p-6">
-                            <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Average Order Value</h3>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ currency }}{{ formatNumber(summary.average_order_value) }}</p>
-                        </div>
-                    </div>
-
-                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
-                        <div class="p-6">
                             <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Total Tax</h3>
                             <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ currency }}{{ formatNumber(summary.total_tax) }}</p>
                         </div>
@@ -84,62 +77,6 @@
                     </div>
                 </div>
 
-                <!-- Sales Chart -->
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg mb-6">
-                    <div class="p-6">
-                        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Daily Sales</h3>
-                        <div class="h-64">
-                            <canvas ref="salesChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Profit Details Table -->
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg mb-6">
-                    <div class="p-6">
-                        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Profit Details</h3>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead class="bg-gray-50 dark:bg-gray-700">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Product</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Quantity Sold</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Cost Price</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Selling Price</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total Revenue</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total Cost</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Profit</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                    <tr v-for="item in profitDetails" :key="item.product_id">
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <Link 
-                                                :href="route('products.show', item.product_id)"
-                                                class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
-                                            >
-                                                {{ item.product_name }}
-                                            </Link>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ item.quantity_sold }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ formatNumber(item.cost_price) }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ formatNumber(item.selling_price) }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ formatNumber(item.total_revenue) }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ formatNumber(item.total_cost) }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-green-600 dark:text-green-400">{{ currency }}{{ formatNumber(item.profit) }}</td>
-                                    </tr>
-                                </tbody>
-                                <tfoot class="bg-gray-50 dark:bg-gray-700">
-                                    <tr>
-                                        <td colspan="5" class="px-6 py-4 text-right font-semibold">Total Profit:</td>
-                                        <td colspan="2" class="px-6 py-4 text-green-600 dark:text-green-400 font-semibold">{{ currency }}{{ formatNumber(summary.total_profit) }}</td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Orders Table -->
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
                     <div class="p-6">
@@ -148,29 +85,48 @@
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead class="bg-gray-50 dark:bg-gray-700">
                                     <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Order #</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Customer</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tax</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Payment</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Cashier</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
+                                        <th 
+                                            v-for="column in [
+                                                { key: 'id', label: 'Order #' },
+                                                { key: 'customer_name', label: 'Customer' },
+                                                { key: 'subtotal', label: 'Subtotal' },
+                                                { key: 'tax', label: 'Tax' },
+                                                { key: 'total', label: 'Total' },
+                                                { key: 'profit', label: 'Profit' },
+                                                { key: 'due', label: 'Due' },
+                                                { key: 'status', label: 'Status' },
+                                                { key: 'payment_status', label: 'Payment' },
+                                                { key: 'cashier_name', label: 'Cashier' },
+                                                { key: 'created_at', label: 'Date' }
+                                            ]" 
+                                            :key="column.key"
+                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                                            @click="handleSort(column.key)"
+                                        >
+                                            <div class="flex items-center gap-1">
+                                                {{ column.label }}
+                                                <component 
+                                                    :is="getSortIcon(column.key)" 
+                                                    class="w-4 h-4"
+                                                    :class="{
+                                                        'text-indigo-600 dark:text-indigo-400': sortColumn === column.key
+                                                    }"
+                                                />
+                                            </div>
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                     <tr v-for="order in orders.data" :key="order.id">
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <Link 
-                                                :href="route('orders.show', order.id)"
-                                                class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
-                                            >
-                                                #{{ order.order_number }}
-                                            </Link>
+                                            #{{ order.id }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ order.customer_name }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ order.total }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ order.subtotal }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ order.tax }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ order.total }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-green-600 dark:text-green-400">{{ currency }}{{ order.profit }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-red-600 dark:text-red-400">{{ currency }}{{ order.due }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <span :class="{
                                                 'px-2 py-1 text-xs rounded-full': true,
@@ -212,7 +168,7 @@ import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref, onMounted, computed } from 'vue';
 import Chart from 'chart.js/auto';
 import Pagination from '@/Components/Pagination.vue';
-import { FileSpreadsheet } from 'lucide-vue-next';
+import { FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-vue-next';
 
 const props = defineProps({
     summary: Object,
@@ -226,6 +182,9 @@ const page = usePage();
 const currency = computed(() => page.props.settings?.currency || 'USD');
 const salesChart = ref(null);
 const salesChartInstance = ref(null);
+
+const sortColumn = ref('');
+const sortDirection = ref('asc');
 
 const breadcrumbs = [
     {
@@ -242,10 +201,29 @@ function applyFilters() {
     router.get(route('reports.index'), {
         start_date: props.filters.start_date,
         end_date: props.filters.end_date,
+        sort_column: sortColumn.value,
+        sort_direction: sortDirection.value,
     }, {
         preserveState: true,
         preserveScroll: true,
     });
+}
+
+function handleSort(column) {
+    if (sortColumn.value === column) {
+        sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortColumn.value = column;
+        sortDirection.value = 'asc';
+    }
+    applyFilters();
+}
+
+function getSortIcon(column) {
+    if (sortColumn.value !== column) {
+        return ArrowUpDown;
+    }
+    return sortDirection.value === 'asc' ? ArrowUp : ArrowDown;
 }
 
 onMounted(() => {
