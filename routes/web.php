@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\ActivityLogController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -19,6 +20,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/export', [ReportController::class, 'export'])->name('reports.export');
+    Route::get('activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index');
     Route::resource('suppliers', SupplierController::class);
     Route::get('/api/suppliers/search', [SupplierController::class, 'search'])->name('api.suppliers.search');
     Route::resource('users', UserController::class); 

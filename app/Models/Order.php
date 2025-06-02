@@ -5,38 +5,42 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use OwenIt\Auditing\Contracts\Auditable;
+use OwenIt\Auditing\Auditable as AuditableTrait;
 
-class Order extends Model
+class Order extends Model implements Auditable
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, AuditableTrait;
 
     protected $fillable = [
         'customer_id',
         'user_id',
+        'order_number',
         'subtotal',
         'tax',
+        'delivery_cost',
+        'discount',
         'total',
+        'profit',
         'paid_amount',
         'due_amount',
         'change_amount',
-        'delivery_cost',
-        'delivery_method',
         'payment_method',
+        'delivery_method',
         'remarks',
         'status',
-        'profit',
-        'discount',
     ];
 
     protected $casts = [
         'subtotal' => 'decimal:2',
         'tax' => 'decimal:2',
+        'delivery_cost' => 'decimal:2',
+        'discount' => 'decimal:2',
         'total' => 'decimal:2',
+        'profit' => 'decimal:2',
         'paid_amount' => 'decimal:2',
         'due_amount' => 'decimal:2',
         'change_amount' => 'decimal:2',
-        'delivery_cost' => 'decimal:2',
-        'discount' => 'decimal:2',
     ];
 
     // Define the available delivery methods

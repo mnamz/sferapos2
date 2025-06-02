@@ -7,10 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
+use OwenIt\Auditing\Contracts\Auditable;
+use OwenIt\Auditing\Auditable as AuditableTrait;
 
-class Product extends Model
+class Product extends Model implements Auditable
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, AuditableTrait;
 
     protected $fillable = [
         'name',
@@ -29,6 +31,7 @@ class Product extends Model
         'price' => 'decimal:2',
         'cost_price' => 'decimal:2',
         'stock' => 'integer',
+        'status' => 'boolean',
     ];
 
     protected $appends = ['image_url'];
