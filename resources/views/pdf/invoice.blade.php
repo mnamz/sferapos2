@@ -157,6 +157,8 @@
                     {{ ucfirst($order->payment_method) }}<br>
                     <span style="font-weight: bold;">Delivery Method</span><br>
                     {{ $order->delivery_method ?? '-' }}
+                    <span style="font-weight: bold;">Remark</span><br>
+                    {{ $order->remarks ?? '-' }}
                 </td>
                 <td style="width: 50%; vertical-align: top; border: none;">
                     <table style="width: 100%; border: none; font-size: 14px;">
