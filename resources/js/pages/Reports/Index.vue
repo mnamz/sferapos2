@@ -188,6 +188,13 @@ const salesChartInstance = ref(null);
 const sortColumn = ref('');
 const sortDirection = ref('asc');
 
+// Initialize filters with current month
+const filters = ref({
+    start_date: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    end_date: new Date().toISOString().split('T')[0],
+    ...props.filters
+});
+
 const breadcrumbs = [
     {
         title: 'Reports',
@@ -201,8 +208,8 @@ function formatNumber(number) {
 
 function applyFilters() {
     router.get(route('reports.index'), {
-        start_date: props.filters.start_date,
-        end_date: props.filters.end_date,
+        start_date: filters.value.start_date,
+        end_date: filters.value.end_date,
         sort_column: sortColumn.value,
         sort_direction: sortDirection.value,
     }, {
@@ -229,6 +236,8 @@ function getSortIcon(column) {
 }
 
 onMounted(() => {
+    applyFilters();
+    
     const ctx = salesChart.value.getContext('2d');
     
     if (salesChartInstance.value) {
