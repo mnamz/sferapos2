@@ -160,8 +160,22 @@
               <input :value="subtotal" readonly class="border rounded-lg px-3 py-1 flex-1 dark:bg-gray-700 dark:border-gray-600" />
             </div>
             <div class="flex gap-2 items-center">
-              <label class="w-28 text-gray-700 dark:text-gray-200">Tax ({{ props.tax_percentage }}%)</label>
-              <input :value="tax" readonly class="border rounded-lg px-3 py-1 flex-1 dark:bg-gray-700 dark:border-gray-600" />
+              <label class="w-28 text-gray-700 dark:text-gray-200">Tax ({{ taxPercentage }}%)</label>
+              <div class="flex gap-2 items-center flex-1">
+                <input 
+                    type="number" 
+                    v-model.number="taxPercentage" 
+                    min="0" 
+                    max="100" 
+                    step="0.01"
+                    class="border rounded-lg px-3 py-1 w-24 dark:bg-gray-700 dark:border-gray-600" 
+                />
+                <input 
+                    :value="tax" 
+                    readonly 
+                    class="border rounded-lg px-3 py-1 flex-1 dark:bg-gray-700 dark:border-gray-600" 
+                />
+              </div>
             </div>
             <div class="flex gap-2 items-center">
               <label class="w-28 text-gray-700 dark:text-gray-200">Discount</label>
@@ -259,8 +273,15 @@ import { router } from '@inertiajs/vue3';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 
+const props = defineProps({
+    tax_percentage: {
+        type: Number,
+        default: 0
+    }
+});
+
 const items = ref([
-  { product: null, productSearch: '', showDropdown: false, remark: '', stock: '', price: '', quantity: 1, total: 0 }
+    { product: null, productSearch: '', showDropdown: false, remark: '', stock: '', price: '', quantity: 1, total: 0 }
 ]);
 const products = ref([]);
 const orderDate = ref(new Date().toISOString().slice(0, 10));
@@ -270,6 +291,7 @@ const paid = ref(0);
 const remark = ref('');
 const paymentMethod = ref('cash');
 const deliveryMethod = ref('walk-in');
+const taxPercentage = ref(props.tax_percentage);
 const paymentMethods = [
   {
     value: 'cash',
@@ -321,13 +343,6 @@ const loadingCustomers = ref(false);
 
 const saving = ref(false);
 
-const props = defineProps({
-  tax_percentage: {
-    type: Number,
-    default: 0
-  }
-});
-
 const addItem = () => {
   items.value.push({ product: null, productSearch: '', showDropdown: false, remark: '', stock: '', price: '', quantity: 1, total: 0 });
 };
@@ -363,7 +378,7 @@ const subtotal = computed(() => {
   return items.value.reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0).toFixed(2);
 });
 const tax = computed(() => {
-  return (subtotal.value * (props.tax_percentage / 100)).toFixed(2);
+  return (subtotal.value * (taxPercentage.value / 100)).toFixed(2);
 });
 const total = computed(() => {
   return (parseFloat(subtotal.value) + parseFloat(tax.value) + parseFloat(deliveryCost.value) - parseFloat(discount.value)).toFixed(2);
@@ -428,6 +443,7 @@ const saveOrder = async () => {
       })),
       customer_id: selectedCustomer.value?.id || null,
       subtotal: parseFloat(subtotal.value),
+      tax_percentage: taxPercentage.value,
       tax: parseFloat(tax.value),
       delivery_cost: parseFloat(deliveryCost.value),
       discount: parseFloat(discount.value),

@@ -124,7 +124,7 @@ const footerNavItems: NavItem[] = [
         title: 'Shop Settings',
         href: route('pos.settings'),
         icon: Settings,
-        show: () => page.props.auth.user?.role === 'admin'
+        show: () => roles.includes('admin')
     },
 ].filter(item => item.show ? item.show() : true);
 </script>

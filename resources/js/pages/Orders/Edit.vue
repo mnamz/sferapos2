@@ -190,8 +190,18 @@
                                     <span>{{ currency }}{{ calculateSubtotal }}</span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span>Tax ({{ taxPercentage }}%)</span>
-                                    <span>{{ currency }}{{ calculateTax }}</span>
+                                    <span>Tax ({{ form.tax_percentage }}%)</span>
+                                    <div class="flex gap-2 items-center">
+                                        <input
+                                            type="number"
+                                            v-model.number="form.tax_percentage"
+                                            min="0"
+                                            max="100"
+                                            step="0.01"
+                                            class="w-20 text-right rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm"
+                                        />
+                                        <span>{{ currency }}{{ calculateTax }}</span>
+                                    </div>
                                 </div>
                                 <div class="flex justify-between">
                                     <span>Delivery Cost</span>
@@ -372,12 +382,15 @@ const props = defineProps({
     products: {
         type: Array,
         default: () => [],
+    },
+    tax_percentage: {
+        type: Number,
+        default: 0
     }
 });
 
 const page = usePage();
 const currency = computed(() => page.props.settings?.currency || 'USD');
-const taxPercentage = computed(() => page.props.settings?.tax_percentage || 0);
 
 const processing = ref(false);
 const showCustomerModal = ref(false);
@@ -404,7 +417,8 @@ const form = ref({
     paid_amount: parseFloat(props.order.paid_amount.toString().replace(/,/g, '')),
     due_amount: parseFloat(props.order.due_amount.toString().replace(/,/g, '')),
     change_amount: parseFloat(props.order.change_amount.toString().replace(/,/g, '')),
-    remarks: props.order.remarks
+    remarks: props.order.remarks,
+    tax_percentage: props.order.tax_percentage || props.tax_percentage
 });
 
 console.log(form.value.items);
@@ -415,7 +429,7 @@ const calculateSubtotal = computed(() => {
 });
 
 const calculateTax = computed(() => {
-    return (parseFloat(calculateSubtotal.value) * (taxPercentage.value / 100)).toFixed(2);
+    return (parseFloat(calculateSubtotal.value) * (form.value.tax_percentage / 100)).toFixed(2);
 });
 
 const calculateTotal = computed(() => {
