@@ -304,12 +304,12 @@ const paymentMethods = [
     icon: `<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'><rect x='2' y='7' width='20' height='10' rx='2' fill='#fff' stroke='#2563eb' stroke-width='2'/><rect x='2' y='11' width='20' height='2' fill='#2563eb'/></svg>`
   },
   {
-    value: 'ewallet',
+    value: 'e-wallet',
     label: 'E-Wallet',
     icon: `<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'><rect x='4' y='4' width='16' height='16' rx='4' fill='#fff' stroke='#2563eb' stroke-width='2'/><circle cx='12' cy='12' r='4' fill='#2563eb'/></svg>`
   },
   {
-    value: 'transfer',
+    value: 'online_transfer',
     label: 'Online Transfer',
     icon: `<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path d='M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2' stroke='#2563eb' stroke-width='2'/><polyline points='7 11 12 6 17 11' stroke='#2563eb' stroke-width='2' fill='none'/></svg>`
   },

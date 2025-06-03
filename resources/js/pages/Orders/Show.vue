@@ -211,6 +211,15 @@
                 >
                     Print Invoice
                 </a>
+                <button
+                    v-if="order.customer?.email"
+                    @click="sendInvoice"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    :disabled="sendingInvoice"
+                >
+                    <span v-if="sendingInvoice">Sending...</span>
+                    <span v-else>Send Invoice</span>
+                </button>
             </div>
         </div>
 
@@ -233,6 +242,7 @@ const page = usePage();
 const currency = computed(() => page.props.settings?.currency || 'USD');
 
 const showStatusDropdown = ref(false);
+const sendingInvoice = ref(false);
 
 const updateStatus = (status) => {
     if (confirm(`Are you sure you want to change the order status to ${status}?`)) {
@@ -244,6 +254,27 @@ const updateStatus = (status) => {
                 onSuccess: () => {
                     showStatusDropdown.value = false;
                     router.reload({ only: ['order'] });
+                },
+            }
+        );
+    }
+};
+
+const sendInvoice = () => {
+    if (confirm('Are you sure you want to send the invoice to ' + props.order.customer.email + '?')) {
+        sendingInvoice.value = true;
+        router.post(
+            route('orders.send-invoice', props.order.id),
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    sendingInvoice.value = false;
+                    alert('Invoice sent successfully!');
+                },
+                onError: () => {
+                    sendingInvoice.value = false;
+                    alert('Failed to send invoice. Please try again.');
                 },
             }
         );

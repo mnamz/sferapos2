@@ -80,7 +80,8 @@
                                         >
                                             <option value="cash">Cash</option>
                                             <option value="card">Card</option>
-                                            <option value="bank_transfer">Bank Transfer</option>
+                                            <option value="e-wallet">E-Wallet</option>
+                                            <option value="online_transfer">Online Transfer</option>
                                         </select>
                                     </div>
                                     <div class="mb-4">
