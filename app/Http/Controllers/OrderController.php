@@ -451,4 +451,28 @@ class OrderController extends Controller
 
         return back()->with('success', 'Order status updated successfully');
     }
+
+    public function destroy(Order $order)
+    {
+        try {
+            DB::beginTransaction();
+
+            // Restore product stock
+            foreach ($order->items as $item) {
+                if ($item->product) {
+                    $item->product->increment('stock', $item->quantity);
+                }
+            }
+
+            // Delete the order (this will also delete order items due to cascade)
+            $order->delete();
+
+            DB::commit();
+
+            return back()->with('success', 'Order deleted successfully');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Failed to delete order: ' . $e->getMessage());
+        }
+    }
 } 

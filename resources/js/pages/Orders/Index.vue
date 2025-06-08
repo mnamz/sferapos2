@@ -134,6 +134,12 @@
                                             >
                                                 Edit
                                             </Link>
+                                            <button
+                                                @click="destroy(order.id)"
+                                                class="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                                            >
+                                                Delete
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -206,6 +212,8 @@ import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import Pagination from '@/Components/Pagination.vue';
 import debounce from 'lodash/debounce';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-vue-next';
+import { toast } from 'vue3-toastify';
+import 'vue3-toastify/dist/index.css';
 
 const props = defineProps({
     orders: {
@@ -292,6 +300,16 @@ function exportCSV() {
 
 function printOrders() {
     window.print();
+}
+
+function destroy(id) {
+    if (confirm('Are you sure you want to delete this order?')) {
+        router.delete(route('orders.destroy', id), {
+            onSuccess: () => {
+                toast.success('Order deleted successfully');
+            },
+        });
+    }
 }
 </script>
 
