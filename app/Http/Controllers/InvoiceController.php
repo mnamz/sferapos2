@@ -18,7 +18,7 @@ class InvoiceController extends Controller
             'settings' => \App\Models\ShopSettings::first(),
         ]);
 
-        return $pdf->stream("invoice-{$order->order_number}.pdf");
+        return $pdf->stream("invoice-{$order->id}.pdf");
     }
 
     public function send(Order $order)

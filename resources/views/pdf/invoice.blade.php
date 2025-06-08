@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Invoice #{{ $order->order_number }}</title>
+    <title>Invoice #{{ $order->id }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
