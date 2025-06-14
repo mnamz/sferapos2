@@ -204,8 +204,9 @@ const currency = computed(() => page.props.settings?.currency || 'USD');
 const salesChart = ref(null);
 const salesChartInstance = ref(null);
 
-const sortColumn = ref('');
-const sortDirection = ref('asc');
+// Initialize sort parameters from URL
+const sortColumn = ref(props.filters?.sort_column || '');
+const sortDirection = ref(props.filters?.sort_direction || 'asc');
 
 // Initialize filters with current month
 const filters = ref({
@@ -259,8 +260,6 @@ function getSortIcon(column) {
 }
 
 onMounted(() => {
-    applyFilters();
-    
     const ctx = salesChart.value.getContext('2d');
     
     if (salesChartInstance.value) {

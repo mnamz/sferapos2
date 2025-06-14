@@ -132,6 +132,9 @@ class ReportController extends Controller
             'filters' => [
                 'start_date' => $startDate,
                 'end_date' => $endDate,
+                'delivery_method' => $request->input('delivery_method'),
+                'sort_column' => $request->input('sort_column'),
+                'sort_direction' => $request->input('sort_direction'),
             ],
         ]);
     }
