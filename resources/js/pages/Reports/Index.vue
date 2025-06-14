@@ -226,14 +226,14 @@ function formatNumber(number) {
     return parseFloat(number || 0).toFixed(2);
 }
 
-function applyFilters() {
+function applyFilters(resetPage = true) {
     router.get(route('reports.index'), {
         start_date: filters.value.start_date,
         end_date: filters.value.end_date,
         delivery_method: filters.value.delivery_method,
         sort_column: sortColumn.value,
         sort_direction: sortDirection.value,
-        page: 1 // Reset to first page when applying new filters
+        page: resetPage ? 1 : undefined // Only reset page when explicitly applying filters
     }, {
         preserveState: true,
         preserveScroll: true,
@@ -248,7 +248,7 @@ function handleSort(column) {
         sortColumn.value = column;
         sortDirection.value = 'asc';
     }
-    applyFilters();
+    applyFilters(true); // Reset to page 1 when sorting
 }
 
 function getSortIcon(column) {
