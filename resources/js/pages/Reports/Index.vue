@@ -233,9 +233,11 @@ function applyFilters() {
         delivery_method: filters.value.delivery_method,
         sort_column: sortColumn.value,
         sort_direction: sortDirection.value,
+        page: 1 // Reset to first page when applying new filters
     }, {
         preserveState: true,
         preserveScroll: true,
+        replace: true
     });
 }
 

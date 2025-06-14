@@ -24,9 +24,15 @@ class DashboardController extends Controller
         // This month's statistics
         $thisMonth = Carbon::now()->startOfMonth();
         $monthlyStats = [
-            'sales' => Order::whereMonth('created_at', $today->month)->sum('total'),
-            'orders' => Order::whereMonth('created_at', $today->month)->count(),
-            'customers' => Customer::whereMonth('created_at', $today->month)->count(),
+            'sales' => Order::whereDate('created_at', '>=', $thisMonth)
+                ->whereDate('created_at', '<=', Carbon::now()->endOfMonth())
+                ->sum('total'),
+            'orders' => Order::whereDate('created_at', '>=', $thisMonth)
+                ->whereDate('created_at', '<=', Carbon::now()->endOfMonth())
+                ->count(),
+            'customers' => Customer::whereDate('created_at', '>=', $thisMonth)
+                ->whereDate('created_at', '<=', Carbon::now()->endOfMonth())
+                ->count(),
         ];
 
         // Recent orders

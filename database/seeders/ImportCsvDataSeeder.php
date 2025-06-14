@@ -67,7 +67,7 @@ class ImportCsvDataSeeder extends Seeder
                 'address' => $address,
                 'phone' => $customer['phone'],
                 'email' => $customer['email'] ?: null,
-                'created_at' => now(),
+                'created_at' => $customer['timestamp'],
                 'updated_at' => now(),
             ]);
             $customerMap[$customer['id']] = $id;
@@ -164,8 +164,8 @@ class ImportCsvDataSeeder extends Seeder
 
     private function handleDecimalValue($value)
     {
-        // Remove any non-numeric characters except decimal point
-        $value = preg_replace('/[^0-9.]/', '', $value);
+        // Remove any non-numeric characters except decimal point and negative sign
+        $value = preg_replace('/[^0-9.\-]/', '', $value);
         
         // Handle multiple decimal points by keeping only the first one
         $parts = explode('.', $value);
