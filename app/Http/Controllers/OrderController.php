@@ -262,6 +262,10 @@ class OrderController extends Controller
                 $product->decrement('stock', $item['quantity']);
             }
 
+            // Submit to MyInvois
+            $myInvoisService = new \App\Services\MyInvoisService();
+            $myInvoisService->submitInvoice($order);
+
             DB::commit();
 
             return response()->json([
