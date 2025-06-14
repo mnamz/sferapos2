@@ -88,6 +88,7 @@ class ReportController extends Controller
                 $query->latest('orders.created_at');
             })
             ->paginate(10)
+            ->withQueryString()
             ->through(function ($order) {
                 return [
                     'id' => $order->id,
