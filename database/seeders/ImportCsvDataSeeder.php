@@ -18,6 +18,153 @@ class ImportCsvDataSeeder extends Seeder
 
     public function run(): void
     {
+        // Import Shop Settings
+        $shopSettings = [
+            'shop_name' => 'Default Shop',
+            'shop_address' => 'Default Address',
+            'shop_phone' => 'Default Phone',
+            'shop_email' => 'default@email.com',
+            'currency' => 'RM',
+            'tax_percentage' => 6.00,
+            'logo_path' => null,
+            'invoice_logo_path' => null,
+            'company_number' => null,
+            'tax_number' => null,
+            'payment_details' => null,
+            'footer_text' => 'Thank you for your business!',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+
+        // Override settings for Sunway
+        if (str_contains(strtolower($this->siteName), 'sunway')) {
+            $shopSettings = [
+                'shop_name' => 'MY RC CORNER TRADING',
+                'shop_address' => 'E-03-07, Sunway Geo Avenue, Jalan Lagoon Selatan, Sunway South Quay, 47500 Bandar Sunway, Selangor',
+                'shop_phone' => '601188889996',
+                'shop_email' => 'admin@myrccornertrading.com',
+                'currency' => 'RM',
+                'tax_percentage' => 0.00,
+                'logo_path' => null,
+                'invoice_logo_path' => null,
+                'company_number' => '202303144699 (003499115-D)',
+                'footer_text' => 'PUBLIC BANK 3235196200
+MY RC CORNER TRADING',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        if (str_contains(strtolower($this->siteName), 'kl')) {
+            $shopSettings = [
+                'shop_name' => 'MY RC CORNER TRADING',
+                'shop_address' => 'A-01-05, First Floor, Tower A, M Vertica Retail Shop,
+555, Jalan Cheras, Taman Pertama,
+56000 Kuala Lumpur',
+                'shop_phone' => '601188889996',
+                'shop_email' => 'admin@myrccornertrading.com',
+                'currency' => 'RM',
+                'tax_percentage' => 0.00,
+                'logo_path' => null,
+                'invoice_logo_path' => null,
+                'company_number' => '202303144699 (003499115-D)',
+                'footer_text' => 'PUBLIC BANK 3235196200
+MY RC CORNER TRADING',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        if (str_contains(strtolower($this->siteName), 'johor')) {
+            $shopSettings = [
+                'shop_name' => 'MY RC CORNER TRADING',
+                'shop_address' => 'C-01-10, Pangsapuri Duta Hijauan,
+Jalan Indah 15/2, Taman Bukit Indah,
+79100 Iskandar Puteri,
+Johor',
+                'shop_phone' => '601188889996',
+                'shop_email' => 'admin@myrccornertrading.com',
+                'currency' => 'RM',
+                'tax_percentage' => 0.00,
+                'logo_path' => null,
+                'invoice_logo_path' => null,
+                'company_number' => '202303144699 (003499115-D)',
+                'footer_text' => 'PUBLIC BANK 3235196200
+MY RC CORNER TRADING',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        if (str_contains(strtolower($this->siteName), 'setapak')) {
+            $shopSettings = [
+                'shop_name' => 'METAJO MARKETING',
+                'shop_address' => 'Platinum Walk, No.65-1, Block E
+No.2, Jalan Langkawi Setapak
+53300 Wilayah Persekutuan',
+                'shop_phone' => '601115555520',
+                'shop_email' => 'admin@dronecaremy.com',
+                'currency' => 'RM',
+                'tax_percentage' => 0.00,
+                'logo_path' => null,
+                'invoice_logo_path' => null,
+                'company_number' => '201503249038 (SA0351823-T)',
+                'footer_text' => 'CIMB BANK 8604617450
+METAJO MARKETING',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        if (str_contains(strtolower($this->siteName), 'puchong')) {
+            $shopSettings = [
+                'shop_name' => 'METAJO MARKETING',
+                'shop_address' => '57A, JALAN PU 7/4
+PUSAT BANDAR PUCHONG
+47100 PUCHONG
+SELANGOR',
+                'shop_phone' => '601115555520',
+                'shop_email' => 'admin@dronecaremy.com',
+                'currency' => 'RM',
+                'tax_percentage' => 0.00,
+                'logo_path' => null,
+                'invoice_logo_path' => null,
+                'company_number' => '201503249038 (SA0351823-T)',
+                'footer_text' => 'CIMB BANK 8604617450
+METAJO MARKETING',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        if (str_contains(strtolower($this->siteName), 'repair.dronecare.my')) {
+            $shopSettings = [
+                'shop_name' => 'METAJO MARKETING',
+                'shop_address' => '57A, JALAN PU 7/4
+PUSAT BANDAR PUCHONG
+47100 PUCHONG
+SELANGOR',
+                'shop_phone' => '601115555520',
+                'shop_email' => 'admin@dronecaremy.com',
+                'currency' => 'RM',
+                'tax_percentage' => 0.00,
+                'logo_path' => null,
+                'invoice_logo_path' => null,
+                'company_number' => '201503249038 (SA0351823-T)',
+                'footer_text' => 'CIMB BANK 8604617450
+METAJO MARKETING',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+        
+
+        // Insert or update shop settings
+        DB::table('shop_settings')->updateOrInsert(
+            ['id' => 1], // Assuming we want to use ID 1 for the main shop settings
+            $shopSettings
+        );
+
         // Import Categories
         $categories = $this->readCsvFile(storage_path($this->siteName.'/tbl_category.csv'));
         $categoryMap = [];
