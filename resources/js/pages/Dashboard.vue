@@ -27,6 +27,13 @@ const currency = computed(() => page.props.settings?.currency || 'USD');
 const salesChart = ref(null);
 const salesChartInstance = ref(null);
 
+function formatNumber(number) {
+    return parseFloat(number || 0).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
 onMounted(() => {
     const ctx = salesChart.value.getContext('2d');
     
@@ -97,7 +104,7 @@ onMounted(() => {
                             <div class="space-y-4">
                                 <div class="flex justify-between items-center">
                                     <span class="text-gray-600 dark:text-gray-400">Sales</span>
-                                    <span class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ currency }}{{ todayStats.sales }}</span>
+                                    <span class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ currency }}{{ formatNumber(todayStats.sales) }}</span>
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <span class="text-gray-600 dark:text-gray-400">Orders</span>
@@ -118,7 +125,7 @@ onMounted(() => {
                             <div class="space-y-4">
                                 <div class="flex justify-between items-center">
                                     <span class="text-gray-600 dark:text-gray-400">Sales</span>
-                                    <span class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ currency }}{{ monthlyStats.sales }}</span>
+                                    <span class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ currency }}{{ formatNumber(monthlyStats.sales) }}</span>
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <span class="text-gray-600 dark:text-gray-400">Orders</span>

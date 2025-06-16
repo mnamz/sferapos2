@@ -224,7 +224,10 @@ const breadcrumbs = [
 ];
 
 function formatNumber(number) {
-    return parseFloat(number || 0).toFixed(2);
+    return parseFloat(number || 0).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
 }
 
 function applyFilters(resetPage = true) {
