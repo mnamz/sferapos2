@@ -6,6 +6,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use App\Models\User;
 
 class ImportCsvDataSeeder extends Seeder
 {
@@ -48,11 +49,44 @@ class ImportCsvDataSeeder extends Seeder
                 'logo_path' => null,
                 'invoice_logo_path' => null,
                 'company_number' => '202303144699 (003499115-D)',
-                'footer_text' => 'PUBLIC BANK 3235196200
-MY RC CORNER TRADING',
+                'footer_text' => 'PUBLIC BANK 3235196200\nMY RC CORNER TRADING',
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
+
+            // Add Sunway users with Spatie roles
+            $milton = \App\Models\User::updateOrCreate(
+                ['email' => 'milton@myrccornertrading'],
+                [
+                    'name' => 'Milton',
+                    'password' => bcrypt('123456789'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+            $milton->assignRole('manager');
+
+            $henry = \App\Models\User::updateOrCreate(
+                ['email' => 'henry@myrccornertrading'],
+                [
+                    'name' => 'Henry',
+                    'password' => bcrypt('123456789'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+            $henry->assignRole('staff');
+
+            $kc = \App\Models\User::updateOrCreate(
+                ['email' => 'kc@myrccornertrading'],
+                [
+                    'name' => 'KC',
+                    'password' => bcrypt('123456789'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+            $kc->assignRole('staff');
         }
 
         if (str_contains(strtolower($this->siteName), 'kl')) {
@@ -73,6 +107,29 @@ MY RC CORNER TRADING',
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
+
+            // KL users
+            $hong = \App\Models\User::updateOrCreate(
+                ['email' => 'hong@myrccornertrading'],
+                [
+                    'name' => 'Hong',
+                    'password' => bcrypt('123456789'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+            $hong->assignRole('manager');
+
+            $ikmal = \App\Models\User::updateOrCreate(
+                ['email' => 'ikmal@myrccornertrading'],
+                [
+                    'name' => 'Ikmal',
+                    'password' => bcrypt('123456789'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+            $ikmal->assignRole('staff');
         }
 
         if (str_contains(strtolower($this->siteName), 'johor')) {
@@ -94,6 +151,18 @@ MY RC CORNER TRADING',
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
+
+            // Johor users
+            $brandon = \App\Models\User::updateOrCreate(
+                ['email' => 'brandon@myrccornertrading'],
+                [
+                    'name' => 'Brandon',
+                    'password' => bcrypt('123456789'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+            $brandon->assignRole('admin');
         }
 
         if (str_contains(strtolower($this->siteName), 'setapak')) {
@@ -114,6 +183,29 @@ METAJO MARKETING',
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
+
+            // Setapak users
+            $harith = \App\Models\User::updateOrCreate(
+                ['email' => 'harith@dronecaremy'],
+                [
+                    'name' => 'Harith',
+                    'password' => bcrypt('123456789'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+            $harith->assignRole('staff');
+
+            $brandon_setapak = \App\Models\User::updateOrCreate(
+                ['email' => 'brandon@dronecaremy'],
+                [
+                    'name' => 'Brandon',
+                    'password' => bcrypt('123456789'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+            $brandon_setapak->assignRole('manager');
         }
 
         if (str_contains(strtolower($this->siteName), 'puchong')) {
@@ -135,9 +227,42 @@ METAJO MARKETING',
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
+
+            $waineng = \App\Models\User::updateOrCreate(
+                ['email' => 'waineng@dronecaremy'],
+                [
+                    'name' => 'Wai Neng',
+                    'password' => bcrypt('123456789'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+            $waineng->assignRole('staff');
+
+            $kokhou = \App\Models\User::updateOrCreate(
+                ['email' => 'kokhou@dronecaremy'],
+                [
+                    'name' => 'Kok Hou',
+                    'password' => bcrypt('123456789'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+            $kokhou->assignRole('manager');
+
+            $brandon_dronecare = \App\Models\User::updateOrCreate(
+                ['email' => 'brandon@dronecaremy'],
+                [
+                    'name' => 'Brandon',
+                    'password' => bcrypt('123456789'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+            $brandon_dronecare->assignRole('manager');
         }
 
-        if (str_contains(strtolower($this->siteName), 'repair.dronecare.my')) {
+        if (str_contains(strtolower($this->siteName), 'repair.dronecaremy.com')) {
             $shopSettings = [
                 'shop_name' => 'METAJO MARKETING',
                 'shop_address' => '57A, JALAN PU 7/4
@@ -156,6 +281,39 @@ METAJO MARKETING',
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
+
+            $waineng = \App\Models\User::updateOrCreate(
+                ['email' => 'waineng@dronecaremy'],
+                [
+                    'name' => 'Wai Neng',
+                    'password' => bcrypt('123456789'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+            $waineng->assignRole('staff');
+
+            $kokhou = \App\Models\User::updateOrCreate(
+                ['email' => 'kokhou@dronecaremy'],
+                [
+                    'name' => 'Kok Hou',
+                    'password' => bcrypt('123456789'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+            $kokhou->assignRole('manager');
+
+            $brandon_dronecare = \App\Models\User::updateOrCreate(
+                ['email' => 'brandon@dronecaremy'],
+                [
+                    'name' => 'Brandon',
+                    'password' => bcrypt('123456789'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+            $brandon_dronecare->assignRole('manager');
         }
         
 
