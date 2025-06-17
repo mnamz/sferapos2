@@ -26,6 +26,9 @@ const page = usePage();
 const currency = computed(() => page.props.settings?.currency || 'USD');
 const salesChart = ref(null);
 const salesChartInstance = ref(null);
+const userRole = computed(() => page.props?.auth?.user?.roles[0] || '');
+
+// console.log(userRole.value.name);
 
 function formatNumber(number) {
     return parseFloat(number || 0).toLocaleString('en-US', {
@@ -98,7 +101,8 @@ onMounted(() => {
                 <!-- Stats Overview -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                     <!-- Today's Stats -->
-                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
+                     <h1 v-if="userRole.name === 'staff'" class="text-2xl font-bold text-gray-900 dark:text-gray-100">Welcome, {{ page.props.auth.user.name }}</h1>
+                    <div v-if="userRole.name !== 'staff'"  class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
                         <div class="p-6">
                             <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Today's Overview</h3>
                             <div class="space-y-4">
@@ -119,7 +123,7 @@ onMounted(() => {
                     </div>
 
                     <!-- Monthly Stats -->
-                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
+                    <div v-if="userRole.name !== 'staff'" class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
                         <div class="p-6">
                             <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">This Month</h3>
                             <div class="space-y-4">
@@ -140,7 +144,7 @@ onMounted(() => {
                     </div>
 
                     <!-- Low Stock Alerts -->
-                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
+                    <div v-if="userRole.name !== 'staff'" class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
                         <div class="p-6">
                             <div class="flex justify-between items-center mb-4">
                                 <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Low Stock Alerts</h3>
@@ -165,9 +169,8 @@ onMounted(() => {
                         </div>
                     </div>
                 </div>
-
                 <!-- Sales Chart -->
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg mb-6">
+                <div v-if="userRole.name !== 'staff'" class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg mb-6">
                     <div class="p-6">
                         <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Sales Last 7 Days</h3>
                         <div class="h-64">
@@ -186,7 +189,7 @@ onMounted(() => {
                                 <div v-for="order in recentOrders" :key="order.id" class="flex justify-between items-center border-b dark:border-gray-700 pb-3">
                                     <div>
                                         <Link :href="route('orders.show', order.id)" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
-                                            #{{ order.order_number }}
+                                            #{{ order.id }}
                                         </Link>
                                         <p class="text-sm text-gray-600 dark:text-gray-400">{{ order.customer_name }}</p>
                                         <p class="text-xs text-gray-500 dark:text-gray-500">{{ order.created_at }}</p>
@@ -209,7 +212,7 @@ onMounted(() => {
                     </div>
 
                     <!-- Top Products -->
-                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
+                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg" v-if="userRole.name !== 'staff'" >
                         <div class="p-6">
                             <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Top Selling Products</h3>
                             <div class="space-y-4">

@@ -21,6 +21,7 @@
                         Add New Order
                     </Link>
                     <button
+                        v-if="userRole.name !== 'staff'"
                         @click="exportCSV"
                         class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition text-center"
                     >
@@ -234,6 +235,7 @@ const search = ref(props.filters?.search || '');
 const remarkSearch = ref(props.filters?.remark || '');
 const sortColumn = ref('');
 const sortDirection = ref('asc');
+const userRole = computed(() => page.props?.auth?.user?.roles[0] || '');
 
 const debouncedSearch = debounce(() => {
     router.get(
