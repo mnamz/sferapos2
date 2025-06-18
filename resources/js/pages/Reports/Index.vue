@@ -171,7 +171,6 @@
                                             </span>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ order.delivery_method }}</td>
-                                        <!-- <td class="px-6 py-4 whitespace-nowrap">{{ order.cashier_name }}</td> -->
                                         <td class="px-6 py-4 whitespace-nowrap">{{ order.created_at }}</td>
                                     </tr>
                                 </tbody>
