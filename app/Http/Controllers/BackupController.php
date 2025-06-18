@@ -19,7 +19,7 @@ class BackupController extends Controller
 
         // 2. Find the latest backup file
         $disk = Storage::disk(config('backup.backup.destination.disks')[0] ?? 'local');
-        $files = $disk->files('laravel-backup');
+        $files = $disk->files('SferaPOS');
         $backupFiles = array_filter($files, function ($file) {
             return str_ends_with($file, '.zip');
         });
