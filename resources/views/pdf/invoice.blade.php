@@ -134,8 +134,8 @@
                 <tr style="background: #ddd;">
                     <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Item</th>
                     <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Quantity</th>
-                    <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Unit Price</th>
-                    <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Total</th>
+                    <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Unit Price (RM)</th>
+                    <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Total (RM)</th>
                 </tr>
             </thead>
             <tbody>
@@ -143,8 +143,8 @@
                 <tr style="border-bottom: 1px solid #ccc;">
                     <td style="padding: 6px 4px; border: none; text-align: left;">{{ $item->product_name }} {{ $item->remark ? '('.$item->remark.')' : '' }}</td>
                     <td style="padding: 6px 4px; border: none; text-align: center;">{{ $item->quantity }}</td>
-                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ $settings->currency }} {{ number_format($item->price, 0) }}</td>
-                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ $settings->currency }} {{ number_format($item->total, 0) }}</td>
+                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ number_format($item->price, 0) }}</td>
+                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ number_format($item->total, 0) }}</td>
                 </tr>
                 @endforeach
             </tbody>
