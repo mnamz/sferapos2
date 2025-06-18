@@ -38,6 +38,7 @@ class OrderController extends Controller
                     'total_amount' => 'orders.total',
                     'items_count' => 'orders.id',
                     'payment_method' => 'orders.payment_method',
+                    'delivery_method' => 'orders.delivery_method',
                     'status' => 'orders.status',
                     'created_at' => 'orders.created_at'
                 ];
@@ -71,6 +72,7 @@ class OrderController extends Controller
                     'payment_method' => ucfirst($order->payment_method),
                     'payment_status' => $order->paid_amount >= $order->total ? 'paid' : 
                         ($order->paid_amount > 0 ? 'partial' : 'pending'),
+                    'delivery_method' => $order->delivery_method,
                     'status' => $order->status,
                     'created_at' => $order->created_at->format('Y-m-d H:i:s'),
                     'items_count' => $order->items->count(),

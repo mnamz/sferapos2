@@ -72,12 +72,13 @@
                                             { key: 'customer_name', label: 'Customer' },
                                             { key: 'subtotal', label: 'Subtotal' },
                                             { key: 'tax', label: 'Tax' },
-                                            { key: 'total_amount', label: 'Total' },
+                                            // { key: 'total_amount', label: 'Total' },
                                             { key: 'profit', label: 'Profit' },
                                             { key: 'due', label: 'Due' },
-                                            { key: 'items_count', label: 'Items' },
+                                            // { key: 'items_count', label: 'Items' },
                                             { key: 'payment_method', label: 'Payment' },
                                             { key: 'status', label: 'Status' },
+                                            { key: 'delivery_method', label: 'Delivery Method' },
                                             { key: 'created_at', label: 'Date' }
                                         ]" 
                                         :key="column.key"
@@ -104,10 +105,10 @@
                                     <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ order.customer_name }}</td>
                                     <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.subtotal }}</td>
                                     <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.tax }}</td>
-                                    <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.total_amount }}</td>
+                                    <!-- <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.total_amount }}</td> -->
                                     <td class="px-4 py-2 text-green-600 dark:text-green-400">{{ currency }}{{ order.profit }}</td>
                                     <td class="px-4 py-2 text-red-600 dark:text-red-400">{{ currency }}{{ order.due }}</td>
-                                    <td class="px-4 py-2 text-gray-500 dark:text-gray-400 hidden md:table-cell">{{ order.items_count }}</td>
+                                    <!-- <td class="px-4 py-2 text-gray-500 dark:text-gray-400 hidden md:table-cell">{{ order.items_count }}</td> -->
                                     <td class="px-4 py-2 text-gray-500 dark:text-gray-400 hidden lg:table-cell">{{ order.payment_method }}</td>
                                     <td class="px-4 py-2">
                                         <span :class="{
@@ -120,6 +121,7 @@
                                             {{ order.status }}
                                         </span>
                                     </td>
+                                    <td class="px-4 py-2 text-gray-500 dark:text-gray-400 hidden md:table-cell">{{ order.delivery_method }}</td>
                                     <td class="px-4 py-2 text-gray-500 dark:text-gray-400 hidden md:table-cell">{{ order.created_at }}</td>
                                     <td class="px-4 py-2 print:hidden">
                                         <div class="flex gap-2">

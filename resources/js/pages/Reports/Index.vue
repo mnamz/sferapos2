@@ -110,12 +110,13 @@
                                                 { key: 'customer_name', label: 'Customer' },
                                                 { key: 'subtotal', label: 'Subtotal' },
                                                 { key: 'tax', label: 'Tax' },
-                                                { key: 'total', label: 'Total' },
+                                                // { key: 'total', label: 'Total' },
                                                 { key: 'profit', label: 'Profit' },
                                                 { key: 'due', label: 'Due' },
                                                 { key: 'status', label: 'Status' },
                                                 { key: 'payment_status', label: 'Payment' },
-                                                { key: 'cashier_name', label: 'Cashier' },
+                                                { key: 'delivery_method', label: 'Delivery Method' },
+                                                // { key: 'cashier_name', label: 'Cashier' },
                                                 { key: 'created_at', label: 'Date' }
                                             ]" 
                                             :key="column.key"
@@ -145,7 +146,7 @@
                                         <td class="px-6 py-4 whitespace-nowrap">{{ order.customer_name }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ order.subtotal }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ order.tax }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ order.total }}</td>
+                                        <!-- <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ order.total }}</td> -->
                                         <td class="px-6 py-4 whitespace-nowrap text-green-600 dark:text-green-400">{{ currency }}{{ order.profit }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-red-600 dark:text-red-400">{{ currency }}{{ order.due }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">
@@ -169,7 +170,8 @@
                                                 {{ order.payment_status }}
                                             </span>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ order.cashier_name }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ order.delivery_method }}</td>
+                                        <!-- <td class="px-6 py-4 whitespace-nowrap">{{ order.cashier_name }}</td> -->
                                         <td class="px-6 py-4 whitespace-nowrap">{{ order.created_at }}</td>
                                     </tr>
                                 </tbody>
