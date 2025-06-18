@@ -13,7 +13,7 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        // Today's statistics -- comment out for now - 1
+        // Today's statistics -- comment out for now - 1 - 2
         $today = Carbon::today();
         $todayStats = [
             'sales' => Order::whereDate('created_at', $today)->sum('total'),
