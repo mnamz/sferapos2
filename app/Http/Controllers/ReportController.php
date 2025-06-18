@@ -163,7 +163,7 @@ class ReportController extends Controller
         // Set headers with styling
         $headers = ['A1' => 'Order #', 'B1' => 'Customer', 'C1' => 'Total', 'D1' => 'Tax', 
                    'E1' => 'Profit', 'F1' => 'Due', 'G1' => 'Payment', 'H1' => 'Status',
-                   'I1' => 'Payment Status', 'J1' => 'Cashier', 'K1' => 'Date'];
+                   'I1' => 'Payment Status', 'J1' => 'Cashier', 'K1' => 'Date', 'L1' => 'Item Remarks'];
         
         foreach ($headers as $cell => $value) {
             $sheet->setCellValue($cell, $value);
@@ -173,6 +173,7 @@ class ReportController extends Controller
         // Add data
         $row = 2;
         foreach ($orders as $order) {
+            $itemRemarks = $order->items->pluck('remark')->filter()->values()->all();
             $sheet->setCellValue('A' . $row, $order->id);
             $sheet->setCellValue('B' . $row, $order->customer ? $order->customer->name : 'Walk-in Customer');
             $sheet->setCellValue('C' . $row, $order->total);
@@ -185,6 +186,7 @@ class ReportController extends Controller
                 ($order->paid_amount > 0 ? 'Partial' : 'Pending'));
             $sheet->setCellValue('J' . $row, $order->user->name);
             $sheet->setCellValue('K' . $row, $order->created_at->format('Y-m-d H:i:s'));
+            $sheet->setCellValue('L' . $row, json_encode($itemRemarks));
             
             // Format numbers
             $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
@@ -195,7 +197,7 @@ class ReportController extends Controller
         }
 
         // Auto-size columns
-        foreach (range('A', 'H') as $col) {
+        foreach (range('A', 'L') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
