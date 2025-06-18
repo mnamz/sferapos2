@@ -11,6 +11,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\BackupController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -40,6 +41,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.updateStatus');
     Route::delete('/orders/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
 });
+
+Route::get('/backup/sql', [BackupController::class, 'downloadSql'])
+    ->middleware(['auth'])
+    ->name('backup.sql');
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';

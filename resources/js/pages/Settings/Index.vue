@@ -219,6 +219,9 @@
                                 <Button :disabled="form.processing" class="bg-indigo-600 hover:bg-indigo-700">
                                     Save Settings
                                 </Button>
+                                <Button type="button" @click="downloadBackup" class="bg-green-600 hover:bg-green-700">
+                                    Backup Database
+                                </Button>
                             </div>
                         </form>
                     </div>
@@ -328,6 +331,29 @@ const handleInvoiceLogoUpload = (event) => {
         }
 
         form.invoice_logo = file;
+    }
+};
+
+const downloadBackup = async () => {
+    try {
+        const response = await fetch('/backup/sql', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/sql',
+            },
+        });
+        if (!response.ok) throw new Error('Failed to download backup');
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `database-backup-${new Date().toISOString().slice(0,10)}.sql`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        toast.error('Failed to download backup.');
     }
 };
 </script> 
