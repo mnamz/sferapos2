@@ -40,6 +40,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::put('/orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.updateStatus');
     Route::delete('/orders/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
+    Route::get('/orders/export-csv', [OrderController::class, 'exportCsv'])
+        ->middleware(['auth'])
+        ->name('orders.exportCsv');
 });
 
 Route::get('/backup/sql', [BackupController::class, 'downloadSql'])

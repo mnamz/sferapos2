@@ -268,36 +268,7 @@ function getSortIcon(column) {
 }
 
 function exportCSV() {
-    const header = [
-        'Order #',
-        'Customer',
-        'Total',
-        'Items',
-        'Payment',
-        'Payment Status',
-        'Status',
-        'Date'
-    ];
-    const rows = props.orders.data.map(order => [
-        order.id,
-        order.customer_name,
-        `${currency.value}${order.total_amount}`,
-        order.items_count,
-        order.payment_method,
-        order.payment_status,
-        order.status,
-        order.created_at
-    ]);
-    const csvContent = [header, ...rows]
-        .map(e => e.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
-        .join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', 'orders.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    window.open('/orders/export-csv', '_blank');
 }
 
 function printOrders() {

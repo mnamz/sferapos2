@@ -479,4 +479,51 @@ class OrderController extends Controller
             return back()->with('error', 'Failed to delete order: ' . $e->getMessage());
         }
     }
+
+    public function exportCsv()
+    {
+        $orders = \App\Models\Order::with(['customer', 'user'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="orders.csv"',
+        ];
+
+        $columns = [
+            'id', 'order_number', 'customer_name', 'cashier_name', 'subtotal', 'tax', 'total', 'profit', 'paid_amount', 'due_amount', 'change_amount', 'payment_method', 'delivery_method', 'status', 'created_at', 'item_remarks'
+        ];
+
+        $callback = function() use ($orders, $columns) {
+            $file = fopen('php://output', 'w');
+            // Header
+            fputcsv($file, $columns);
+            // Rows
+            foreach ($orders as $order) {
+                $remarks = $order->items->pluck('remark')->filter()->values()->all();
+                fputcsv($file, [
+                    $order->id,
+                    $order->order_number ?? '',
+                    $order->customer ? $order->customer->name : 'Walk-in Customer',
+                    $order->user ? $order->user->name : '',
+                    $order->subtotal,
+                    $order->tax,
+                    $order->total,
+                    $order->profit,
+                    $order->paid_amount,
+                    $order->due_amount,
+                    $order->change_amount,
+                    $order->payment_method,
+                    $order->delivery_method,
+                    $order->status,
+                    $order->created_at,
+                    json_encode($remarks),
+                ]);
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
 } 
