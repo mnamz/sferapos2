@@ -9,6 +9,7 @@ use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Models\Audit;
 
 class User extends Authenticatable implements Auditable
 {
@@ -50,5 +51,19 @@ class User extends Authenticatable implements Auditable
             'password' => 'hashed',
             'status' => 'boolean'
         ];
+    }
+
+    public function auditEvent($event)
+    {
+        // Create an audit entry with a custom event (e.g., login, logout)
+        Audit::create([
+            'auditable_type' => self::class,
+            'auditable_id'   => $this->id,
+            'event'          => $event,
+            'url'            => request()->fullUrl(),
+            'ip_address'     => request()->ip(),
+            'user_agent'     => request()->userAgent(),
+            'created_at'     => now(),
+        ]);
     }
 }
