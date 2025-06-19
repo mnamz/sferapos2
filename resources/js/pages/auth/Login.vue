@@ -12,6 +12,7 @@ import { LoaderCircle } from 'lucide-vue-next';
 defineProps<{
     status?: string;
     canResetPassword: boolean;
+    demoMode: boolean;
 }>();
 
 const form = useForm({
@@ -33,6 +34,12 @@ const submit = () => {
 
         <div v-if="status" class="mb-4 text-center text-sm font-medium text-green-600">
             {{ status }}
+        </div>
+
+        <div v-if="demoMode" class="mb-4 rounded border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-800 shadow-sm">
+            <div class="font-semibold mb-1">Demo Credentials</div>
+            <div><span class="font-medium">Email:</span> test@example.com</div>
+            <div><span class="font-medium">Password:</span> password</div>
         </div>
 
         <form @submit.prevent="submit" class="flex flex-col gap-6">
