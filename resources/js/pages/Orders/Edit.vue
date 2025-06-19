@@ -459,8 +459,8 @@ const filteredCustomers = computed(() => {
     if (!customerSearch.value) return props.customers;
     const search = customerSearch.value.toLowerCase();
     return props.customers.filter(customer => 
-        customer.name.toLowerCase().includes(search) ||
-        customer.email.toLowerCase().includes(search)
+        (customer.name && customer.name.toLowerCase().includes(search)) ||
+        (customer.email && customer.email.toLowerCase().includes(search))
     );
 });
 

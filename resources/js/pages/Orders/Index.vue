@@ -138,6 +138,7 @@
                                                 Edit
                                             </Link>
                                             <button
+                                                v-if="userRole.name == 'admin'"
                                                 @click="destroy(order.id)"
                                                 class="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
                                             >
