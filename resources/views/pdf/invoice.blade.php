@@ -183,7 +183,7 @@
             </tr>
         </table>
 
-        <div style="margin-top: 40px; margin-left: 10px;">
+        <div style="margin-top: 25px; margin-left: 10px;">
             <div style="float: left; width: 30%;">
                 <strong>Bank No :</strong><br>
                 @if($settings->footer_text)
