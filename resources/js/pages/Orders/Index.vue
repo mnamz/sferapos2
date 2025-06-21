@@ -5,8 +5,8 @@
         { name: 'Orders', href: route('orders.index') }
     ]">
         <div class="container mx-auto py-6 px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between">
-                <h1 class="text-2xl font-semibold text-gray-900">Orders</h1>
+            <div class="flex items-center justify-between mb-6">
+                <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Orders</h1>
                 <div class="flex gap-2 print:hidden">
                     <Link
                         :href="route('sales.index')"
@@ -132,6 +132,7 @@
                                                 View
                                             </Link>
                                             <Link
+                                                v-if="userRole.name == 'admin' || userRole.name == 'manager'"
                                                 :href="route('orders.edit', order.id)"
                                                 class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
                                             >
