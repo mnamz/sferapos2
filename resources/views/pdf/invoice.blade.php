@@ -129,7 +129,7 @@
             @endif
         </div> -->
 
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
             <thead>
                 <tr style="background: #ddd;">
                     <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Item</th>
@@ -150,7 +150,7 @@
             </tbody>
         </table>
 
-        <table style="width: 100%; margin-top: 30px; margin-bottom: 10px; border: none;">
+        <table style="width: 100%; margin-top: 5px; margin-bottom: 10px; border: none;">
             <tr>
                 <td style="width: 50%; vertical-align: top; border: none;">
                     <span style="font-weight: bold;">Payment Method</span><br>
