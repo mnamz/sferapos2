@@ -164,7 +164,7 @@ class ReportController extends Controller
         // Set headers with styling
         $headers = ['A1' => 'Order #', 'B1' => 'Customer', 'C1' => 'Total', 'D1' => 'Tax', 
                    'E1' => 'Profit', 'F1' => 'Due', 'G1' => 'Payment', 'H1' => 'Status',
-                   'I1' => 'Payment Status', 'J1' => 'Cashier', 'K1' => 'Date', 'L1' => 'Item Remarks'];
+                   'I1' => 'Payment Status', 'J1' => 'Cashier', 'K1' => 'Date', 'L1' => 'Item Remarks', 'M1' => 'Delivery Method'];
         
         foreach ($headers as $cell => $value) {
             $sheet->setCellValue($cell, $value);
@@ -188,7 +188,8 @@ class ReportController extends Controller
             $sheet->setCellValue('J' . $row, $order->user->name);
             $sheet->setCellValue('K' . $row, $order->created_at->format('Y-m-d H:i:s'));
             $sheet->setCellValue('L' . $row, json_encode($itemRemarks));
-            
+            $sheet->setCellValue('M' . $row, $order->delivery_method);
+
             // Format numbers
             $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
             $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
