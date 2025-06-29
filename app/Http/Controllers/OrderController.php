@@ -28,6 +28,17 @@ class OrderController extends Controller
                     $q->where('remark', 'like', "%{$remark}%");
                 });
             })
+            ->when(request('start_date'), function($query, $startDate) {
+                $query->whereDate('created_at', '>=', $startDate);
+            })
+            ->when(request('end_date'), function($query, $endDate) {
+                $query->whereDate('created_at', '<=', $endDate);
+            })
+            ->when(request('product_search'), function($query, $productSearch) {
+                $query->whereHas('items.product', function($q) use ($productSearch) {
+                    $q->where('name', 'like', "%{$productSearch}%");
+                });
+            })
             ->when(request('sort_column'), function($query, $column) {
                 $direction = request('sort_direction', 'asc');
                 
@@ -85,7 +96,7 @@ class OrderController extends Controller
 
         return Inertia::render('Orders/Index', [
             'orders' => $orders,
-            'filters' => request()->only(['search', 'remark']),
+            'filters' => request()->only(['search', 'remark', 'start_date', 'end_date', 'product_search']),
             'tax_percentage' => $taxPercentage,
         ]);
     }

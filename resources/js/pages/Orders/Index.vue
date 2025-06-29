@@ -59,6 +59,25 @@
                             class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             @input="debouncedSearch"
                         >
+                        <input
+                            v-model="productSearch"
+                            type="text"
+                            placeholder="Search by product name or SKU"
+                            class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            @input="debouncedSearch"
+                        >
+                        <input
+                            v-model="startDate"
+                            type="date"
+                            class="px-2 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            @change="debouncedSearch"
+                        >
+                        <input
+                            v-model="endDate"
+                            type="date"
+                            class="px-2 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            @change="debouncedSearch"
+                        >
                     </div>
 
                     <!-- Desktop Table View -->
@@ -237,6 +256,9 @@ const currency = computed(() => page.props.settings?.currency || 'USD');
 
 const search = ref(props.filters?.search || '');
 const remarkSearch = ref(props.filters?.remark || '');
+const productSearch = ref(props.filters?.product_search || '');
+const startDate = ref(props.filters?.start_date || '');
+const endDate = ref(props.filters?.end_date || '');
 const sortColumn = ref('');
 const sortDirection = ref('asc');
 const userRole = computed(() => page.props?.auth?.user?.roles[0] || '');
@@ -247,6 +269,9 @@ const debouncedSearch = debounce(() => {
         { 
             search: search.value, 
             remark: remarkSearch.value,
+            product_search: productSearch.value,
+            start_date: startDate.value,
+            end_date: endDate.value,
             sort_column: sortColumn.value,
             sort_direction: sortDirection.value
         },
