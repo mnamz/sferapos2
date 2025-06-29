@@ -495,7 +495,31 @@ class OrderController extends Controller
 
     public function exportCsv()
     {
-        $orders = \App\Models\Order::with(['customer', 'user'])
+        $orders = \App\Models\Order::with(['customer', 'user', 'items.product'])
+            ->when(request('search'), function($query, $search) {
+                $query->where(function($q) use ($search) {
+                    $q->where('id', 'like', "%{$search}%")
+                      ->orWhereHas('customer', function($q) use ($search) {
+                          $q->where('name', 'like', "%{$search}%");
+                      });
+                });
+            })
+            ->when(request('remark'), function($query, $remark) {
+                $query->whereHas('items', function($q) use ($remark) {
+                    $q->where('remark', 'like', "%{$remark}%");
+                });
+            })
+            ->when(request('start_date'), function($query, $startDate) {
+                $query->whereDate('created_at', '>=', $startDate);
+            })
+            ->when(request('end_date'), function($query, $endDate) {
+                $query->whereDate('created_at', '<=', $endDate);
+            })
+            ->when(request('product_search'), function($query, $productSearch) {
+                $query->whereHas('items.product', function($q) use ($productSearch) {
+                    $q->where('name', 'like', "%{$productSearch}%");
+                });
+            })
             ->orderBy('created_at', 'desc')
             ->get();
 

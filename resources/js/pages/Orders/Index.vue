@@ -120,7 +120,11 @@
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
                                 <tr v-for="order in orders.data" :key="order.id">
-                                    <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ order.id }}</td>
+                                    <td class="px-4 py-2 text-gray-900 dark:text-gray-100">
+                                        <Link :href="route('orders.show', order.id)" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300">
+                                            {{ order.id }}
+                                        </Link>
+                                    </td>
                                     <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ order.customer_name }}</td>
                                     <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.subtotal }}</td>
                                     <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.tax }}</td>
@@ -297,7 +301,15 @@ function getSortIcon(column) {
 }
 
 function exportCSV() {
-    window.open('/orders/export-csv', '_blank');
+    const params = new URLSearchParams({
+        search: search.value,
+        remark: remarkSearch.value,
+        product_search: productSearch.value,
+        start_date: startDate.value,
+        end_date: endDate.value,
+    });
+    const url = `/orders/export-csv?${params.toString()}`;
+    window.open(url, '_blank');
 }
 
 function printOrders() {
