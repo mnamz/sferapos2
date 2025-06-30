@@ -434,11 +434,6 @@ class OrderController extends Controller
                 if ($item['product_id']) {
                     $product = Product::find($item['product_id']);
                     if ($product) {
-                        // First restore the old quantity
-                        $oldItem = $order->items()->where('product_id', $item['product_id'])->first();
-                        if ($oldItem) {
-                            $product->increment('stock', $oldItem->quantity);
-                        }
                         // Then deduct the new quantity
                         $product->decrement('stock', $item['quantity']);
                     }
