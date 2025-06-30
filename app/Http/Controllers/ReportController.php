@@ -22,7 +22,7 @@ class ReportController extends Controller
             ->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
             ->when($request->input('delivery_method'), function($query, $method) {
                 if ($method === 'in-store') {
-                    $query->whereIn('delivery_method', ['walk-in', 'delivery']);
+                    $query->whereIn('delivery_method', ['walk-in', 'delivery', 'pickup']);
                 } else {
                     $query->where('delivery_method', $method);
                 }
