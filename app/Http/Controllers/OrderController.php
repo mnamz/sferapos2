@@ -407,6 +407,12 @@ class OrderController extends Controller
             ]);
 
             // Update order items
+            // Restore stock for all existing order items before deleting
+            foreach ($order->items as $oldItem) {
+                if ($oldItem->product) {
+                    $oldItem->product->increment('stock', $oldItem->quantity);
+                }
+            }
             $order->items()->delete(); // Remove existing items
             foreach ($validated['items'] as $item) {
                 $product = Product::find($item['product_id']);
