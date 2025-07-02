@@ -156,12 +156,12 @@
                     <span style="font-weight: bold;">Payment Method</span><br>
                     {{ ucwords(str_replace('_', ' ', $order->payment_method)) }}<br>
                     @php
-                        $host = parse_url($order->delivery_method, PHP_URL_HOST);
+                        $host = parse_url(config('app.url'), PHP_URL_HOST);
                     @endphp
 
-                    @if (!$host || strpos($host, '.sfera.my') === false)
+                    @if (!($host && substr($host, -10) === '.sfera.my'))
                         <span style="font-weight: bold;">Delivery Method</span><br>
-                        {{ ucwords($order->delivery_method ?? '-') }}<br>
+                        {{ $order->delivery_method ?? '-' }}<br>
                     @endif
                     @if (!empty($order->remarks))
                         <span style="font-weight: bold;">Remark</span><br>
