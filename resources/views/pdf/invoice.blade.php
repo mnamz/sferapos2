@@ -95,9 +95,16 @@
                 </td>
                 <td style="width: 50%; vertical-align: top; border: none;">
                     <table style="width: 100%; border: none; font-size: 14px;">
+                        @php
+                            $host = parse_url(config('app.url'), PHP_URL_HOST);
+                        @endphp
                         <tr>
                             <td style="border: none; font-weight: bold; padding: 1px 0;">Invoice</td>
+                            @if (!($host == 'ops.sfera.my'))
                             <td style="border: none; text-align: right; padding: 1px 0;">{{ $order->id }}</td>
+                            @else
+                            <td style="border: none; text-align: right; padding: 1px 0;">{{ now()->format('dmY') . '-' . $order->id . '-INV' }}</td>
+                            @endif
                         </tr>
                         <tr>
                             <td style="border: none; font-weight: bold; padding: 1px 0;">Invoice Date</td>
