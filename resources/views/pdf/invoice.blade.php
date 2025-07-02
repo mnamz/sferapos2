@@ -104,7 +104,14 @@
                             <td style="border: none; text-align: right; padding: 1px 0;">{{ $order->created_at->format($settings->date_format) }}</td>
                         </tr>
                         <tr>
+                            @php
+                                $host = parse_url(config('app.url'), PHP_URL_HOST);
+                            @endphp
+                            @if (!($host == 'ops.sfera.my'))
                             <td style="border: none; font-weight: bold; padding: 1px 0;">Salesman</td>
+                            @else
+                            <td style="border: none; font-weight: bold; padding: 1px 0;">Issued By</td>
+                            @endif
                             <td style="border: none; text-align: right; padding: 1px 0;">{{ $order->user->name ?? '-' }}</td>
                         </tr>
                         <tr>
