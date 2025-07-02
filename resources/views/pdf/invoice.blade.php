@@ -154,7 +154,7 @@
             <tr>
                 <td style="width: 50%; vertical-align: top; border: none;">
                     <span style="font-weight: bold;">Payment Method</span><br>
-                    {{ ucfirst($order->payment_method) }}<br>
+                    {{ ucwords(str_replace('_', ' ', $order->payment_method)) }}<br>
                     <span style="font-weight: bold;">Delivery Method</span><br>
                     {{ $order->delivery_method ?? '-' }}<br>
                     @if (!empty($order->remarks))
