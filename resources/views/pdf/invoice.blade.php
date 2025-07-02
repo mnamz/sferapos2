@@ -159,7 +159,7 @@
                         $host = parse_url(config('app.url'), PHP_URL_HOST);
                     @endphp
 
-                    @if (!($host && substr($host, -10) === '.sfera.my'))
+                    @if (!($host == 'https://ops.sfera.my'))
                         <span style="font-weight: bold;">Delivery Method</span><br>
                         {{ $order->delivery_method ?? '-' }}<br>
                     @endif
