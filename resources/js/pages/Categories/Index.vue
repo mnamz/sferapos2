@@ -78,6 +78,7 @@
                                             Edit
                                         </Link>
                                         <button
+                                            v-if="userRole.name == 'admin' || userRole.name == 'manager'"
                                             @click="destroy(category.id)"
                                             class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                                         >
@@ -145,6 +146,8 @@ const props = defineProps({
     categories: Object,
     filters: Object
 });
+
+const userRole = computed(() => page.props?.auth?.user?.roles[0] || '');
 
 const search = ref(props.filters?.search || '');
 
