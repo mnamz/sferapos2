@@ -124,7 +124,7 @@
                                         Edit
                                     </Link>
                                     <button
-                                        v-if="userRole.name == 'admin' || userRole.name == 'manager'"
+                                        v-if="userRole.name == 'admin'"
                                         @click="destroy(customer.id)"
                                         class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                                     >
