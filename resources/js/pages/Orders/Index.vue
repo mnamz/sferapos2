@@ -86,20 +86,7 @@
                             <thead class="bg-gray-50 dark:bg-gray-700">
                                 <tr>
                                     <th 
-                                        v-for="column in [
-                                            { key: 'id', label: 'Order #' },
-                                            { key: 'customer_name', label: 'Customer' },
-                                            { key: 'subtotal', label: 'Subtotal' },
-                                            { key: 'tax', label: 'Tax' },
-                                            // { key: 'total_amount', label: 'Total' },
-                                            { key: 'profit', label: 'Profit' },
-                                            { key: 'due', label: 'Due' },
-                                            // { key: 'items_count', label: 'Items' },
-                                            { key: 'payment_method', label: 'Payment' },
-                                            { key: 'status', label: 'Status' },
-                                            { key: 'delivery_method', label: 'Delivery Method' },
-                                            { key: 'created_at', label: 'Date' }
-                                        ]" 
+                                        v-for="column in columns"
                                         :key="column.key"
                                         class="px-4 py-2 text-left font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                                         @click="handleSort(column.key)"
@@ -129,7 +116,7 @@
                                     <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.subtotal }}</td>
                                     <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.tax }}</td>
                                     <!-- <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.total_amount }}</td> -->
-                                    <td class="px-4 py-2 text-green-600 dark:text-green-400">{{ currency }}{{ order.profit }}</td>
+                                    <td v-if="userRole.name == 'admin'" class="px-4 py-2 text-green-600 dark:text-green-400">{{ currency }}{{ order.profit }}</td>
                                     <td class="px-4 py-2 text-red-600 dark:text-red-400">{{ currency }}{{ order.due }}</td>
                                     <!-- <td class="px-4 py-2 text-gray-500 dark:text-gray-400 hidden md:table-cell">{{ order.items_count }}</td> -->
                                     <td class="px-4 py-2 text-gray-500 dark:text-gray-400 hidden lg:table-cell">{{ order.payment_method }}</td>
@@ -266,6 +253,26 @@ const endDate = ref(props.filters?.end_date || '');
 const sortColumn = ref('');
 const sortDirection = ref('asc');
 const userRole = computed(() => page.props?.auth?.user?.roles[0] || '');
+
+const columns = computed(() => {
+    const baseColumns = [
+        { key: 'id', label: 'Order #' },
+        { key: 'customer_name', label: 'Customer' },
+        { key: 'subtotal', label: 'Subtotal' },
+        { key: 'tax', label: 'Tax' },
+        // { key: 'total_amount', label: 'Total' },
+        { key: 'due', label: 'Due' },
+        // { key: 'items_count', label: 'Items' },
+        { key: 'payment_method', label: 'Payment' },
+        { key: 'status', label: 'Status' },
+        { key: 'delivery_method', label: 'Delivery Method' },
+        { key: 'created_at', label: 'Date' }
+    ];
+    if (userRole.value.name === 'admin') {
+        baseColumns.splice(4, 0, { key: 'profit', label: 'Profit' }); // Insert after 'tax'
+    }
+    return baseColumns;
+});
 
 const debouncedSearch = debounce(() => {
     router.get(
