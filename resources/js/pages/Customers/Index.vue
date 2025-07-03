@@ -158,7 +158,6 @@ const props = defineProps({
     filters: Object
 });
 
-import { computed } from 'vue';
 const userRole = computed(() => page.props?.auth?.user?.roles[0] || '');
 
 const search = ref(props.filters?.search || '');
