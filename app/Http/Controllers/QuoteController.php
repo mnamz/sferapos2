@@ -227,7 +227,7 @@ class QuoteController extends Controller
     {
         $quote = Quote::with(['customer', 'user', 'items.product'])->findOrFail($id);
         $settings = \App\Models\ShopSettings::first();
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('quotes.pdf', ['quote' => $quote, 'settings' => $settings]);
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('quotes.pdf', ['quote' => $quote, 'settings' => $settings, 'user' => Auth::user()]);
         return $pdf->stream('quote-'.$quote->id.'.pdf');
     }
 }
