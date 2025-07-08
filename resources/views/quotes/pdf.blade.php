@@ -95,13 +95,19 @@
                     @else
                         Walk-in Customer
                     @endif
+                    @php
+                            $host = parse_url(config('app.url'), PHP_URL_HOST);
+                    @endphp
                 </td>
                 <td style="width: 50%; vertical-align: top; border: none;">
                     <table style="width: 100%; border: none; font-size: 14px;">
                         <tr>
                             <td style="border: none; font-weight: bold; padding: 1px 0;">Quote</td>
+                            @if (!($host == 'ops.sfera.my'))
                             <td style="border: none; text-align: right; padding: 1px 0;">{{ $quote->id }}</td>
-                        </tr>
+                            @else
+                            <td style="border: none; text-align: right; padding: 1px 0;">{{ now()->format('dmY') . '-' . $quote->id . '-QUOTE' }}</td>
+                            @endif                        </tr>
                         <tr>
                             <td style="border: none; font-weight: bold; padding: 1px 0;">Quote Date</td>
                             <td style="border: none; text-align: right; padding: 1px 0;">{{ \Carbon\Carbon::parse($quote->created_at)->format($settings->date_format ?? 'Y-m-d') }}</td>
