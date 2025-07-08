@@ -119,7 +119,15 @@
             <thead>
                 <tr style="background: #ddd;">
                     <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Item</th>
+                    @php
+                        $host = parse_url(config('app.url'), PHP_URL_HOST);
+                    @endphp
+
+                    @if (($host == 'ops.sfera.my'))
+                    <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Qty/Hours</th>
+                    @else
                     <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Quantity</th>
+                    @endif
                     <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Unit Price ({{ $settings->currency ?? 'RM' }})</th>
                     <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Total ({{ $settings->currency ?? 'RM' }})</th>
                     <th style="padding: 8px 4px; background: #ddd;border: none; font-weight: bold; text-align: center;">Remark</th>
