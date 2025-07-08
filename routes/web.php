@@ -12,6 +12,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\BackupController;
+use App\Http\Controllers\QuoteController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -31,6 +32,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/orders/{order}/send-invoice', [InvoiceController::class, 'send'])->name('orders.send-invoice');
     Route::get('/orders/create', [\App\Http\Controllers\OrderController::class, 'create'])->name('orders.create');
     Route::get('/sales', [\App\Http\Controllers\OrderController::class, 'mySales'])->name(name: 'sales.index');
+    Route::resource('quotes', QuoteController::class);
+    Route::get('quotes/{quote}/pdf', [QuoteController::class, 'pdf'])->name('quotes.pdf');
     
     // Add low stock products route
     Route::get('/products/low-stock', [ProductController::class, 'lowStock'])->name('products.low-stock');
