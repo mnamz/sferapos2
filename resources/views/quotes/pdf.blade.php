@@ -110,10 +110,6 @@
                             <td style="border: none; font-weight: bold; padding: 1px 0;">Issued By</td>
                             <td style="border: none; text-align: right; padding: 1px 0;">{{ $quote->user->name ?? '-' }}</td>
                         </tr>
-                        <tr>
-                            <td style="border: none; font-weight: bold; padding: 1px 0;">Status</td>
-                            <td style="border: none; text-align: right; padding: 1px 0;">{{ ucfirst($quote->status) }}</td>
-                        </tr>
                     </table>
                 </td>
             </tr>

@@ -83,6 +83,7 @@ class QuoteController extends Controller
             'items.*.total' => 'required|numeric',
             'items.*.remark' => 'nullable|string',
             'items.*.custom_fields' => 'nullable|array',
+            'status' => 'required|string|in:draft,sent,accepted,rejected',
         ]);
         $quote = Quote::create([
             'user_id' => Auth::id(),
@@ -94,6 +95,7 @@ class QuoteController extends Controller
             'delivery_cost' => $data['delivery_cost'] ?? 0,
             'delivery_method' => $data['delivery_method'] ?? null,
             'remarks' => $data['remarks'] ?? null,
+            'status' => $data['status'],
         ]);
         foreach ($data['items'] as $item) {
             $quote->items()->create([
@@ -158,6 +160,7 @@ class QuoteController extends Controller
             'items.*.total' => 'required|numeric',
             'items.*.remark' => 'nullable|string',
             'items.*.custom_fields' => 'nullable|array',
+            'status' => 'required|string|in:draft,sent,accepted,rejected',
         ]);
         $quote = Quote::findOrFail($id);
         $quote->update([
@@ -169,6 +172,7 @@ class QuoteController extends Controller
             'delivery_cost' => $data['delivery_cost'] ?? 0,
             'delivery_method' => $data['delivery_method'] ?? null,
             'remarks' => $data['remarks'] ?? null,
+            'status' => $data['status'],
         ]);
         // Sync items
         $existingItemIds = $quote->items()->pluck('id')->toArray();
