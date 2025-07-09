@@ -47,6 +47,7 @@ class OrderController extends Controller
                     'id' => 'orders.id',
                     'customer_name' => 'customers.name',
                     'total_amount' => 'orders.total',
+                    'due' => 'orders.due_amount',
                     'items_count' => 'orders.id',
                     'payment_method' => 'orders.payment_method',
                     'delivery_method' => 'orders.delivery_method',
