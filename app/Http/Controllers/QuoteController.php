@@ -95,7 +95,6 @@ class QuoteController extends Controller
             'delivery_cost' => $data['delivery_cost'] ?? 0,
             'delivery_method' => $data['delivery_method'] ?? null,
             'remarks' => $data['remarks'] ?? null,
-            'status' => $data['status'],
         ]);
         foreach ($data['items'] as $item) {
             $quote->items()->create([
