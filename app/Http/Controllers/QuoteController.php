@@ -83,7 +83,7 @@ class QuoteController extends Controller
             'items.*.total' => 'required|numeric',
             'items.*.remark' => 'nullable|string',
             'items.*.custom_fields' => 'nullable|array',
-            'status' => 'required|string|in:draft,sent,accepted,rejected',
+            'status' => 'string|in:draft,sent,accepted,rejected',
         ]);
         $quote = Quote::create([
             'user_id' => Auth::id(),
