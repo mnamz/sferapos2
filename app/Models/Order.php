@@ -7,12 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
+use Carbon\Carbon;
 
 class Order extends Model implements Auditable
 {
     use HasFactory, SoftDeletes, AuditableTrait;
 
     protected $fillable = [
+        'invoice_number',
         'customer_id',
         'user_id',
         'order_number',
@@ -43,6 +45,8 @@ class Order extends Model implements Auditable
         'change_amount' => 'decimal:2',
     ];
 
+    protected $appends = ['formatted_invoice_number'];
+
     // Define the available delivery methods
     public static $deliveryMethods = [
         'pickup' => 'Pickup',
@@ -63,6 +67,12 @@ class Order extends Model implements Auditable
         'completed' => 'Completed',
         'cancelled' => 'Cancelled',
     ];
+
+    public function getFormattedInvoiceNumberAttribute()
+    {
+        $prefix = Carbon::parse($this->created_at)->format('ym-');
+        return $prefix . (empty($this->invoice_number) ? $this->id : $this->invoice_number);
+    }
 
     public function items()
     {

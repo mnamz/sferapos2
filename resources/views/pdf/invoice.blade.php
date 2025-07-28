@@ -101,7 +101,7 @@
                         <tr>
                             <td style="border: none; font-weight: bold; padding: 1px 0;">Invoice</td>
                             @if (!($host == 'ops.sfera.my'))
-                            <td style="border: none; text-align: right; padding: 1px 0;">{{ $order->id }}</td>
+                            <td style="border: none; text-align: right; padding: 1px 0;">{{ $order->formatted_invoice_number }}</td>
                             @else
                             <td style="border: none; text-align: right; padding: 1px 0;">{{ now()->format('dmY') . '-' . $order->id . '-INV' }}</td>
                             @endif
