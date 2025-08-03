@@ -164,7 +164,7 @@ class ReportController extends Controller
         // Set headers with styling
         $headers = ['A1' => 'Order #', 'B1' => 'Customer', 'C1' => 'Total', 'D1' => 'Tax', 
                    'E1' => 'Profit', 'F1' => 'Due', 'G1' => 'Payment', 'H1' => 'Status',
-                   'I1' => 'Payment Status', 'J1' => 'Cashier', 'K1' => 'Date', 'L1' => 'Item Remarks', 'M1' => 'Delivery Method'];
+                   'I1' => 'Payment Status', 'J1' => 'Cashier', 'K1' => 'Date', 'L1' => 'Items', 'M1' => 'Item Remarks', 'N1' => 'Delivery Method'];
         
         foreach ($headers as $cell => $value) {
             $sheet->setCellValue($cell, $value);
@@ -187,8 +187,9 @@ class ReportController extends Controller
                 ($order->paid_amount > 0 ? 'Partial' : 'Pending'));
             $sheet->setCellValue('J' . $row, $order->user->name);
             $sheet->setCellValue('K' . $row, $order->created_at->format('Y-m-d H:i:s'));
-            $sheet->setCellValue('L' . $row, json_encode($itemRemarks));
-            $sheet->setCellValue('M' . $row, $order->delivery_method);
+            $sheet->setCellValue('L' . $row, json_encode($order->items->pluck('product_name')->toArray()));
+            $sheet->setCellValue('M' . $row, json_encode($itemRemarks));
+            $sheet->setCellValue('N' . $row, $order->delivery_method);
 
             // Format numbers
             $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
@@ -199,7 +200,7 @@ class ReportController extends Controller
         }
 
         // Auto-size columns
-        foreach (range('A', 'L') as $col) {
+        foreach (range('A', 'N') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
