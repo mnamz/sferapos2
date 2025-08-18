@@ -103,6 +103,7 @@ class ReportController extends Controller
                         ($order->paid_amount > 0 ? 'partial' : 'pending'),
                     'created_at' => Carbon::parse($order->created_at)->format('Y-m-d H:i:s'),
                     'delivery_method' => $order->delivery_method,
+                    'payment_method' => $order->payment_method,
                     'cashier_name' => $order->user->name,
                 ];
             });

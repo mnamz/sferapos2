@@ -116,6 +116,7 @@
                                                 { key: 'status', label: 'Status' },
                                                 { key: 'payment_status', label: 'Payment' },
                                                 { key: 'delivery_method', label: 'Delivery Method' },
+                                                { key: 'payment_method', label: 'Payment Method' },
                                                 // { key: 'cashier_name', label: 'Cashier' },
                                                 { key: 'created_at', label: 'Date' }
                                             ]" 
@@ -171,6 +172,7 @@
                                             </span>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ order.delivery_method }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ order.payment_method }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ order.created_at }}</td>
                                     </tr>
                                 </tbody>
