@@ -15,7 +15,7 @@ class InvoiceController extends Controller
     {
         $pdf = PDF::loadView('pdf.invoice', [
             'order' => $order,
-            'settings' => \App\Models\ShopSettings::first(),
+            'settings' => ShopSettings::first(),
         ]);
 
         return $pdf->stream("invoice-{$order->id}.pdf");

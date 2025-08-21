@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'tms_receipts' => [
+        'endpoint' => env('TMS_ENDPOINT', 'https://tms.1utama.com.my/POS/POSService.svc/SendReceipts'),
+        'authorization' => env('TMS_AUTHORIZATION_TOKEN'),
+        'is_test' => env('TMS_IS_TEST', false),
+    ],
+
 ];
