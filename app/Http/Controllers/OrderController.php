@@ -278,12 +278,12 @@ class OrderController extends Controller
             }
 
             // Submit to MyInvois
-            $myInvoisService = new \App\Services\MyInvoisService();
-            $myInvoisService->submitInvoice($order);
+            // $myInvoisService = new \App\Services\MyInvoisService();
+            // $myInvoisService->submitInvoice($order);
 
             // Call TMS service to send receipt
-            $tmsReceiptService = new TmsReceiptService();
-            $tmsReceiptService->sendReceipt($order->receipt_id);
+            // $tmsReceiptService = new TmsReceiptService();
+            // $tmsReceiptService->sendReceipt($order->receipt_id);
 
             DB::commit();
 
