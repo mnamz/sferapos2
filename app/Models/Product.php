@@ -53,4 +53,18 @@ class Product extends Model implements Auditable
         }
         return Storage::disk('public')->url($this->image);
     }
+
+    /**
+     * Scope a query to match a product name using case-insensitive, normalized comparison.
+     * Normalization removes '/', '-', and '*' characters from both the column and the query.
+     */
+    public function scopeWhereNameMatchesNormalized($query, string $term)
+    {
+        $normalizedTerm = strtolower(str_replace(['/', '-', '*', ' '], '', $term));
+
+        // Use nested REPLACE to normalize the name column; wrap in LOWER for case-insensitive match
+        $raw = "LOWER(REPLACE(REPLACE(REPLACE(REPLACE(products.name, '/', ''), '-', ''), '*', ''), ' ', '')) LIKE ?";
+
+        return $query->whereRaw($raw, ["%{$normalizedTerm}%"]);
+    }
 } 

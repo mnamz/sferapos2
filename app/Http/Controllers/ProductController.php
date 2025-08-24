@@ -18,15 +18,16 @@ class ProductController extends Controller
             'products' => Product::query()
                 ->with(['category:id,name', 'supplier:id,name'])
                 ->when($request->input('search'), function($query, $search) {
-                    $query->where(function($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%")
-                          ->orWhere('description', 'like', "%{$search}%")
-                          ->orWhere('barcode', 'like', "%{$search}%")
-                          ->orWhereHas('category', function($q) use ($search) {
-                              $q->where('name', 'like', "%{$search}%");
+                    $lower = strtolower($search);
+                    $query->where(function($q) use ($lower) {
+                        $q->whereNameMatchesNormalized($lower)
+                          ->orWhereRaw('LOWER(description) LIKE ?', ["%{$lower}%"])
+                          ->orWhereRaw('LOWER(barcode) LIKE ?', ["%{$lower}%"]) 
+                          ->orWhereHas('category', function($cq) use ($lower) {
+                              $cq->whereRaw('LOWER(name) LIKE ?', ["%{$lower}%"]);
                           })
-                          ->orWhereHas('supplier', function($q) use ($search) {
-                              $q->where('name', 'like', "%{$search}%");
+                          ->orWhereHas('supplier', function($sq) use ($lower) {
+                              $sq->whereRaw('LOWER(name) LIKE ?', ["%{$lower}%"]);
                           });
                     });
                 })
@@ -154,12 +155,13 @@ class ProductController extends Controller
                 ->where('stock', '<=', 10)
                 ->where('status', 'active')
                 ->when($request->input('search'), function($query, $search) {
-                    $query->where(function($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%")
-                          ->orWhere('description', 'like', "%{$search}%")
-                          ->orWhere('barcode', 'like', "%{$search}%")
-                          ->orWhereHas('category', function($q) use ($search) {
-                              $q->where('name', 'like', "%{$search}%");
+                    $lower = strtolower($search);
+                    $query->where(function($q) use ($lower) {
+                        $q->whereNameMatchesNormalized($lower)
+                          ->orWhereRaw('LOWER(description) LIKE ?', ["%{$lower}%"])
+                          ->orWhereRaw('LOWER(barcode) LIKE ?', ["%{$lower}%"]) 
+                          ->orWhereHas('category', function($cq) use ($lower) {
+                              $cq->whereRaw('LOWER(name) LIKE ?', ["%{$lower}%"]);
                           });
                     });
                 })
@@ -222,10 +224,11 @@ class ProductController extends Controller
             ->with(['category:id,name'])
             ->select('id', 'name', 'cost_price', 'stock', 'category_id')
             ->when($request->input('search'), function($query, $search) {
-                $query->where(function($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                      ->orWhereHas('category', function($q) use ($search) {
-                          $q->where('name', 'like', "%{$search}%");
+                $lower = strtolower($search);
+                $query->where(function($q) use ($lower) {
+                    $q->whereNameMatchesNormalized($lower)
+                      ->orWhereHas('category', function($cq) use ($lower) {
+                          $cq->whereRaw('LOWER(name) LIKE ?', ["%{$lower}%"]);
                       });
                 });
             })
@@ -268,7 +271,8 @@ class ProductController extends Controller
             ->select('name', 'cost_price', 'stock', 'category_id')
             ->with('category:id,name')
             ->when($request->input('search'), function($query, $search) {
-                $query->where('name', 'like', "%{$search}%");
+                $lower = strtolower($search);
+                $query->whereNameMatchesNormalized($lower);
             })
             ->when($request->input('sort'), function($query, $sort) use ($request) {
                 $direction = $request->input('direction', 'asc');
@@ -306,5 +310,23 @@ class ProductController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    public function search(Request $request)
+    {
+        $query = $request->get('q', '');
+
+        if ($query === '') {
+            return collect();
+        }
+
+        $lower = strtolower($query);
+
+        return Product::query()
+            ->select('id', 'name', 'price', 'stock', 'barcode')
+            ->whereNameMatchesNormalized($lower)
+            ->orderBy('name')
+            ->limit(20)
+            ->get();
     }
 } 

@@ -40,6 +40,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/products/inventory-cost', [ProductController::class, 'inventoryCost'])->name('products.inventory-cost');
     Route::get('/products/inventory-cost/export', [ProductController::class, 'exportInventoryCost'])->name('products.inventory-cost.export');
     Route::post('/products/{product}/adjust-stock', [ProductController::class, 'adjustStock'])->name('products.adjust-stock');
+    Route::get('/api/products/search', [ProductController::class, 'search'])->name('api.products.search');
 
     Route::put('/orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.updateStatus');
     Route::delete('/orders/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
