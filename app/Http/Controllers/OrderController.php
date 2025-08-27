@@ -9,6 +9,7 @@ use App\Models\ShopSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Native\Laravel\Facades\System;
 
 class OrderController extends Controller
 {
@@ -264,9 +265,34 @@ class OrderController extends Controller
                 $product->decrement('stock', $item['quantity']);
             }
 
-            // // Submit to MyInvois
-            // $myInvoisService = new \App\Services\MyInvoisService();
-            // $myInvoisService->submitInvoice($order);
+            // Print simple ESC/POS text receipt
+            try {
+                $settings = ShopSettings::first();
+                $printScriptPath = $settings?->print_script_path;
+                if ($printScriptPath) {
+                    $orderJson = [
+                        'header' => [
+                            'store' => $settings->shop_name ?? '',
+                            'address' => $settings->shop_address ?? '',
+                            'city' => '', // You can add a city field to settings if needed
+                            'phone' => 'Tel.: ' . ($settings->shop_phone ?? ''),
+                        ],
+                        'cashier' => auth()->user()->name ?? '',
+                        'manager' => '', // Add manager logic if available
+                        'items' => collect($validated['items'])->map(function($item) {
+                            return [
+                                'name' => Product::find($item['id'])->name ?? 'Product',
+                                'qty' => $item['quantity'],
+                                'price' => $item['price'],
+                            ];
+                        })->toArray(),
+                        'cash' => $validated['paid_amount'],
+                    ];
+                    app(\App\Services\PrintingService::class)->printReceipt($orderJson, $printScriptPath);
+                }
+            } catch (\Exception $e) {
+                \Log::error('ESC/POS print failed', ['error' => $e->getMessage()]);
+            }
 
             DB::commit();
 

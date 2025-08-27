@@ -6,6 +6,7 @@ use App\Models\ShopSettings;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
+use Native\Laravel\Facades\System;
 
 class ShopSettingsController extends Controller
 {
@@ -23,10 +24,16 @@ class ShopSettingsController extends Controller
             'tax_number' => null,
             'payment_details' => null,
             'footer_text' => null,
+            'printer' => null,
         ]);
+
+        $system = [
+            'printer' => System::printers(),
+        ];
         
         return Inertia::render('Settings/Index', [
-            'settings' => $settings
+            'settings' => $settings,
+            'system' => $system,
         ]);
     }
 
@@ -43,6 +50,7 @@ class ShopSettingsController extends Controller
             'tax_number' => 'nullable|string|max:255',
             'payment_details' => 'nullable|string',
             'footer_text' => 'nullable|string',
+            'printer' => 'nullable|string',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'invoice_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);

@@ -389,7 +389,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import axios from 'axios';
@@ -418,6 +418,10 @@ const deliveryCost = ref(0);
 const paidAmount = ref(0);
 const remarks = ref('');
 const discount = ref(0);
+
+// Global barcode scan buffer
+const globalBarcodeBuffer = ref('');
+let globalBarcodeTimeout = null;
 
 // Add currency computed property
 const currency = computed(() => {
@@ -576,7 +580,8 @@ const checkout = async () => {
         const orderData = {
             items: cart.value.map(item => ({
                 id: item.id,
-                quantity: item.quantity
+                quantity: item.quantity,
+                price: item.price,
             })),
             customer_id: selectedCustomer.value?.id,
             subtotal: parseFloat(cartTotal.value),
@@ -614,6 +619,34 @@ const checkout = async () => {
     }
 };
 
+const handleGlobalBarcodeInput = (event) => {
+    // Ignore if modifier keys are pressed
+    if (event.ctrlKey || event.altKey || event.metaKey) return;
+
+    // Only process printable characters and Enter
+    if (event.key.length === 1 || event.key === 'Enter') {
+        if (globalBarcodeTimeout) clearTimeout(globalBarcodeTimeout);
+
+        if (event.key !== 'Enter') {
+            globalBarcodeBuffer.value += event.key;
+            // Reset buffer if no key pressed for 100ms
+            globalBarcodeTimeout = setTimeout(() => {
+                globalBarcodeBuffer.value = '';
+            }, 100);
+        } else {
+            // Barcode scan complete (Enter pressed)
+            if (globalBarcodeBuffer.value.length >= 8) {
+                // Find product by barcode
+                const product = products.value.find(p => p.barcode === globalBarcodeBuffer.value);
+                if (product) {
+                    addToCart(product);
+                }
+            }
+            globalBarcodeBuffer.value = '';
+        }
+    }
+};
+
 // Lifecycle hooks
 onMounted(() => {
     searchInput.value?.focus();
@@ -626,6 +659,12 @@ onMounted(() => {
             showCustomerSearch.value = false;
         }
     });
+
+    document.addEventListener('keydown', handleGlobalBarcodeInput);
+});
+
+onUnmounted(() => {
+    document.removeEventListener('keydown', handleGlobalBarcodeInput);
 });
 
 // Add watcher for customer search

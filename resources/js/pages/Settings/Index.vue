@@ -2,7 +2,7 @@
     <Head title="Shop Settings" />
 
     <AppLayout :breadcrumbs="[
-        { name: 'Settings', href: route('pos.settings') }
+        { text: 'Settings', href: route('pos.settings') }
     ]">
         <div class="container mx-auto py-6">
             <div class="max-w-7xl mx-auto">
@@ -212,6 +212,30 @@
                                         />
                                         <InputError :message="form.errors.footer_text" class="mt-2" />
                                     </div>
+
+                                    <!-- Printer -->
+                                    <div>
+                                        <Label for="printer">Printer</Label>
+                                        <Select id="printer" v-model="form.printer" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 focus:border-indigo-500 focus:ring-indigo-500">
+                                            <option v-for="printer in system.printer" :key="printer.name" :value="printer.name">
+                                                {{ printer.name }}
+                                            </option>
+                                        </Select>
+                                        <InputError :message="form.errors.printer" class="mt-2" />
+                                    </div>
+
+                                    <!-- Print Script Path -->
+                                    <div>
+                                        <Label for="print_script_path">Print Script Path</Label>
+                                        <Input
+                                            id="print_script_path"
+                                            v-model="form.print_script_path"
+                                            type="text"
+                                            class="mt-1 block w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                                            placeholder="/absolute/path/to/print.php"
+                                        />
+                                        <InputError :message="form.errors.print_script_path" class="mt-2" />
+                                    </div>
                                 </div>
                             </div>
 
@@ -243,6 +267,7 @@ import InputError from '@/Components/InputError.vue';
 import { currencies, defaultCurrency } from '@/config/currency';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
+import Select from '@/Components/ui/select/Select.vue';
 
 const props = defineProps<{
     settings: {
@@ -258,8 +283,16 @@ const props = defineProps<{
         payment_details?: string;
         footer_text?: string;
         invoice_logo_path?: string;
+        print_script_path?: string;
+    };
+    system: {
+        printer: {
+            name: string;
+        }[];
     };
 }>();
+
+console.log('printer', props.system.printer);
 
 const form = useForm({
     shop_name: props.settings.shop_name,
@@ -268,12 +301,14 @@ const form = useForm({
     shop_email: props.settings.shop_email,
     currency: props.settings.currency || defaultCurrency.code,
     tax_percentage: props.settings.tax_percentage,
-    logo: null,
-    invoice_logo: null,
+    logo: null as File | null,
+    invoice_logo: null as File | null,
     company_number: props.settings.company_number || '',
     tax_number: props.settings.tax_number || '',
     payment_details: props.settings.payment_details || '',
     footer_text: props.settings.footer_text || '',
+    printer: props.system.printer[0].name,
+    print_script_path: props.settings.print_script_path || '',
 });
 
 const submit = () => {
@@ -290,13 +325,13 @@ const submit = () => {
     });
 };
 
-const handleLogoUpload = (event) => {
-    const file = event.target.files[0];
+const handleLogoUpload = (event: Event) => {
+    const file = (event.target as HTMLInputElement).files?.[0];
     if (file) {
         // Validate file size (2MB max)
         if (file.size > 2 * 1024 * 1024) {
             toast.error('Logo file size must be less than 2MB');
-            event.target.value = '';
+            (event.target as HTMLInputElement).value = '';
             return;
         }
         
@@ -304,7 +339,7 @@ const handleLogoUpload = (event) => {
         const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif'];
         if (!validTypes.includes(file.type)) {
             toast.error('Invalid file type. Please upload a JPEG, PNG, or GIF image.');
-            event.target.value = '';
+            (event.target as HTMLInputElement).value = '';
             return;
         }
 
@@ -312,13 +347,13 @@ const handleLogoUpload = (event) => {
     }
 };
 
-const handleInvoiceLogoUpload = (event) => {
-    const file = event.target.files[0];
+const handleInvoiceLogoUpload = (event: Event) => {
+    const file = (event.target as HTMLInputElement).files?.[0];
     if (file) {
         // Validate file size (2MB max)
         if (file.size > 2 * 1024 * 1024) {
             toast.error('Invoice logo file size must be less than 2MB');
-            event.target.value = '';
+            (event.target as HTMLInputElement).value = '';
             return;
         }
         
@@ -326,7 +361,7 @@ const handleInvoiceLogoUpload = (event) => {
         const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif'];
         if (!validTypes.includes(file.type)) {
             toast.error('Invalid file type. Please upload a JPEG, PNG, or GIF image.');
-            event.target.value = '';
+            (event.target as HTMLInputElement).value = '';
             return;
         }
 

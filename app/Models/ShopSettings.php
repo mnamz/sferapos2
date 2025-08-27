@@ -20,7 +20,9 @@ class ShopSettings extends Model
         'company_number',
         'tax_number',
         'payment_details',
-        'footer_text'
+        'footer_text',
+        'printer',
+        'print_script_path',
     ];
 
     protected $casts = [

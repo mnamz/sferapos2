@@ -46,6 +46,10 @@ return new class extends Migration
             $table->boolean('enable_tax')->default(true);
             $table->boolean('enable_delivery')->default(true);
             
+            // Printer
+            $table->string('printer')->nullable();
+            $table->string('print_script_path')->nullable();
+            
             $table->timestamps();
         });
     }
