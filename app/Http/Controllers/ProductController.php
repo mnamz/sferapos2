@@ -125,7 +125,6 @@ class ProductController extends Controller
     {
         $products = Product::with('category')
             ->where('status', 'active')
-            ->where('stock', '>', 0)
             ->select('id', 'name', 'price', 'stock', 'barcode', 'category_id', 'image')
             ->get();
 

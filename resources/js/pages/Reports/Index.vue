@@ -49,18 +49,13 @@
                             >
                                 Apply Filters
                             </button>
-                            <a
-                                :href="route('reports.export', { 
-                                    start_date: filters.start_date, 
-                                    end_date: filters.end_date,
-                                    delivery_method: filters.delivery_method 
-                                })"
+                            <button
+                                @click="exportReport"
                                 class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center gap-2"
-                                target="_blank"
                             >
                                 <FileSpreadsheet class="w-4 h-4" />
-                                Export Excel
-                            </a>
+                                Export
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -315,4 +310,49 @@ onMounted(() => {
         }
     });
 });
+
+async function exportReport() {
+    const params = new URLSearchParams({
+        start_date: filters.value.start_date,
+        end_date: filters.value.end_date,
+        delivery_method: filters.value.delivery_method || '',
+        // default CSV; add format: 'xlsx' to request XLSX when available
+    });
+    const url = route('reports.export') + '?' + params.toString();
+
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to export');
+        }
+
+        const blob = await response.blob();
+        const contentDisposition = response.headers.get('Content-Disposition') || '';
+        let filename = contentDisposition.split('filename=')[1];
+        if (filename) {
+            filename = filename.replace(/"/g, '');
+        } else {
+            // fallback filename
+            filename = `orders_report_${filters.value.start_date}_to_${filters.value.end_date}.csv`;
+        }
+
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+        console.error(e);
+        alert('Export failed. Please try again.');
+    }
+}
 </script> 
