@@ -44,7 +44,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             ShopSettingsSeeder::class, // First, create shop settings
-            ImportCsvDataSeeder::class, // Import data from CSV files
+            // ImportCsvDataSeeder::class, // Import data from CSV files
             CustomerSeeder::class,      // Finally create customers
         ]);
     }

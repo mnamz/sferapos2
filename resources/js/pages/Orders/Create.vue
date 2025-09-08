@@ -210,6 +210,20 @@
             </div>
           </div>
           <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-4">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <label class="text-gray-700 dark:text-gray-200 font-medium">Service Expenses</label>
+                <button type="button" @click="addExpense" class="bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700">Add</button>
+              </div>
+              <div class="space-y-2">
+                <div v-for="(expense, idx) in expenses" :key="idx" class="grid grid-cols-12 gap-2 items-center">
+                  <input v-model="expense.name" placeholder="Name" class="col-span-4 border rounded-lg px-2 py-1 dark:bg-gray-700 dark:border-gray-600" />
+                  <input type="number" v-model.number="expense.amount" min="0" step="0.01" placeholder="Amount" class="col-span-3 border rounded-lg px-2 py-1 text-right dark:bg-gray-700 dark:border-gray-600" />
+                  <input v-model="expense.remark" placeholder="Remark" class="col-span-4 border rounded-lg px-2 py-1 dark:bg-gray-700 dark:border-gray-600" />
+                  <button type="button" @click="removeExpense(idx)" class="col-span-1 text-red-600 hover:text-red-800">&times;</button>
+                </div>
+              </div>
+            </div>
             <div class="flex gap-2 items-center">
               <label class="w-28 text-gray-700 dark:text-gray-200">Paid</label>
               <input 
@@ -292,6 +306,7 @@ const remark = ref('');
 const paymentMethod = ref('cash');
 const deliveryMethod = ref('walk-in');
 const taxPercentage = ref(props.tax_percentage);
+const expenses = ref([]);
 const paymentMethods = [
   {
     value: 'cash',
@@ -369,6 +384,7 @@ const tax = computed(() => {
   return (subtotal.value * (taxPercentage.value / 100)).toFixed(2);
 });
 const total = computed(() => {
+  const expenseTotal = expenses.value.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
   return (parseFloat(subtotal.value) + parseFloat(tax.value) + parseFloat(deliveryCost.value) - parseFloat(discount.value)).toFixed(2);
 });
 const due = computed(() => {
@@ -442,6 +458,11 @@ const saveOrder = async () => {
       payment_method: paymentMethod.value,
       delivery_method: deliveryMethod.value,
       remarks: remark.value,
+      expenses: expenses.value.filter(e => (e.name?.trim()?.length || 0) > 0).map(e => ({
+        name: e.name,
+        amount: parseFloat(e.amount) || 0,
+        remark: e.remark || null
+      })),
     };
 
     const response = await axios.post('/orders', payload);
@@ -460,5 +481,12 @@ const saveOrder = async () => {
   } finally {
     saving.value = false;
   }
+};
+
+const addExpense = () => {
+  expenses.value.push({ name: '', amount: 0, remark: '' });
+};
+const removeExpense = (idx) => {
+  expenses.value.splice(idx, 1);
 };
 </script> 

@@ -141,7 +141,7 @@ class OrderController extends Controller
 
     public function show(Order $order)
     {
-        $order->load(['customer', 'user', 'items.product']);
+        $order->load(['customer', 'user', 'items.product', 'expenses']);
         
         $orderData = [
             'id' => $order->id,
@@ -175,6 +175,14 @@ class OrderController extends Controller
             'discount' => number_format($order->discount, 2),
             'total' => number_format($order->total, 2),
             'profit' => number_format($order->profit, 2),
+            'expenses' => $order->expenses->map(function ($expense) {
+                return [
+                    'id' => $expense->id,
+                    'name' => $expense->name,
+                    'amount' => number_format($expense->amount, 2),
+                    'remark' => $expense->remark,
+                ];
+            }),
             'paid_amount' => number_format($order->paid_amount, 2),
             'due_amount' => number_format($order->due_amount, 2),
             'change_amount' => number_format($order->change_amount, 2),
@@ -200,6 +208,10 @@ class OrderController extends Controller
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.remark' => 'nullable|string',
             'items.*.price' => 'required|numeric|min:0',
+            'expenses' => 'nullable|array',
+            'expenses.*.name' => 'required_with:expenses|string',
+            'expenses.*.amount' => 'required_with:expenses|numeric|min:0',
+            'expenses.*.remark' => 'nullable|string',
             'customer_id' => 'nullable|exists:customers,id',
             'subtotal' => 'required|numeric|min:0',
             'tax' => 'required|numeric|min:0',
@@ -231,6 +243,15 @@ class OrderController extends Controller
             if ($validated['discount'] > 0) {
                 $totalProfit -= $validated['discount'];
             }
+
+            // Subtract expenses from profit
+            $expensesTotal = 0;
+            if (!empty($validated['expenses'])) {
+                foreach ($validated['expenses'] as $expense) {
+                    $expensesTotal += (float) $expense['amount'];
+                }
+            }
+            $totalProfit -= $expensesTotal;
 
             // Create the order
             $order = Order::create([
@@ -277,6 +298,17 @@ class OrderController extends Controller
                 $product->decrement('stock', $item['quantity']);
             }
 
+            // Create order expenses if provided
+            if (!empty($validated['expenses'])) {
+                foreach ($validated['expenses'] as $expense) {
+                    $order->expenses()->create([
+                        'name' => $expense['name'],
+                        'amount' => $expense['amount'],
+                        'remark' => $expense['remark'] ?? null,
+                    ]);
+                }
+            }
+
             // Submit to MyInvois
             // $myInvoisService = new \App\Services\MyInvoisService();
             // $myInvoisService->submitInvoice($order);
@@ -314,7 +346,7 @@ class OrderController extends Controller
 
     public function edit(Order $order)
     {
-        $order->load(['customer', 'user', 'items.product']);
+        $order->load(['customer', 'user', 'items.product', 'expenses']);
         
         return Inertia::render('Orders/Edit', [
             'order' => [
@@ -357,6 +389,14 @@ class OrderController extends Controller
                 'payment_status' => $order->paid_amount >= $order->total ? 'paid' : 
                     ($order->paid_amount > 0 ? 'partial' : 'pending'),
                 'created_at' => $order->created_at->format('Y-m-d H:i:s'),
+                'expenses' => $order->expenses->map(function ($expense) {
+                    return [
+                        'id' => $expense->id,
+                        'name' => $expense->name,
+                        'amount' => number_format($expense->amount, 2),
+                        'remark' => $expense->remark,
+                    ];
+                }),
             ],
             'customers' => \App\Models\Customer::select('id', 'name', 'email', 'phone', 'address')->get(),
             'products' => \App\Models\Product::select('id', 'name', 'price', 'stock')->get(),
@@ -374,6 +414,11 @@ class OrderController extends Controller
             'items.*.price' => 'required|numeric|min:0',
             'items.*.total' => 'required|numeric|min:0',
             'items.*.remark' => 'nullable|string',
+            'expenses' => 'nullable|array',
+            'expenses.*.id' => 'nullable|integer',
+            'expenses.*.name' => 'required_with:expenses|string',
+            'expenses.*.amount' => 'required_with:expenses|numeric|min:0',
+            'expenses.*.remark' => 'nullable|string',
             'payment_method' => 'required|in:cash,card,e-wallet,online_transfer',
             'delivery_method' => 'required|in:pickup,delivery,walk-in,shopee,tiktok,lazada',
             'delivery_cost' => 'required|numeric|min:0',
@@ -401,6 +446,15 @@ class OrderController extends Controller
             if ($validated['discount'] > 0) {
                 $totalProfit -= $validated['discount'];
             }
+
+            // Subtract expenses from profit
+            $expensesTotal = 0;
+            if (!empty($validated['expenses'])) {
+                foreach ($validated['expenses'] as $expense) {
+                    $expensesTotal += (float) $expense['amount'];
+                }
+            }
+            $totalProfit -= $expensesTotal;
 
             // Update order details
             $order->update([
@@ -453,6 +507,18 @@ class OrderController extends Controller
                         // Then deduct the new quantity
                         $product->decrement('stock', $item['quantity']);
                     }
+                }
+            }
+
+            // Update order expenses
+            $order->expenses()->delete();
+            if (!empty($validated['expenses'])) {
+                foreach ($validated['expenses'] as $expense) {
+                    $order->expenses()->create([
+                        'name' => $expense['name'],
+                        'amount' => $expense['amount'],
+                        'remark' => $expense['remark'] ?? null,
+                    ]);
                 }
             }
 

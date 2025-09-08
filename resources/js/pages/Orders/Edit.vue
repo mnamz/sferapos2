@@ -182,6 +182,68 @@
                             </div>
                         </div>
 
+                        <!-- Service Expenses -->
+                        <div class="mb-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold">Service Expenses</h3>
+                                <button
+                                    @click="addExpense"
+                                    class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+                                >
+                                    Add Expense
+                                </button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                    <thead class="bg-gray-50 dark:bg-gray-700">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Amount</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Remark</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                                        <tr v-for="(expense, eIndex) in form.expenses" :key="eIndex">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                                <input
+                                                    type="text"
+                                                    v-model="expense.name"
+                                                    class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-1 px-2"
+                                                    placeholder="e.g. Mechanic labor"
+                                                >
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                                <input
+                                                    type="number"
+                                                    v-model.number="expense.amount"
+                                                    min="0"
+                                                    step="0.01"
+                                                    class="block w-24 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-1 px-2 text-right"
+                                                >
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                                <input
+                                                    type="text"
+                                                    v-model="expense.remark"
+                                                    class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-1 px-2"
+                                                    placeholder="Remark (optional)"
+                                                >
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                                <button
+                                                    @click="removeExpense(eIndex)"
+                                                    class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                                >
+                                                    Remove
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
                         <!-- Order Summary -->
                         <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                             <h3 class="text-lg font-semibold mb-4">Order Summary</h3>
@@ -431,7 +493,13 @@ const form = ref({
     change_amount: parseFloat(props.order.change_amount.toString().replace(/,/g, '')),
     remarks: props.order.remarks,
     tax_percentage: props.order.tax_percentage || props.tax_percentage,
-    discount: parseFloat(props.order.discount?.toString().replace(/,/g, '') || '0')
+    discount: parseFloat(props.order.discount?.toString().replace(/,/g, '') || '0'),
+    expenses: (props.order.expenses || []).map(exp => ({
+        id: exp.id,
+        name: exp.name || '',
+        amount: parseFloat(exp.amount?.toString().replace(/,/g, '') || '0').toFixed(2),
+        remark: exp.remark || ''
+    }))
 });
 
 console.log(form.value.items);
@@ -522,6 +590,14 @@ onMounted(() => {
 const removeItem = (index) => {
     form.value.items.splice(index, 1);
     updatePaymentAmounts();
+};
+
+const addExpense = () => {
+    form.value.expenses.push({ name: '', amount: 0, remark: '' });
+};
+
+const removeExpense = (index) => {
+    form.value.expenses.splice(index, 1);
 };
 
 const selectCustomer = (customer) => {

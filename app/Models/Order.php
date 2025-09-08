@@ -94,6 +94,11 @@ class Order extends Model implements Auditable
         return $this->hasOne(MyInvoisInvoice::class);
     }
 
+    public function expenses()
+    {
+        return $this->hasMany(OrderExpense::class);
+    }
+
     // Calculate due amount based on total and paid amount
     public function calculateDueAmount()
     {

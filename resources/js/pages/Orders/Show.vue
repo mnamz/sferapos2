@@ -142,6 +142,30 @@
                             </div>
                         </div>
 
+                        <!-- Service Expenses -->
+                        <div class="mb-6">
+                            <h3 class="text-lg font-semibold mb-4">Service Expenses</h3>
+                            <div class="overflow-x-auto" v-if="order.expenses && order.expenses.length">
+                                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                    <thead class="bg-gray-50 dark:bg-gray-700">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Amount</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Remark</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                                        <tr v-for="expense in order.expenses" :key="expense.id">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ expense.name }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ currency }}{{ expense.amount }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ expense.remark || '-' }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div v-else class="text-gray-500 dark:text-gray-400">No expenses added.</div>
+                        </div>
+
                         <!-- Order Summary -->
                         <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                             <h3 class="text-lg font-semibold mb-4">Order Summary</h3>
@@ -149,6 +173,10 @@
                                 <div class="flex justify-between">
                                     <span>Subtotal</span>
                                     <span>{{ currency }}{{ order.subtotal }}</span>
+                                </div>
+                                <div class="flex justify-between" v-if="order.expenses?.length">
+                                    <span>Expenses</span>
+                                    <span>{{ currency }}{{ order.expenses.reduce((s, e) => s + parseFloat((e.amount||'0').toString().replace(/,/g, '')), 0).toFixed(2) }}</span>
                                 </div>
                                 <div class="flex justify-between">
                                     <span>Tax</span>

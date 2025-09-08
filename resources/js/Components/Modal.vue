@@ -2,7 +2,7 @@
     <Transition name="modal">
         <div v-if="show" class="fixed inset-0 z-50 overflow-y-auto" @click="closeOnClickaway">
             <!-- Backdrop -->
-            <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity"></div>
+            <div class="fixed inset-0 bg-black bg-opacity-10 transition-opacity"></div>
 
             <!-- Modal -->
             <div class="flex min-h-full items-center justify-center p-4 text-center">

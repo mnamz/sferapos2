@@ -13,6 +13,7 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\AccountingController;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -47,6 +48,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/orders/export-csv', [OrderController::class, 'exportCsv'])
         ->middleware(['auth'])
         ->name('orders.exportCsv');
+
+    // Accounting module (admin only)
+    // Route::middleware(['role:admin'])->group(function () {
+        Route::get('/accounting', [AccountingController::class, 'index'])->name('accounting.index');
+        Route::post('/accounting/entries', [AccountingController::class, 'store'])->name('accounting.entries.store');
+        Route::put('/accounting/entries/{entry}', [AccountingController::class, 'update'])->name('accounting.entries.update');
+        Route::delete('/accounting/entries/{entry}', [AccountingController::class, 'destroy'])->name('accounting.entries.destroy');
+        Route::get('/accounting/categories', [AccountingController::class, 'categoriesIndex'])->name('accounting.categories');
+        Route::post('/accounting/categories', [AccountingController::class, 'categoriesStore'])->name('accounting.categories.store');
+        Route::put('/accounting/categories/{category}', [AccountingController::class, 'categoriesUpdate'])->name('accounting.categories.update');
+        Route::delete('/accounting/categories/{category}', [AccountingController::class, 'categoriesDestroy'])->name('accounting.categories.destroy');
+        Route::post('/accounting/sync-orders', [AccountingController::class, 'syncFromOrders'])->name('accounting.sync');
+    // });
 });
 
 Route::get('/backup/sql', [BackupController::class, 'downloadSql'])

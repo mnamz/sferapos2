@@ -2,7 +2,7 @@
     <Head title="Shop Settings" />
 
     <AppLayout :breadcrumbs="[
-        { name: 'Settings', href: route('pos.settings') }
+        { title: 'Settings', href: route('pos.settings') }
     ]">
         <div class="container mx-auto py-6">
             <div class="max-w-7xl mx-auto">
@@ -215,13 +215,18 @@
                                 </div>
                             </div>
 
-                            <div class="flex items-center justify-end gap-4 mt-6 border-t border-gray-200 dark:border-gray-700 pt-6">
+                            <div class="flex flex-col md:flex-row md:items-center md:justify-end gap-3 mt-6 border-t border-gray-200 dark:border-gray-700 pt-6">
                                 <Button :disabled="form.processing" class="bg-indigo-600 hover:bg-indigo-700">
                                     Save Settings
                                 </Button>
                                 <Button type="button" @click="downloadBackup" class="bg-green-600 hover:bg-green-700">
                                     Backup Database
                                 </Button>
+                                <div>
+                                    <Button type="button" @click="syncOrders" class="bg-gray-700 hover:bg-gray-800">
+                                        Sync Orders to Accounting
+                                    </Button>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -232,7 +237,7 @@
 </template>
 
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
+import { useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
@@ -241,6 +246,7 @@ import { Label } from '@/Components/ui/label';
 import { Textarea } from '@/Components/ui/textarea';
 import InputError from '@/Components/InputError.vue';
 import { currencies, defaultCurrency } from '@/config/currency';
+import { ref } from 'vue';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 
@@ -276,6 +282,8 @@ const form = useForm({
     footer_text: props.settings.footer_text || '',
 });
 
+// no sync payload needed; always sync all
+
 const submit = () => {
     form.post(route('pos.settings.update'), {
         preserveScroll: true,
@@ -290,13 +298,14 @@ const submit = () => {
     });
 };
 
-const handleLogoUpload = (event) => {
-    const file = event.target.files[0];
+const handleLogoUpload = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const file = target?.files?.[0];
     if (file) {
         // Validate file size (2MB max)
         if (file.size > 2 * 1024 * 1024) {
             toast.error('Logo file size must be less than 2MB');
-            event.target.value = '';
+            if (target) target.value = '';
             return;
         }
         
@@ -304,21 +313,22 @@ const handleLogoUpload = (event) => {
         const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif'];
         if (!validTypes.includes(file.type)) {
             toast.error('Invalid file type. Please upload a JPEG, PNG, or GIF image.');
-            event.target.value = '';
+            if (target) target.value = '';
             return;
         }
 
-        form.logo = file;
+        form.logo = file as unknown as null;
     }
 };
 
-const handleInvoiceLogoUpload = (event) => {
-    const file = event.target.files[0];
+const handleInvoiceLogoUpload = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const file = target?.files?.[0];
     if (file) {
         // Validate file size (2MB max)
         if (file.size > 2 * 1024 * 1024) {
             toast.error('Invoice logo file size must be less than 2MB');
-            event.target.value = '';
+            if (target) target.value = '';
             return;
         }
         
@@ -326,11 +336,11 @@ const handleInvoiceLogoUpload = (event) => {
         const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif'];
         if (!validTypes.includes(file.type)) {
             toast.error('Invalid file type. Please upload a JPEG, PNG, or GIF image.');
-            event.target.value = '';
+            if (target) target.value = '';
             return;
         }
 
-        form.invoice_logo = file;
+        form.invoice_logo = file as unknown as null;
     }
 };
 
@@ -355,5 +365,13 @@ const downloadBackup = async () => {
     } catch (error) {
         toast.error('Failed to download backup.');
     }
+};
+
+const syncOrders = () => {
+    router.post(route('accounting.sync'), {}, {
+        onSuccess: () => {
+            window.location.href = route('accounting.index');
+        },
+    });
 };
 </script> 

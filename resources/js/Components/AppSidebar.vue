@@ -67,6 +67,15 @@ const mainNavItems: NavItem[] = [
         icon: Receipt,
     },
     {
+        title: 'Accounting',
+        href: route('accounting.index'),
+        icon: DollarSign,
+        items: [
+            { title: 'Entries', href: route('accounting.index') },
+            { title: 'Categories', href: route('accounting.categories') },
+        ],
+    },
+    {
         title: 'Reports',
         href: route('reports.index'),
         icon: BarChart3,
@@ -113,6 +122,9 @@ const filteredNavItems = computed(() => {
             return false;
         }
         if (item.title === 'Shop Settings' && roles.includes('staff')) {
+            return false;
+        }
+        if (item.title === 'Accounting' && !roles.includes('admin')) {
             return false;
         }
         return true;
