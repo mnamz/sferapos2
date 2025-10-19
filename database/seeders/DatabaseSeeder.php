@@ -20,7 +20,7 @@ class DatabaseSeeder extends Seeder
 
         $admin = User::factory()->create([
             'name' => 'User',
-            'email' => 'test@example.com',
+            'email' => 'dev@sfera.my',
             'password' => Hash::make('password'),
             'status' => true,
         ]);
