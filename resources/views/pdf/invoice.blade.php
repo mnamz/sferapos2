@@ -5,7 +5,7 @@
     <title>Invoice #{{ $order->id }}</title>
     <style>
         @page {
-            margin-top: 10mm;   /* page margin only */
+            margin-top: 55mm;   /* space for fixed header on all pages */
             margin-bottom: 25mm; /* leave room for fixed footer */
             margin-left: 10mm;
             margin-right: 10mm;
@@ -21,22 +21,25 @@
         
         .container {
             max-width: 100%;
-            margin-top: 50mm; /* push content below fixed header */
+            margin-top: 10mm; /* additional push on first page only */
+            margin-bottom: 25mm; /* ensure content doesn't overlap with fixed footer */
+            padding-bottom: 10mm; /* additional spacing for safety */
         }
         
         /* Fixed Header */
         .header {
             position: fixed;
-            top: 0;
+            top: -55mm;
             left: 0;
             right: 0;
-            height: 45mm;
+            height: 55mm;
             background-color: white;
             z-index: 1000;
             border-bottom: 1px solid #ddd;
+            padding: 5mm 10mm 0 10mm;
         }
         
-        .header-content { padding: 3mm 10mm; }
+        .header-content { padding: 0; }
 
         .header-row:after { content: ""; display: table; clear: both; }
         .header-col1 { float: left; width: 25%; text-align: left; }
@@ -197,6 +200,10 @@
             font-weight: bold;
         }
         
+        .items-table tbody tr {
+            page-break-inside: avoid;
+        }
+        
         .items-table .item-no {
             width: 8%;
         }
@@ -227,6 +234,7 @@
             margin-bottom: 15px;
             border: 1px solid #000;
             padding: 8px;
+            page-break-inside: avoid;
         }
         
         .special-notes .label {
@@ -243,7 +251,10 @@
         /* Payment Summary (dompdf-safe, not used for layout columns anymore) */
         .payment-summary { width: 100%; margin-bottom: 15px; }
         .payment-details { width: 100%; }
-        .totals-table { width: 100%; }
+        .totals-table { 
+            width: 100%; 
+            page-break-inside: avoid;
+        }
         
         .totals-table table {
             width: 100%;
@@ -275,6 +286,7 @@
         /* Bank Details */
         .bank-details {
             margin-bottom: 15px;
+            page-break-inside: avoid;
         }
         
         .bank-details .title {
@@ -307,6 +319,7 @@
         /* Authorization */
         .authorization {
             margin-bottom: 15px;
+            page-break-inside: avoid;
         }
         
         .authorization .label {
@@ -413,6 +426,7 @@
             border-collapse: separate;
             border-spacing: 0;
             margin-top: 10px;
+            page-break-inside: avoid;
         }
         .two-col-table td {
             vertical-align: top;
@@ -421,6 +435,12 @@
         }
         .two-col-left { width: 55%; padding-left: 0; padding-right: 10px; }
         .two-col-right { width: 45%; padding-right: 0; padding-left: 10px; }
+        
+        /* Bottom sections wrapper - keep totals and signatures together */
+        .bottom-sections {
+            page-break-inside: avoid;
+            page-break-before: auto;
+        }
     </style>
 </head>
 <body>
@@ -558,83 +578,86 @@
             </tbody>
         </table>
 
-        <!-- Special Notes & Totals Side by Side -->
-        <table class="two-col-table">
-            <tr>
-                <td class="two-col-left">
-                    <div class="special-notes">
-                        <div class="label">SPECIAL NOTES & INSTRUCTIONS</div>
-                        <div class="content">ATIVA (KFQ 2903)</div>
-                    </div>
-                </td>
-                <td class="two-col-right">
-                    <div class="totals-table">
-                        <table>
-                        <tr>
-                            <td class="label">Paid:</td>
-                            <td class="amount">{{ $settings->currency ?? 'MYR' }} {{ number_format($order->paid_amount, 2) }}</td>
-                        </tr>
-                        <tr>
-                            <td class="label">Due:</td>
-                            <td class="amount">{{ $settings->currency ?? 'MYR' }} {{ number_format($order->due_amount, 2) }}</td>
-                        </tr>
-                        <tr>
-                            <td class="label">Sub-Total:</td>
-                            <td class="amount">{{ $settings->currency ?? 'MYR' }} {{ number_format($order->subtotal, 2) }}</td>
-                        </tr>
-                        <tr>
-                            <td class="label">Discount:</td>
-                            <td class="amount">{{ $settings->currency ?? 'MYR' }} {{ number_format($order->discount ?? 0, 2) }}</td>
-                        </tr>
-                        <tr>
-                            <td class="label">Tax Rate:</td>
-                            <td class="amount">{{ number_format($settings->tax_percentage ?? 0, 2) }}%</td>
-                        </tr>
-                        <tr>
-                            <td class="label">Tax Amount:</td>
-                            <td class="amount">{{ $settings->currency ?? 'MYR' }} {{ number_format($order->tax, 2) }}</td>
-                        </tr>
-                        <tr class="grand-total">
-                            <td class="label">Grand Total:</td>
-                            <td class="amount">{{ $settings->currency ?? 'MYR' }} {{ number_format($order->total, 2) }}</td>
-                        </tr>
-                    </table>
-                    </div>
-                </td>
-            </tr>
-        </table>
-
-        <!-- Signature and Bank Details Side by Side -->
-        <table class="two-col-table">
-            <tr>
-                <td class="two-col-left">
-                    <div class="authorization" style="border: 1px solid #000; padding: 10px; padding-top: 30px;">
-                        <div class="label">Issuer Authorized Signature</div>
-                        <div class="signature-line"></div>
-                        <div class="signature-name">ADMIN</div>
-            </div>
-                </td>
-                <td class="two-col-right">
-                    <div class="bank-details">
-                        <div class="title">BANK DETAILS</div>
-                        <table>
-                        <tr>
-                            <td class="label">Account Holder:</td>
-                            <td class="value">{{ $settings->shop_name ?? 'Dream Street Restoration Services' }}</td>
-                        </tr>
-                        <tr>
-                            <td class="label">Account Number:</td>
-                            <td class="value">{{ $settings->payment_details ?? '8604351269' }}</td>
-                        </tr>
-                        <tr>
-                            <td class="label">Date:</td>
-                            <td class="value">{{ $order->created_at->format('d/m/Y') }}</td>
-                        </tr>
+        <!-- Bottom Sections: Special Notes, Totals, Signature, and Bank Details -->
+        <div class="bottom-sections" style="margin-top: 15px;">
+            <!-- Special Notes & Totals Side by Side -->
+            <table class="two-col-table">
+                <tr>
+                    <td class="two-col-left">
+                        <div class="special-notes">
+                            <div class="label">SPECIAL NOTES & INSTRUCTIONS</div>
+                            <div class="content">ATIVA (KFQ 2903)</div>
+                        </div>
+                    </td>
+                    <td class="two-col-right">
+                        <div class="totals-table">
+                            <table>
+                            <tr>
+                                <td class="label">Paid:</td>
+                                <td class="amount">{{ $settings->currency ?? 'MYR' }} {{ number_format($order->paid_amount, 2) }}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Due:</td>
+                                <td class="amount">{{ $settings->currency ?? 'MYR' }} {{ number_format($order->due_amount, 2) }}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Sub-Total:</td>
+                                <td class="amount">{{ $settings->currency ?? 'MYR' }} {{ number_format($order->subtotal, 2) }}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Discount:</td>
+                                <td class="amount">{{ $settings->currency ?? 'MYR' }} {{ number_format($order->discount ?? 0, 2) }}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Tax Rate:</td>
+                                <td class="amount">{{ number_format($settings->tax_percentage ?? 0, 2) }}%</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Tax Amount:</td>
+                                <td class="amount">{{ $settings->currency ?? 'MYR' }} {{ number_format($order->tax, 2) }}</td>
+                            </tr>
+                            <tr class="grand-total">
+                                <td class="label">Grand Total:</td>
+                                <td class="amount">{{ $settings->currency ?? 'MYR' }} {{ number_format($order->total, 2) }}</td>
+                            </tr>
                         </table>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Signature and Bank Details Side by Side -->
+            <table class="two-col-table">
+                <tr>
+                    <td class="two-col-left">
+                        <div class="authorization" style="border: 1px solid #000; padding: 10px; padding-top: 30px;">
+                            <div class="label">Issuer Authorized Signature</div>
+                            <div class="signature-line"></div>
+                            <div class="signature-name">ADMIN</div>
+                </div>
+                    </td>
+                    <td class="two-col-right">
+                        <div class="bank-details">
+                            <div class="title">BANK DETAILS</div>
+                            <table>
+                            <tr>
+                                <td class="label">Account Holder:</td>
+                                <td class="value">{{ $settings->shop_name ?? 'Dream Street Restoration Services' }}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Account Number:</td>
+                                <td class="value">{{ $settings->payment_details ?? '8604351269' }}</td>
+                            </tr>
+                            <tr>
+                                <td class="label">Date:</td>
+                                <td class="value">{{ $order->created_at->format('d/m/Y') }}</td>
+                            </tr>
+                            </table>
+            </div>
+                    </td>
+                </tr>
+            </table>
         </div>
-                </td>
-            </tr>
-        </table>
 
     </div>
 </body>
