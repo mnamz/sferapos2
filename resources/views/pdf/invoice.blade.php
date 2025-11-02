@@ -532,10 +532,7 @@
                 </div>
                 <div class="header-col2">
                     <div class="shop-name">{{ $settings->shop_name ?? 'DREAM STREET RESTORATION' }}</div>
-                    @if($settings->company_number)
-                        <div class="registration-no">(Registration No. {{ $settings->company_number }})</div>
-                    @endif
-                    <div class="shop-address">{{ $settings->receipt_header ?? $settings->shop_address ?? 'No.32, Jalan TS 6/6, Taman Industri Subang, 47500 Subang Jaya, Selangor, Malaysia' }}</div>
+                    <div class="shop-address">{{ $settings->shop_address ?? '' }}</div>
                 </div>
                 <div class="header-col3">
                     <div class="invoice-panel">
