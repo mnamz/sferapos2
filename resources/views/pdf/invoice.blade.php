@@ -532,7 +532,17 @@
                 </div>
                 <div class="header-col2">
                     <div class="shop-name">{{ $settings->shop_name ?? 'DREAM STREET RESTORATION' }}</div>
-                    <div class="shop-address">{{ $settings->shop_address ?? '' }}</div>
+                    @if($settings->company_number)
+                        <div class="registration-no">(Registration No. {{ $settings->company_number }})</div>
+                    @endif
+                    <div class="shop-address">"Street Legend Reborn"</div>
+                    @if($settings->shop_address)
+                        @foreach(explode("\n", $settings->shop_address) as $line)
+                            @if(trim($line))
+                                <div class="shop-address">{{ trim($line) }}</div>
+                            @endif
+                        @endforeach
+                    @endif
                 </div>
                 <div class="header-col3">
                     <div class="invoice-panel">
