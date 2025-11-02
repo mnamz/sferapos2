@@ -41,4 +41,8 @@ return [
         'is_test' => env('TMS_IS_TEST', false),
     ],
 
+    'myinvois' => [
+        'base_url' => env('MYINVOIS_BASE_URL', 'https://myinvois.myrccornertrading.com'),
+    ],
+
 ];

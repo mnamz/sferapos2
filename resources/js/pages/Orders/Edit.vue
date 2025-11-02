@@ -110,6 +110,49 @@
                             </div>
                         </div>
 
+                        <!-- Delivery Information -->
+                        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6">
+                            <h3 class="text-lg font-semibold mb-4">Delivery Information</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Delivery Name</label>
+                                    <input
+                                        type="text"
+                                        v-model="form.delivery_name"
+                                        class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-2 px-3"
+                                        placeholder="Enter delivery name"
+                                    >
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company Name</label>
+                                    <input
+                                        type="text"
+                                        v-model="form.delivery_company_name"
+                                        class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-2 px-3"
+                                        placeholder="Enter company name (optional)"
+                                    >
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Delivery Address</label>
+                                    <textarea
+                                        v-model="form.delivery_address"
+                                        rows="3"
+                                        class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-2 px-3"
+                                        placeholder="Enter delivery address"
+                                    ></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Delivery Phone</label>
+                                    <input
+                                        type="text"
+                                        v-model="form.delivery_phone"
+                                        class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-2 px-3"
+                                        placeholder="Enter delivery phone"
+                                    >
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Order Items -->
                         <div class="mb-6">
                             <div class="flex justify-between items-center mb-4">
@@ -476,6 +519,10 @@ const selectedCustomer = ref(props.order.customer);
 // Form data
 const form = ref({
     customer_id: props.order.customer?.id || null,
+    delivery_name: props.order.delivery_name || '',
+    delivery_company_name: props.order.delivery_company_name || '',
+    delivery_address: props.order.delivery_address || '',
+    delivery_phone: props.order.delivery_phone || '',
     items: props.order.items.map(item => ({
         id: item.id,
         product_id: item.product_id,

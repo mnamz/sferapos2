@@ -5,7 +5,7 @@
     <title>Invoice #{{ $order->id }}</title>
     <style>
         @page {
-            margin-top: 55mm;   /* space for fixed header on all pages */
+            margin-top: 65mm;   /* space for fixed header on all pages - increased for better page 2+ header spacing */
             margin-bottom: 25mm; /* leave room for fixed footer */
             margin-left: 10mm;
             margin-right: 10mm;
@@ -21,7 +21,7 @@
         
         .container {
             max-width: 100%;
-            margin-top: 10mm; /* additional push on first page only */
+            margin-top: 5mm; /* additional push on first page only */
             margin-bottom: 25mm; /* ensure content doesn't overlap with fixed footer */
             padding-bottom: 10mm; /* additional spacing for safety */
         }
@@ -32,7 +32,7 @@
             top: -55mm;
             left: 0;
             right: 0;
-            height: 55mm;
+            height: 35mm;
             background-color: white;
             z-index: 1000;
             border-bottom: 1px solid #ddd;
@@ -136,15 +136,31 @@
             text-align: center;
         }
 
+        /* Global compact styling for all tables */
+        table th,
+        table td {
+            line-height: 1.1; /* Compact line spacing for all table cells */
+        }
+        
         .contact-table {
             width: 100%;
             border-collapse: collapse;
             border: 1px solid #000;
             margin-top: 6px;
+            table-layout: fixed; /* Fixed layout for 6 columns */
         }
         .contact-table td {
             border: 1px solid #000;
             padding: 4px 6px;
+            text-align: center;
+            width: 16.67%; /* Equal width for 6 columns (100% / 6) */
+        }
+        
+        /* Style label columns (1st, 3rd, 5th) with black background and white text */
+        .contact-table td:nth-child(odd) {
+            background-color: #000;
+            color: #fff;
+            font-weight: bold;
         }
         
         
@@ -178,6 +194,16 @@
             vertical-align: top;
         }
         
+        /* HR spacer for table on page 2+ */
+        .table-spacer-hr {
+            height: 15mm; /* Adjust this value to change spacing on page 2+ */
+            border: none;
+            margin: 0;
+            padding: 0;
+            display: block;
+            page-break-inside: avoid;
+        }
+        
         /* Items Table */
         .items-table {
             width: 100%;
@@ -185,9 +211,18 @@
             margin-bottom: 15px;
         }
         
+        .items-table thead {
+            display: table-header-group; /* Ensure header repeats on each page */
+        }
+        
+        .items-table thead tr {
+            page-break-inside: avoid;
+            page-break-after: avoid;
+        }
+        
         .items-table th,
         .items-table td {
-            padding: 5px 3px;
+            padding: 3px 3px; /* Reduced from 5px for more compact look */
             border: 1px solid #000;
             text-align: center;
             font-size: 11px;
@@ -210,7 +245,7 @@
         
         .items-table .item-desc {
             width: 45%;
-            text-align: left;
+            text-align: center;
         }
         
         .items-table .qty {
@@ -259,23 +294,27 @@
         .totals-table table {
             width: 100%;
             border-collapse: collapse;
-            border: 1px solid #000;
+            border: none; /* Remove outer border */
         }
         
         .totals-table td {
-            padding: 5px 8px;
-            border: 1px solid #000;
+            padding: 3px 6px; /* Reduced for more compact look */
             font-size: 11px;
         }
         
         .totals-table .label {
             font-weight: bold;
             width: 60%;
+            border: none; /* Remove border from label column */
         }
         
         .totals-table .amount {
             text-align: right;
             width: 40%;
+            border-left: 1px solid #000;
+            border-top: 1px solid #000;
+            border-right: 1px solid #000;
+            border-bottom: 1px solid #000;
         }
         
         .grand-total {
@@ -302,7 +341,7 @@
         }
         
         .bank-details td {
-            padding: 5px 8px;
+            padding: 3px 6px; /* Reduced for more compact look */
             border: 1px solid #000;
             font-size: 11px;
         }
@@ -397,6 +436,7 @@
         .info-table {
             width: 100%;
             border-collapse: collapse;
+            margin-top: -10mm; /* Negative margin to move table up - adjust as needed */
             margin-bottom: 12px;
             font-size: 11px;
         }
@@ -406,13 +446,13 @@
             text-transform: uppercase;
             font-weight: bold;
             font-size: 11px;
-            padding: 6px 8px;
+            padding: 4px 6px; /* Reduced for more compact look */
             text-align: left;
             border: 1px solid #000;
         }
         .info-table td {
             border: 1px solid #000;
-            padding: 6px 8px;
+            padding: 4px 6px; /* Reduced for more compact look */
         }
         .info-label {
             width: 25%;
@@ -440,6 +480,30 @@
         .bottom-sections {
             page-break-inside: avoid;
             page-break-before: auto;
+        }
+        
+        /* Blank table for custom design */
+        .blank-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #000;
+            margin-top: 15px;
+            table-layout: fixed; /* Fixed layout prevents resizing */
+        }
+        
+        .blank-table td {
+            border: none; /* No inner borders - only outer table border */
+            padding: 3px 6px; /* Reduced padding for compact look */
+            width: 50%; /* Equal 50/50 width for both columns */
+            line-height: 1.1; /* Consistent line height */
+            min-height: 8mm; /* Reduced height for compact look */
+            vertical-align: top; /* Aligns content to top */
+            font-size: 11px; /* Consistent font size */
+        }
+        
+        /* Add vertical border between left and right columns */
+        .blank-table td:first-child {
+            border-right: 1px solid #000;
         }
     </style>
 </head>
@@ -503,18 +567,12 @@
                 <div class="instruction">Should you have any enquiries, please forward it to the contact person stated below.</div>
                 <table class="contact-table">
                     <tr>
-                        <td style="text-align:center; width: 33%;">
-                            <div class="contact-label">NAME</div>
-                            <div class="contact-value">{{ $settings->shop_name ?? '' }}</div>
-                        </td>
-                        <td style="text-align:center; width: 33%;">
-                            <div class="contact-label">TEL. NO</div>
-                            <div class="contact-value">{{ $settings->shop_phone ?? '' }}</div>
-                        </td>
-                        <td style="text-align:center; width: 34%;">
-                            <div class="contact-label">EMAIL</div>
-                            <div class="contact-value">{{ $settings->shop_email ?? '' }}</div>
-                        </td>
+                        <td>NAME</td>
+                        <td>Dharveen Suria</td>
+                        <td>TEL. NO</td>
+                        <td>{{ $settings->shop_phone ?? '' }}</td>
+                        <td>EMAIL</td>
+                        <td>{{ $settings->shop_email ?? '' }}</td>
                     </tr>
                 </table>
             </div>
@@ -533,22 +591,22 @@
             <tr>
                 <td class="info-label">Name</td>
                 <td>{{ optional($order->customer)->name ?? '-' }}</td>
-                <td>-</td>
+                <td>{{ $order->delivery_name ?? '-' }}</td>
             </tr>
             <tr>
                 <td class="info-label">Company Name</td>
                 <td>{{ optional($order->customer)->company_name ?? '-' }}</td>
-                <td>-</td>
+                <td>{{ $order->delivery_company_name ?? '-' }}</td>
             </tr>
             <tr>
                 <td class="info-label">Address</td>
                 <td>{{ optional($order->customer)->address ?? '-' }}</td>
-                <td>-</td>
+                <td>{{ $order->delivery_address ?? '-' }}</td>
             </tr>
             <tr>
                 <td class="info-label">Tel No.</td>
                 <td>{{ optional($order->customer)->phone ?? '-' }}</td>
-                <td>-</td>
+                <td>{{ $order->delivery_phone ?? '-' }}</td>
             </tr>
         </table>
 
@@ -556,7 +614,7 @@
         <table class="items-table">
             <thead>
                 <tr>
-                    <th class="item-no">ITEM NO.</th>
+                    <th class="item-no">NO.</th>
                     <th class="item-desc">ITEM DESCRIPTION</th>
                     <th class="qty">QTY</th>
                     <th class="unit-price">U/PRICE</th>
@@ -568,7 +626,7 @@
                 @foreach($order->items as $index => $item)
                 <tr>
                     <td>{{ $index + 1 }}</td>
-                    <td class="text-left">{{ $item->product_name }} {{ $item->remark ? '('.$item->remark.')' : '' }}</td>
+                    <td class="item-desc">{{ $item->product_name }} {{ $item->remark ? '('.$item->remark.')' : '' }}</td>
                     <td>{{ $item->quantity }}</td>
                     <td>{{ number_format($item->price, 2) }}</td>
                     <td>{{ number_format($item->discount ?? 0, 2) }}</td>
@@ -626,35 +684,47 @@
                 </tr>
             </table>
 
-            <!-- Signature and Bank Details Side by Side -->
-            <table class="two-col-table">
+            <!-- Blank Table for Custom Design -->
+            <table class="blank-table">
                 <tr>
-                    <td class="two-col-left">
-                        <div class="authorization" style="border: 1px solid #000; padding: 10px; padding-top: 30px;">
-                            <div class="label">Issuer Authorized Signature</div>
-                            <div class="signature-line"></div>
-                            <div class="signature-name">ADMIN</div>
-                </div>
-                    </td>
-                    <td class="two-col-right">
-                        <div class="bank-details">
-                            <div class="title">BANK DETAILS</div>
-                            <table>
-                            <tr>
-                                <td class="label">Account Holder:</td>
-                                <td class="value">{{ $settings->shop_name ?? 'Dream Street Restoration Services' }}</td>
-                            </tr>
-                            <tr>
-                                <td class="label">Account Number:</td>
-                                <td class="value">{{ $settings->payment_details ?? '8604351269' }}</td>
-                            </tr>
-                            <tr>
-                                <td class="label">Date:</td>
-                                <td class="value">{{ $order->created_at->format('d/m/Y') }}</td>
-                            </tr>
-                            </table>
-            </div>
-                    </td>
+                    <td></td>
+                    <td>BANK DETAILS</td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td>Account Holder:</td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td>Dream Street Restoration Services</td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td>Account Number:</td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td>8604351269</td>
+                </tr>
+                <tr>
+                    <td>Issuer Authorized Signature</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td><strong>ADMIN</strong></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td>Date: {{ $order->created_at->format('d/m/Y') }}</td>
                 </tr>
             </table>
         </div>

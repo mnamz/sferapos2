@@ -14,7 +14,7 @@ class MyInvoisService
 
     public function __construct()
     {
-        $this->baseUrl = 'https://myinvois.myrccornertrading.com';
+        $this->baseUrl = config('services.myinvois.base_url', 'https://myinvois.myrccornertrading.com');
         $this->settings = ShopSettings::first();
     }
 
@@ -202,5 +202,160 @@ class MyInvoisService
             'taxInclusiveAmount' => (float)$order->total,
             'payableAmount' => (float)$order->total
         ];
+    }
+
+    /**
+     * Submit consolidated invoices (multiple orders in one request)
+     */
+    public function submitConsolidatedInvoices(\Illuminate\Support\Collection $orders): array
+    {
+        $results = [];
+        $payload = ['documents' => []];
+
+        foreach ($orders as $order) {
+            $orderPayload = $this->prepareInvoicePayload($order);
+            // Extract the document from the payload
+            if (isset($orderPayload['documents'][0])) {
+                $payload['documents'][] = $orderPayload['documents'][0];
+            }
+        }
+
+        if (empty($payload['documents'])) {
+            Log::error('MyInvois Consolidated - No documents to submit');
+            return ['success' => false, 'message' => 'No documents to submit'];
+        }
+
+        try {
+            Log::info('MyInvois Consolidated API Request', [
+                'order_count' => count($payload['documents']),
+                'order_ids' => $orders->pluck('id')->toArray()
+            ]);
+
+            $response = Http::withoutVerifying()
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json'
+                ])
+                ->post($this->baseUrl . '/documents/submit/invoice', $payload);
+
+            $responseData = $response->json();
+            $pushResult = [
+                'timestamp' => now()->toDateTimeString(),
+                'success' => $response->successful(),
+                'status_code' => $response->status(),
+                'order_ids' => $orders->pluck('id')->toArray(),
+                'order_count' => count($payload['documents']),
+                'response' => $responseData,
+                'submission_uid' => $responseData['submissionUid'] ?? null,
+                'accepted_count' => count($responseData['acceptedDocuments'] ?? []),
+                'rejected_count' => count($responseData['rejectedDocuments'] ?? []),
+            ];
+
+            // Save push result to file
+            $this->savePushResult($pushResult);
+
+            // Store invoice information for accepted documents
+            if ($response->successful() && isset($responseData['acceptedDocuments'])) {
+                foreach ($responseData['acceptedDocuments'] as $acceptedDoc) {
+                    // Match by document ID (order ID) in the accepted document
+                    $documentId = $acceptedDoc['id'] ?? null;
+                    if ($documentId) {
+                        $order = $orders->firstWhere('id', $documentId);
+                        if ($order && !$order->myInvoisInvoice) {
+                            $order->myInvoisInvoice()->create([
+                                'submission_uid' => $responseData['submissionUid'] ?? null,
+                                'uuid' => $acceptedDoc['uuid'] ?? null,
+                                'invoice_code_number' => $acceptedDoc['invoiceCodeNumber'] ?? null,
+                                'request_payload' => $payload,
+                                'response_payload' => $responseData
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            Log::info('MyInvois Consolidated API Response', [
+                'success' => $response->successful(),
+                'status' => $response->status(),
+                'submission_uid' => $responseData['submissionUid'] ?? null,
+                'accepted_count' => $pushResult['accepted_count'],
+                'rejected_count' => $pushResult['rejected_count'],
+            ]);
+
+            return $pushResult;
+        } catch (\Exception $e) {
+            $pushResult = [
+                'timestamp' => now()->toDateTimeString(),
+                'success' => false,
+                'status_code' => 0,
+                'order_ids' => $orders->pluck('id')->toArray(),
+                'order_count' => count($payload['documents']),
+                'error' => $e->getMessage(),
+            ];
+
+            $this->savePushResult($pushResult);
+
+            Log::error('MyInvois Consolidated API Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return $pushResult;
+        }
+    }
+
+    /**
+     * Save push result to JSON file
+     */
+    protected function savePushResult(array $result): bool
+    {
+        try {
+            $resultsFile = storage_path('app/myinvois_push_results.json');
+            $results = [];
+
+            if (file_exists($resultsFile)) {
+                $content = file_get_contents($resultsFile);
+                $results = json_decode($content, true) ?? [];
+            }
+
+            // Add new result at the beginning (most recent first)
+            array_unshift($results, $result);
+
+            // Keep only last 100 results
+            $results = array_slice($results, 0, 100);
+
+            // Ensure directory exists
+            $dir = dirname($resultsFile);
+            if (!is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+
+            file_put_contents(
+                $resultsFile,
+                json_encode($results, JSON_PRETTY_PRINT)
+            );
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Failed to save push result', [
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Get push results history
+     */
+    public function getPushResults(): array
+    {
+        $resultsFile = storage_path('app/myinvois_push_results.json');
+        
+        if (!file_exists($resultsFile)) {
+            return [];
+        }
+
+        $content = file_get_contents($resultsFile);
+        return json_decode($content, true) ?? [];
     }
 } 

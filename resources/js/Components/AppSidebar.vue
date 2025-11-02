@@ -5,7 +5,7 @@ import NavUser from '@/Components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/Components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { Settings, LayoutGrid, ShoppingCart, Package, ClipboardList, Tags, Users, Truck, Receipt, BarChart3, FolderTree, Users2, History, DollarSign } from 'lucide-vue-next';
+import { Settings, LayoutGrid, ShoppingCart, Package, ClipboardList, Tags, Users, Truck, Receipt, BarChart3, FolderTree, Users2, History, DollarSign, FileText, Activity } from 'lucide-vue-next';
 import { onMounted, ref, watch, computed } from 'vue';
 import AppLogo from './AppLogo.vue';
 import { usePage } from '@inertiajs/vue3';
@@ -67,6 +67,15 @@ const mainNavItems: NavItem[] = [
         icon: Receipt,
     },
     {
+        title: 'MyInvois',
+        href: route('myinvois.consolidated.index'),
+        icon: FileText,
+        items: [
+            { title: 'Consolidated Invoices', href: route('myinvois.consolidated.index') },
+            { title: 'Push Status', href: route('myinvois.pushStatus') },
+        ],
+    },
+    {
         title: 'Accounting',
         href: route('accounting.index'),
         icon: DollarSign,
@@ -125,6 +134,9 @@ const filteredNavItems = computed(() => {
             return false;
         }
         if (item.title === 'Accounting' && !roles.includes('admin')) {
+            return false;
+        }
+        if (item.title === 'MyInvois' && !roles.includes('admin')) {
             return false;
         }
         return true;

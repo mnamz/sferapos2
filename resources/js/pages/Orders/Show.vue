@@ -95,14 +95,78 @@
                         <!-- Customer and Cashier Info -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                             <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                                <h3 class="text-lg font-semibold mb-2">Customer Information</h3>
-                                <div v-if="order.customer">
-                                    <p><span class="font-medium">Name:</span> {{ order.customer.name }}</p>
-                                    <p><span class="font-medium">Email:</span> {{ order.customer.email }}</p>
-                                    <p><span class="font-medium">Phone:</span> {{ order.customer.phone }}</p>
-                                    <p><span class="font-medium">Address:</span> {{ order.customer.address }}</p>
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-lg font-semibold">Customer Information</h3>
+                                    <button
+                                        v-if="!editingCustomer && order.customer"
+                                        @click="startEditingCustomer"
+                                        class="px-3 py-1 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700"
+                                    >
+                                        Edit
+                                    </button>
+                                    <div v-else-if="editingCustomer" class="flex gap-2">
+                                        <button
+                                            @click="saveCustomerInfo"
+                                            class="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+                                            :disabled="savingCustomer"
+                                        >
+                                            {{ savingCustomer ? 'Saving...' : 'Save' }}
+                                        </button>
+                                        <button
+                                            @click="cancelEditingCustomer"
+                                            class="px-3 py-1 bg-gray-500 text-white text-sm rounded-lg hover:bg-gray-600"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
                                 </div>
-                                <p v-else class="text-gray-500 dark:text-gray-400">Walk-in Customer</p>
+                                <div v-if="!editingCustomer">
+                                    <div v-if="order.customer">
+                                        <p><span class="font-medium">Name:</span> {{ order.customer.name }}</p>
+                                        <p><span class="font-medium">Email:</span> {{ order.customer.email || '-' }}</p>
+                                        <p><span class="font-medium">Phone:</span> {{ order.customer.phone || '-' }}</p>
+                                        <p><span class="font-medium">Address:</span> {{ order.customer.address || '-' }}</p>
+                                    </div>
+                                    <p v-else class="text-gray-500 dark:text-gray-400">Walk-in Customer</p>
+                                </div>
+                                <div v-else class="space-y-3">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+                                        <input
+                                            type="text"
+                                            v-model="customerForm.name"
+                                            class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-2 px-3"
+                                            placeholder="Enter customer name"
+                                        >
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                                        <input
+                                            type="email"
+                                            v-model="customerForm.email"
+                                            class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-2 px-3"
+                                            placeholder="Enter email"
+                                        >
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
+                                        <input
+                                            type="text"
+                                            v-model="customerForm.phone"
+                                            class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-2 px-3"
+                                            placeholder="Enter phone"
+                                        >
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
+                                        <textarea
+                                            v-model="customerForm.address"
+                                            rows="2"
+                                            class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-2 px-3"
+                                            placeholder="Enter address"
+                                        ></textarea>
+                                    </div>
+                                </div>
                             </div>
                             <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                                 <h3 class="text-lg font-semibold mb-2">Order Information</h3>
@@ -110,6 +174,79 @@
                                 <p><span class="font-medium">Payment Method:</span> {{ order.payment_method }}</p>
                                 <p><span class="font-medium">Delivery Method:</span> {{ order.delivery_method }}</p>
                                 <p v-if="order.remarks"><span class="font-medium">Remarks:</span> {{ order.remarks }}</p>
+                            </div>
+                        </div>
+
+                        <!-- Delivery Information -->
+                        <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold">Delivery Information</h3>
+                                <button
+                                    v-if="!editingDelivery"
+                                    @click="startEditingDelivery"
+                                    class="px-3 py-1 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700"
+                                >
+                                    Edit
+                                </button>
+                                <div v-else class="flex gap-2">
+                                    <button
+                                        @click="saveDeliveryInfo"
+                                        class="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+                                        :disabled="savingDelivery"
+                                    >
+                                        {{ savingDelivery ? 'Saving...' : 'Save' }}
+                                    </button>
+                                    <button
+                                        @click="cancelEditingDelivery"
+                                        class="px-3 py-1 bg-gray-500 text-white text-sm rounded-lg hover:bg-gray-600"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                            <div v-if="!editingDelivery" class="space-y-2">
+                                <p><span class="font-medium">Name:</span> {{ deliveryForm.delivery_name || '-' }}</p>
+                                <p><span class="font-medium">Company Name:</span> {{ deliveryForm.delivery_company_name || '-' }}</p>
+                                <p><span class="font-medium">Address:</span> {{ deliveryForm.delivery_address || '-' }}</p>
+                                <p><span class="font-medium">Phone:</span> {{ deliveryForm.delivery_phone || '-' }}</p>
+                            </div>
+                            <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Delivery Name</label>
+                                    <input
+                                        type="text"
+                                        v-model="deliveryForm.delivery_name"
+                                        class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-2 px-3"
+                                        placeholder="Enter delivery name"
+                                    >
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company Name</label>
+                                    <input
+                                        type="text"
+                                        v-model="deliveryForm.delivery_company_name"
+                                        class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-2 px-3"
+                                        placeholder="Enter company name (optional)"
+                                    >
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Delivery Address</label>
+                                    <textarea
+                                        v-model="deliveryForm.delivery_address"
+                                        rows="3"
+                                        class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-2 px-3"
+                                        placeholder="Enter delivery address"
+                                    ></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Delivery Phone</label>
+                                    <input
+                                        type="text"
+                                        v-model="deliveryForm.delivery_phone"
+                                        class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 shadow-sm py-2 px-3"
+                                        placeholder="Enter delivery phone"
+                                    >
+                                </div>
                             </div>
                         </div>
 
@@ -239,6 +376,9 @@
                 >
                     Print Invoice
                 </a>
+                <!-- Note: "Send Invoice" sends invoice PDF via email instantly to customer.
+                     This is for immediate email sending. For MyInvois consolidation, use "Add to Consolidation" button instead. -->
+                <!-- 
                 <button
                     v-if="order.customer?.email"
                     @click="sendInvoice"
@@ -246,8 +386,30 @@
                     :disabled="sendingInvoice"
                 >
                     <span v-if="sendingInvoice">Sending...</span>
-                    <span v-else>Send Invoice</span>
+                    <span v-else>Send Invoice (Email)</span>
                 </button>
+                -->
+                <button
+                    v-if="!order.my_invois_invoice && !order.in_consolidation_queue"
+                    @click="addToConsolidation"
+                    class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                    :disabled="addingToConsolidation"
+                >
+                    <span v-if="addingToConsolidation">Adding...</span>
+                    <span v-else>Add to Consolidation</span>
+                </button>
+                <span
+                    v-else-if="order.in_consolidation_queue"
+                    class="px-4 py-2 bg-yellow-500 text-white rounded-lg"
+                >
+                    In Queue
+                </span>
+                <span
+                    v-else-if="order.my_invois_invoice"
+                    class="px-4 py-2 bg-green-500 text-white rounded-lg"
+                >
+                    Pushed to MyInvois
+                </span>
             </div>
         </div>
 
@@ -271,6 +433,26 @@ const currency = computed(() => page.props.settings?.currency || 'USD');
 
 const showStatusDropdown = ref(false);
 const sendingInvoice = ref(false);
+const addingToConsolidation = ref(false);
+const editingDelivery = ref(false);
+const savingDelivery = ref(false);
+const originalDeliveryData = ref(null);
+const deliveryForm = ref({
+    delivery_name: props.order.delivery_name || '',
+    delivery_company_name: props.order.delivery_company_name || '',
+    delivery_address: props.order.delivery_address || '',
+    delivery_phone: props.order.delivery_phone || '',
+});
+const editingCustomer = ref(false);
+const savingCustomer = ref(false);
+const originalCustomerData = ref(null);
+const customerForm = ref({
+    customer_id: props.order.customer?.id || null,
+    name: props.order.customer?.name || '',
+    email: props.order.customer?.email || '',
+    phone: props.order.customer?.phone || '',
+    address: props.order.customer?.address || '',
+});
 
 const updateStatus = (status) => {
     if (confirm(`Are you sure you want to change the order status to ${status}?`)) {
@@ -303,6 +485,95 @@ const sendInvoice = () => {
                 onError: () => {
                     sendingInvoice.value = false;
                     alert('Failed to send invoice. Please try again.');
+                },
+            }
+        );
+    }
+};
+
+const startEditingDelivery = () => {
+    originalDeliveryData.value = { ...deliveryForm.value };
+    editingDelivery.value = true;
+};
+
+const cancelEditingDelivery = () => {
+    if (originalDeliveryData.value) {
+        deliveryForm.value = { ...originalDeliveryData.value };
+    }
+    editingDelivery.value = false;
+    originalDeliveryData.value = null;
+};
+
+const saveDeliveryInfo = () => {
+    savingDelivery.value = true;
+    router.put(
+        route('orders.updateDelivery', props.order.id),
+        deliveryForm.value,
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                savingDelivery.value = false;
+                editingDelivery.value = false;
+                originalDeliveryData.value = null;
+                router.reload({ only: ['order'] });
+            },
+            onError: () => {
+                savingDelivery.value = false;
+                alert('Failed to save delivery information. Please try again.');
+            },
+        }
+    );
+};
+
+const startEditingCustomer = () => {
+    originalCustomerData.value = { ...customerForm.value };
+    editingCustomer.value = true;
+};
+
+const cancelEditingCustomer = () => {
+    if (originalCustomerData.value) {
+        customerForm.value = { ...originalCustomerData.value };
+    }
+    editingCustomer.value = false;
+    originalCustomerData.value = null;
+};
+
+const saveCustomerInfo = () => {
+    savingCustomer.value = true;
+    router.put(
+        route('orders.updateCustomer', props.order.id),
+        customerForm.value,
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                savingCustomer.value = false;
+                editingCustomer.value = false;
+                originalCustomerData.value = null;
+                router.reload({ only: ['order'] });
+            },
+            onError: () => {
+                savingCustomer.value = false;
+                alert('Failed to save customer information. Please try again.');
+            },
+        }
+    );
+};
+
+const addToConsolidation = () => {
+    if (confirm('Add this order to MyInvois consolidation queue?')) {
+        addingToConsolidation.value = true;
+        router.post(
+            route('orders.addToConsolidation', props.order.id),
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    addingToConsolidation.value = false;
+                    router.reload({ only: ['order'] });
+                },
+                onError: () => {
+                    addingToConsolidation.value = false;
+                    alert('Failed to add order to consolidation queue. Please try again.');
                 },
             }
         );

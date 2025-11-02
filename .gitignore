@@ -22,3 +22,5 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+storage/app/myinvois_consolidation_queue.json
+storage/app/myinvois_push_results.json

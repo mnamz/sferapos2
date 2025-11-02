@@ -44,7 +44,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/api/products/search', [ProductController::class, 'search'])->name('api.products.search');
 
     Route::put('/orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.updateStatus');
+    Route::put('/orders/{order}/delivery', [OrderController::class, 'updateDelivery'])->name('orders.updateDelivery');
+    Route::put('/orders/{order}/customer', [OrderController::class, 'updateCustomer'])->name('orders.updateCustomer');
+    Route::post('/orders/{order}/consolidation', [OrderController::class, 'addToConsolidation'])->name('orders.addToConsolidation');
     Route::delete('/orders/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
+    
+    // MyInvois Push Status
+    Route::get('/myinvois/push-status', [App\Http\Controllers\MyInvoisPushStatusController::class, 'index'])->name('myinvois.pushStatus');
+    Route::post('/myinvois/push', [App\Http\Controllers\MyInvoisPushStatusController::class, 'push'])->name('myinvois.push');
+    
+    // MyInvois Consolidated Invoices
+    Route::get('/myinvois/consolidated', [App\Http\Controllers\MyInvoisInvoiceController::class, 'index'])->name('myinvois.consolidated.index');
+    Route::get('/myinvois/consolidated/{myInvoisInvoice}', [App\Http\Controllers\MyInvoisInvoiceController::class, 'show'])->name('myinvois.consolidated.show');
     Route::get('/orders/export-csv', [OrderController::class, 'exportCsv'])
         ->middleware(['auth'])
         ->name('orders.exportCsv');

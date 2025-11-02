@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\Customer;
 use App\Models\ShopSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use App\Services\TmsReceiptService;
+use App\Services\ConsolidationQueueService;
 
 class OrderController extends Controller
 {
@@ -141,7 +143,9 @@ class OrderController extends Controller
 
     public function show(Order $order)
     {
-        $order->load(['customer', 'user', 'items.product', 'expenses']);
+        $order->load(['customer', 'user', 'items.product', 'expenses', 'myInvoisInvoice']);
+        
+        $queueService = new ConsolidationQueueService();
         
         $orderData = [
             'id' => $order->id,
@@ -188,11 +192,22 @@ class OrderController extends Controller
             'change_amount' => number_format($order->change_amount, 2),
             'payment_method' => ucfirst($order->payment_method),
             'delivery_method' => ucfirst($order->delivery_method),
+            'delivery_name' => $order->delivery_name,
+            'delivery_company_name' => $order->delivery_company_name,
+            'delivery_address' => $order->delivery_address,
+            'delivery_phone' => $order->delivery_phone,
             'remarks' => $order->remarks,
             'status' => $order->status,
             'payment_status' => $order->paid_amount >= $order->total ? 'paid' : 
                 ($order->paid_amount > 0 ? 'partial' : 'pending'),
             'created_at' => $order->created_at->format('Y-m-d H:i:s'),
+            'my_invois_invoice' => $order->myInvoisInvoice ? [
+                'id' => $order->myInvoisInvoice->id,
+                'submission_uid' => $order->myInvoisInvoice->submission_uid,
+                'uuid' => $order->myInvoisInvoice->uuid,
+                'invoice_code_number' => $order->myInvoisInvoice->invoice_code_number,
+            ] : null,
+            'in_consolidation_queue' => $queueService->isInQueue($order->id),
         ];
 
         return Inertia::render('Orders/Show', [
@@ -384,6 +399,10 @@ class OrderController extends Controller
                 'change_amount' => number_format($order->change_amount, 2),
                 'payment_method' => $order->payment_method,
                 'delivery_method' => $order->delivery_method,
+                'delivery_name' => $order->delivery_name,
+                'delivery_company_name' => $order->delivery_company_name,
+                'delivery_address' => $order->delivery_address,
+                'delivery_phone' => $order->delivery_phone,
                 'remarks' => $order->remarks,
                 'status' => $order->status,
                 'payment_status' => $order->paid_amount >= $order->total ? 'paid' : 
@@ -422,6 +441,10 @@ class OrderController extends Controller
             'payment_method' => 'required|in:cash,card,e-wallet,online_transfer',
             'delivery_method' => 'required|in:pickup,delivery,walk-in,shopee,tiktok,lazada',
             'delivery_cost' => 'required|numeric|min:0',
+            'delivery_name' => 'nullable|string|max:255',
+            'delivery_company_name' => 'nullable|string|max:255',
+            'delivery_address' => 'nullable|string',
+            'delivery_phone' => 'nullable|string|max:255',
             'paid_amount' => 'required|numeric|min:0',
             'due_amount' => 'required|numeric|min:0',
             'change_amount' => 'required|numeric|min:0',
@@ -462,6 +485,10 @@ class OrderController extends Controller
                 'payment_method' => $validated['payment_method'],
                 'delivery_method' => $validated['delivery_method'],
                 'delivery_cost' => $validated['delivery_cost'],
+                'delivery_name' => $validated['delivery_name'] ?? null,
+                'delivery_company_name' => $validated['delivery_company_name'] ?? null,
+                'delivery_address' => $validated['delivery_address'] ?? null,
+                'delivery_phone' => $validated['delivery_phone'] ?? null,
                 'paid_amount' => $validated['paid_amount'],
                 'due_amount' => $validated['due_amount'],
                 'change_amount' => $validated['change_amount'],
@@ -550,6 +577,83 @@ class OrderController extends Controller
         $order->update(['status' => $validated['status'], 'payment_status' => $validated['status']]);
 
         return back()->with('success', 'Order status updated successfully');
+    }
+
+    public function updateDelivery(Request $request, Order $order)
+    {
+        $validated = $request->validate([
+            'delivery_name' => 'nullable|string|max:255',
+            'delivery_company_name' => 'nullable|string|max:255',
+            'delivery_address' => 'nullable|string',
+            'delivery_phone' => 'nullable|string|max:255',
+        ]);
+
+        $order->update([
+            'delivery_name' => $validated['delivery_name'] ?? null,
+            'delivery_company_name' => $validated['delivery_company_name'] ?? null,
+            'delivery_address' => $validated['delivery_address'] ?? null,
+            'delivery_phone' => $validated['delivery_phone'] ?? null,
+        ]);
+
+        return back()->with('success', 'Delivery information updated successfully');
+    }
+
+    public function updateCustomer(Request $request, Order $order)
+    {
+        $validated = $request->validate([
+            'customer_id' => 'nullable|exists:customers,id',
+            'name' => 'required|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'nullable|string|max:255',
+            'address' => 'nullable|string',
+        ]);
+
+        // If customer_id exists, update the existing customer
+        if ($validated['customer_id']) {
+            $customer = Customer::findOrFail($validated['customer_id']);
+            $customer->update([
+                'name' => $validated['name'],
+                'email' => $validated['email'] ?? null,
+                'phone' => $validated['phone'] ?? null,
+                'address' => $validated['address'] ?? null,
+            ]);
+            // Update order to use this customer
+            $order->update(['customer_id' => $validated['customer_id']]);
+        } else {
+            // Create a new customer and assign to order
+            $customer = Customer::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'] ?? null,
+                'phone' => $validated['phone'] ?? null,
+                'address' => $validated['address'] ?? null,
+                'status' => 'active',
+            ]);
+            $order->update(['customer_id' => $customer->id]);
+        }
+
+        return back()->with('success', 'Customer information updated successfully');
+    }
+
+    public function addToConsolidation(Order $order)
+    {
+        $queueService = new ConsolidationQueueService();
+        
+        // Check if order is already in queue
+        if ($queueService->isInQueue($order->id)) {
+            return back()->with('info', 'Order is already in consolidation queue');
+        }
+
+        // Check if order already has MyInvois invoice
+        if ($order->myInvoisInvoice) {
+            return back()->with('info', 'Order has already been pushed to MyInvois');
+        }
+
+        // Add to queue
+        if ($queueService->addOrder($order)) {
+            return back()->with('success', 'Order added to consolidation queue successfully');
+        }
+
+        return back()->with('error', 'Failed to add order to consolidation queue');
     }
 
     public function destroy(Order $order)
