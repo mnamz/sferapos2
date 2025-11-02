@@ -147,20 +147,31 @@
             border-collapse: collapse;
             border: 1px solid #000;
             margin-top: 6px;
-            table-layout: fixed; /* Fixed layout for 6 columns */
+            table-layout: auto; /* Auto layout for adjustable columns */
         }
         .contact-table td {
             border: 1px solid #000;
             padding: 4px 6px;
             text-align: center;
-            width: 16.67%; /* Equal width for 6 columns (100% / 6) */
+            white-space: nowrap;
         }
         
-        /* Style label columns (1st, 3rd, 5th) with black background and white text */
+        /* Style label columns (1st, 3rd, 5th) with black background and white text - narrower */
         .contact-table td:nth-child(odd) {
             background-color: #000;
             color: #fff;
             font-weight: bold;
+            width: auto;
+            min-width: 30px;
+            max-width: 80px;
+        }
+        
+        /* Value columns (2nd, 4th, 6th) - wider and flexible */
+        .contact-table td:nth-child(even) {
+            width: auto;
+            min-width: 120px;
+            text-align: left;
+            padding-left: 8px;
         }
         
         
@@ -651,7 +662,7 @@
                     <td class="two-col-left">
                         <div class="special-notes">
                             <div class="label">SPECIAL NOTES & INSTRUCTIONS</div>
-                            <div class="content">ATIVA (KFQ 2903)</div>
+                            <div class="content">{!! nl2br(e($order->remarks ?? '')) !!}</div>
                         </div>
                     </td>
                     <td class="two-col-right">
