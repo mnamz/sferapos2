@@ -35,7 +35,6 @@
             height: 35mm;
             background-color: white;
             z-index: 1000;
-            border-bottom: 1px solid #ddd;
             padding: 5mm 10mm 0 10mm;
         }
         
@@ -134,6 +133,17 @@
             padding: 3mm 15mm;
             font-size: 10px;
             text-align: center;
+        }
+        
+        .page-number {
+            text-align: right;
+            font-size: 9px;
+            color: #666;
+            margin-top: 3px;
+        }
+        
+        .page-number:after {
+            content: "Page " counter(page) " of " counter(pages);
         }
 
         /* Global compact styling for all tables */
@@ -281,6 +291,8 @@
             border: 1px solid #000;
             padding: 8px;
             page-break-inside: avoid;
+            height: 75px;  /* Fixed height to match totals-table */
+            box-sizing: border-box;
         }
         
         .special-notes .label {
@@ -300,6 +312,8 @@
         .totals-table { 
             width: 100%; 
             page-break-inside: avoid;
+            height: 120px;  /* Fixed height to match special-notes */
+            box-sizing: border-box;
         }
         
         .totals-table table {
@@ -447,7 +461,7 @@
         .info-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: -10mm; /* Negative margin to move table up - adjust as needed */
+            margin-top: -20mm; /* Negative margin to move table up - adjust as needed */
             margin-bottom: 12px;
             font-size: 11px;
         }
@@ -495,11 +509,15 @@
         
         /* Blank table for custom design */
         .blank-table {
-            width: 100%;
+            position: fixed;
+            bottom: 65mm;  /* ⬅️ ADJUST THIS: Distance from page bottom (increase to move up, decrease to move down) */
+            /* left: 10mm;    Left margin */
+            width: 100%;  /* Full width minus left and right margins (10mm each side) */
             border-collapse: collapse;
             border: 1px solid #000;
-            margin-top: 15px;
             table-layout: fixed; /* Fixed layout prevents resizing */
+            background-color: white;
+            z-index: 999;  /* Below footer (1000) but above content */
         }
         
         .blank-table td {
@@ -595,7 +613,7 @@
                 </table>
             </div>
         </div>
-        </div>
+    </div>
 
     <div class="container">
 
@@ -701,52 +719,63 @@
                     </td>
                 </tr>
             </table>
-
-            <!-- Blank Table for Custom Design -->
-            <table class="blank-table">
-                <tr>
-                    <td></td>
-                    <td>BANK DETAILS</td>
-                </tr>
-                <tr>
-                    <td></td>
-                    <td></td>
-                </tr>
-                <tr>
-                    <td></td>
-                    <td>Account Holder:</td>
-                </tr>
-                <tr>
-                    <td></td>
-                    <td>Dream Street Restoration Services</td>
-                </tr>
-                <tr>
-                    <td></td>
-                    <td></td>
-                </tr>
-                <tr>
-                    <td></td>
-                    <td>Account Number:</td>
-                </tr>
-                <tr>
-                    <td></td>
-                    <td>8604351269</td>
-                </tr>
-                <tr>
-                    <td>Issuer Authorized Signature</td>
-                    <td></td>
-                </tr>
-                <tr>
-                    <td><strong>ADMIN</strong></td>
-                    <td></td>
-                </tr>
-                <tr>
-                    <td></td>
-                    <td>Date: {{ $order->created_at->format('d/m/Y') }}</td>
-                </tr>
-            </table>
         </div>
 
+        <!-- Blank Table for Custom Design (appears only on last page) -->
+        <table class="blank-table">
+            <tr>
+                <td></td>
+                <td>BANK DETAILS</td>
+            </tr>
+            <tr>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td></td>
+                <td>Account Holder:</td>
+            </tr>
+            <tr>
+                <td></td>
+                <td>Dream Street Restoration Services</td>
+            </tr>
+            <tr>
+                <td></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td></td>
+                <td>Account Number:</td>
+            </tr>
+            <tr>
+                <td></td>
+                <td>8604351269</td>
+            </tr>
+            <tr>
+                <td>Issuer Authorized Signature</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td><strong>ADMIN</strong></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td></td>
+                <td>Date: {{ $order->created_at->format('d/m/Y') }}</td>
+            </tr>
+        </table>
+
     </div>
+    
+    <script type="text/php">
+        if (isset($pdf)) {
+            $font = $fontMetrics->get_font("helvetica");
+            $pdf->page_script('
+                $font = $fontMetrics->get_font("helvetica");
+                $text = "Page " . $PAGE_NUM . " of " . $PAGE_COUNT;
+                $pdf->text(480, 820, $text, $font, 9, array(0.4, 0.4, 0.4));
+            ');
+        }
+    </script>
 </body>
 </html> 
