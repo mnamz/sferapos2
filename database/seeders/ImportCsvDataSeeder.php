@@ -37,6 +37,11 @@ class ImportCsvDataSeeder extends Seeder
             'updated_at' => now(),
         ];
 
+        // if default, stop seeding
+        if ($this->siteName == 'default') {
+            return;
+        }
+
         // Override settings for Sunway
 //         if (str_contains(strtolower($this->siteName), 'sunway')) {
 //             $shopSettings = [
