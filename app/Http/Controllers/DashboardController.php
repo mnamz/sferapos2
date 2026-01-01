@@ -16,8 +16,8 @@ class DashboardController extends Controller
         // Today's statistics -- comment out for now - 1 - 2 -2
         $today = Carbon::today();
         $todayStats = [
-            'sales' => Order::whereDate('created_at', $today)->sum('total'),
-            'orders' => Order::whereDate('created_at', $today)->count(),
+            'sales' => Order::whereDate('created_at', $today)->where('status', '!=', 'cancelled')->sum('total'),
+            'orders' => Order::whereDate('created_at', $today)->where('status', '!=', 'cancelled')->count(),
             'customers' => Customer::whereDate('created_at', $today)->count(),
         ];
 
@@ -26,9 +26,11 @@ class DashboardController extends Controller
         $monthlyStats = [
             'sales' => Order::whereDate('created_at', '>=', $thisMonth)
                 ->whereDate('created_at', '<=', Carbon::now()->endOfMonth())
+                ->where('status', '!=', 'cancelled')
                 ->sum('total'),
             'orders' => Order::whereDate('created_at', '>=', $thisMonth)
                 ->whereDate('created_at', '<=', Carbon::now()->endOfMonth())
+                ->where('status', '!=', 'cancelled')
                 ->count(),
             'customers' => Customer::whereDate('created_at', '>=', $thisMonth)
                 ->whereDate('created_at', '<=', Carbon::now()->endOfMonth())
@@ -37,6 +39,7 @@ class DashboardController extends Controller
 
         // Recent orders
         $recentOrders = Order::with('customer')
+            ->where('status', '!=', 'cancelled')
             ->latest()
             ->take(5)
             ->get()
@@ -54,8 +57,10 @@ class DashboardController extends Controller
 
         // Top selling products
         $topProducts = DB::table('order_items')
-            ->select('product_name', DB::raw('SUM(quantity) as total_quantity'), DB::raw('SUM(total) as total_sales'))
-            ->groupBy('product_name')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->where('orders.status', '!=', 'cancelled')
+            ->select('order_items.product_name', DB::raw('SUM(order_items.quantity) as total_quantity'), DB::raw('SUM(order_items.total) as total_sales'))
+            ->groupBy('order_items.product_name')
             ->orderByDesc('total_quantity')
             ->limit(5)
             ->get();
@@ -74,6 +79,7 @@ class DashboardController extends Controller
             DB::raw('COUNT(*) as total_orders')
         )
             ->where('created_at', '>=', Carbon::now()->subDays(7))
+            ->where('status', '!=', 'cancelled')
             ->groupBy('date')
             ->orderBy('date')
             ->get()
@@ -104,8 +110,8 @@ class DashboardController extends Controller
         return $days->map(function ($date) {
             return [
                 'date' => $date->format('M d'),
-                'sales' => Order::whereDate('created_at', $date)->sum('total'),
-                'orders' => Order::whereDate('created_at', $date)->count(),
+                'sales' => Order::whereDate('created_at', $date)->where('status', '!=', 'cancelled')->sum('total'),
+                'orders' => Order::whereDate('created_at', $date)->where('status', '!=', 'cancelled')->count(),
             ];
         });
     }

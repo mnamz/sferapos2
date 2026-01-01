@@ -11,17 +11,125 @@ class MyInvoisService
 {
     protected $baseUrl;
     protected $settings;
+    protected $enabled;
 
     public function __construct()
     {
-        $this->baseUrl = config('services.myinvois.base_url', 'https://myinvois.myrccornertrading.com');
+        $this->baseUrl = config('services.myinvois.base_url');
+        $this->enabled = config('services.myinvois.enabled', false);
         $this->settings = ShopSettings::first();
     }
 
-    public function submitInvoice(Order $order)
+    /**
+     * Determine if the service is enabled.
+     */
+    public function isEnabled(): bool
     {
+        return $this->enabled && filled($this->baseUrl);
+    }
+
+    /**
+     * Format phone number to match MyInvois regex: ^\+[1-9]\d{1,14}$
+     * Requirements:
+     * - Must start with +
+     * - First digit after + must be 1-9 (not 0)
+     * - Total length: 2-15 digits
+     * 
+     * @param string|null $phone
+     * @param string $default Default phone if invalid/empty
+     * @return string
+     */
+    protected function formatPhoneNumber(?string $phone, string $default = '+60123456789'): string
+    {
+        if (empty($phone)) {
+            return $default;
+        }
+
+        // Remove all non-digit characters except +
+        $cleaned = preg_replace('/[^\d+]/', '', $phone);
+
+        // If doesn't start with +, add it
+        if (!str_starts_with($cleaned, '+')) {
+            // Remove leading zeros if any
+            $cleaned = ltrim($cleaned, '0');
+            $cleaned = '+' . $cleaned;
+        }
+
+        // Ensure first digit after + is 1-9
+        if (strlen($cleaned) > 1 && $cleaned[1] === '0') {
+            // Replace leading 0 after + with a valid digit (use 6 for Malaysia)
+            $cleaned = '+' . '6' . substr($cleaned, 2);
+        }
+
+        // Validate against regex: ^\+[1-9]\d{1,14}$
+        if (preg_match('/^\+[1-9]\d{1,14}$/', $cleaned)) {
+            return $cleaned;
+        }
+
+        // If validation fails, return default
+        return $default;
+    }
+
+    /**
+     * Queue an invoice for later submission (72 hours)
+     */
+    public function queueInvoice(Order $order)
+    {
+        if (!$this->isEnabled()) {
+            Log::warning('MyInvois service is disabled or not configured.');
+            return false;
+        }
+
         try {
             $payload = $this->prepareInvoicePayload($order);
+
+            // Store in queue
+            \App\Models\MyInvoisQueue::updateOrCreate(
+                ['order_id' => $order->id],
+                [
+                    'invoice_payload' => $payload,
+                    'status' => 'pending',
+                ]
+            );
+
+            Log::info('MyInvois invoice queued', ['order_id' => $order->id]);
+            return true;
+        } catch (\Exception $e) {
+            Log::error('MyInvois Queue Exception', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Submit invoice immediately (for manual push or 72+ hour old invoices)
+     * 
+     * @param Order $order
+     * @param bool $forceRefresh If true, regenerate payload from current order data instead of using queue
+     * @param array|null $customCustomerInfo Optional custom customer info to override order customer data
+     */
+    public function submitInvoice(Order $order, bool $forceRefresh = false, ?array $customCustomerInfo = null)
+    {
+        if (!$this->isEnabled()) {
+            Log::warning('MyInvois service is disabled or not configured.');
+            return false;
+        }
+
+        try {
+            // Get payload from queue if exists and not forcing refresh, otherwise generate new
+            $queueItem = $order->myInvoisQueue;
+            if ($forceRefresh || !$queueItem || $queueItem->status !== 'pending' || $customCustomerInfo) {
+                $payload = $this->prepareInvoicePayload($order, $customCustomerInfo);
+                
+                // Update queue with fresh payload if queue exists
+                if ($queueItem && $queueItem->status === 'pending') {
+                    $queueItem->update(['invoice_payload' => $payload]);
+                }
+            } else {
+                $payload = $queueItem->invoice_payload;
+            }
             
             // Log the request payload
             Log::info('MyInvois API Request', [
@@ -66,6 +174,15 @@ class MyInvoisService
                     'response_payload' => $responseData
                 ]);
 
+                // Update queue status if exists
+                if ($queueItem) {
+                    $queueItem->update([
+                        'status' => 'pushed',
+                        'myinvois_id' => $acceptedDoc['uuid'] ?? null,
+                        'pushed_at' => now(),
+                    ]);
+                }
+
                 Log::info('MyInvois Invoice Created', [
                     'order_id' => $order->id,
                     'submission_uid' => $responseData['submissionUid'] ?? null,
@@ -93,26 +210,133 @@ class MyInvoisService
         }
     }
 
-    protected function prepareInvoicePayload(Order $order)
+    /**
+     * Cancel an invoice on MyInvois
+     */
+    public function cancelInvoice(string $myinvoisId, string $reason)
     {
-        // Use the order's created_at timestamp in UTC and subtract 2 minutes
-        $issueDate = $order->created_at->setTimezone('UTC');
+        if (!$this->isEnabled()) {
+            Log::warning('MyInvois service is disabled or not configured.');
+            return false;
+        }
+
+        try {
+            $url = $this->baseUrl . '/documents/' . $myinvoisId . '/cancel?reason=' . urlencode($reason);
+
+            Log::info('MyInvois Cancel Request', [
+                'myinvois_id' => $myinvoisId,
+                'reason' => $reason,
+                'url' => $url
+            ]);
+
+            $response = Http::withoutVerifying()
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json'
+                ])
+                ->put($url);
+
+            Log::info('MyInvois Cancel Response', [
+                'myinvois_id' => $myinvoisId,
+                'status' => $response->status(),
+                'response' => $response->body()
+            ]);
+
+            return $response->successful();
+        } catch (\Exception $e) {
+            Log::error('MyInvois Cancel Exception', [
+                'myinvois_id' => $myinvoisId,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Get MyInvois document details by UUID
+     */
+    public function getDocumentDetails(string $uuid)
+    {
+        if (!$this->isEnabled()) {
+            Log::warning('MyInvois service is disabled or not configured.');
+            return null;
+        }
+
+        try {
+            $url = $this->baseUrl . '/documents/' . $uuid;
+
+            $response = Http::withoutVerifying()
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json'
+                ])
+                ->get($url);
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::error('MyInvois Get Document Failed', [
+                'uuid' => $uuid,
+                'status' => $response->status(),
+                'response' => $response->body()
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('MyInvois Get Document Exception', [
+                'uuid' => $uuid,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Generate QR code URL for MyInvois invoice
+     */
+    public function generateQrCodeUrl(string $uuid, string $longId): string
+    {
+        $baseUrl = $this->baseUrl;
+        
+        // Determine if production or sandbox based on base URL
+        if (str_contains($baseUrl, 'myinvois.hasil.gov.my') && !str_contains($baseUrl, 'preprod')) {
+            // Production
+            return "https://myinvois.hasil.gov.my/{$uuid}/share/{$longId}";
+        } else {
+            // Sandbox/Preprod
+            return "https://preprod.myinvois.hasil.gov.my/{$uuid}/share/{$longId}";
+        }
+    }
+
+    protected function prepareInvoicePayload(Order $order, ?array $customCustomerInfo = null)
+    {
+        // Ensure order has an ID - use order_number as fallback if ID is missing
+        $orderId = $order->id ?? $order->order_number ?? null;
+        if (!$orderId) {
+            throw new \Exception('Order ID or order number is required for MyInvois submission');
+        }
+
+        // Use the order's created_at timestamp in UTC, or current time if not set
+        $issueDate = $order->created_at 
+            ? $order->created_at->setTimezone('UTC') 
+            : now()->setTimezone('UTC');
         
         return [
             'documents' => [
                 [
-                    'id' => (string) $order->id,
+                    'id' => (string) $orderId,
                     'issueDate' => $issueDate->format('Y-m-d'),
                     'issueTime' => $issueDate->format('H:i:s\Z'), // Match exact format: "05:25:00Z"
                     'documentCurrencyCode' => 'MYR',
                     'supplier' => [
                         'TIN' => $this->settings->tax_number ?? 'IG50598793070',
                         'legalName' => $this->settings->shop_name,
-                        'identificationNumber' => $this->settings->company_number ?? '010810101477',
-                        'identificationScheme' => 'NRIC',
-                        'telephone' => $this->settings->shop_phone,
-                        'industryClassificationCode' => '01111',
-                        'industryClassificationName' => 'Growing of maize',
+                        'identificationNumber' => $this->settings->identification_number ?? $this->settings->company_number ?? '010810101477',
+                        'identificationScheme' => $this->settings->identification_scheme ?? 'NRIC',
+                        'telephone' => $this->formatPhoneNumber($this->settings->shop_phone),
+                        'industryClassificationCode' => $this->settings->industry_classification_code ?? '01111',
+                        'industryClassificationName' => $this->settings->industry_classification_name ?? 'Growing of maize',
                         'address' => [
                             'addressLines' => [
                                 $this->settings->shop_address
@@ -123,26 +347,102 @@ class MyInvoisService
                             'countryCode' => 'MYS'
                         ]
                     ],
-                    'customer' => [
-                        'TIN' => 'EI00000000010',
-                        'legalName' => $order->customer ? $order->customer->name : 'Walk-in Customer',
-                        'identificationNumber' => $order->customer ? $order->customer->id : '000000',
-                        'identificationScheme' => 'BRN',
-                        'telephone' => $order->customer ? $order->customer->phone : '+60123456789',
-                        'address' => [
-                            'addressLines' => [
-                                $order->customer ? $order->customer->address : 'Walk-in Customer'
-                            ],
-                            'cityName' => 'Kuala Lumpur',
-                            'postalZone' => '50480',
-                            'countrySubentityCode' => '14',
-                            'countryCode' => 'MYS'
-                        ]
-                    ],
+                    'customer' => $customCustomerInfo ? $this->prepareCustomCustomerInfo($customCustomerInfo) : $this->prepareCustomerInfo($order),
                     'invoiceLines' => $this->prepareInvoiceLines($order),
                     'taxTotal' => $this->prepareTaxTotal($order),
                     'legalMonetaryTotal' => $this->prepareMonetaryTotal($order)
                 ]
+            ]
+        ];
+    }
+
+    protected function prepareCustomerInfo(Order $order)
+    {
+        $customer = $order->customer;
+        
+        // Default values for walk-in customers
+        if (!$customer) {
+            return [
+                'TIN' => 'EI00000000010',
+                'legalName' => 'Walk-in Customer',
+                'identificationNumber' => '000000000000',
+                'identificationScheme' => 'BRN',
+                'telephone' => $this->formatPhoneNumber(null),
+                'address' => [
+                    'addressLines' => ['Walk-in Customer'],
+                    'cityName' => 'Kuala Lumpur',
+                    'postalZone' => '50480',
+                    'countrySubentityCode' => '14',
+                    'countryCode' => 'MYS'
+                ]
+            ];
+        }
+
+        // Determine TIN: Use customer's TIN if available, otherwise use default
+        $tin = $customer->tin ?: 'EI00000000010';
+
+        // Determine identification scheme: BRN takes priority, then NRIC
+        if ($customer->brn) {
+            $identificationScheme = 'BRN';
+            $identificationNumber = $customer->brn;
+        } elseif ($customer->nric) {
+            $identificationScheme = 'NRIC';
+            $identificationNumber = $customer->nric;
+        } else {
+            // If neither BRN nor NRIC provided, use default
+            $identificationScheme = 'BRN';
+            $identificationNumber = '000000000000';
+        }
+
+        return [
+            'TIN' => $tin,
+            'legalName' => $customer->name,
+            'identificationNumber' => $identificationNumber,
+            'identificationScheme' => $identificationScheme,
+            'telephone' => $this->formatPhoneNumber($customer->phone),
+            'address' => [
+                'addressLines' => [$customer->address ?: 'No address provided'],
+                'cityName' => $customer->city ?: 'Kuala Lumpur',
+                'postalZone' => $customer->postal_code ?: '50480',
+                'countrySubentityCode' => $customer->state_code ?: '14',
+                'countryCode' => $customer->country ?: 'MYS'
+            ]
+        ];
+    }
+
+    /**
+     * Prepare customer info from custom array (for API submissions)
+     */
+    protected function prepareCustomCustomerInfo(array $customerInfo): array
+    {
+        // Determine TIN: Use provided TIN if available, otherwise use default
+        $tin = $customerInfo['tin'] ?? 'EI00000000010';
+
+        // Determine identification scheme: BRN takes priority, then NRIC
+        if (!empty($customerInfo['brn'])) {
+            $identificationScheme = 'BRN';
+            $identificationNumber = $customerInfo['brn'];
+        } elseif (!empty($customerInfo['nric'])) {
+            $identificationScheme = 'NRIC';
+            $identificationNumber = $customerInfo['nric'];
+        } else {
+            // If neither BRN nor NRIC provided, use default
+            $identificationScheme = 'BRN';
+            $identificationNumber = '000000000000';
+        }
+
+        return [
+            'TIN' => $tin,
+            'legalName' => $customerInfo['name'] ?? 'Walk-in Customer',
+            'identificationNumber' => $identificationNumber,
+            'identificationScheme' => $identificationScheme,
+            'telephone' => $this->formatPhoneNumber($customerInfo['phone'] ?? null),
+            'address' => [
+                'addressLines' => [$customerInfo['address'] ?? 'No address provided'],
+                'cityName' => $customerInfo['city'] ?? 'Kuala Lumpur',
+                'postalZone' => $customerInfo['postal_code'] ?? '50480',
+                'countrySubentityCode' => $customerInfo['state_code'] ?? '14',
+                'countryCode' => $customerInfo['country'] ?? 'MYS'
             ]
         ];
     }
@@ -161,7 +461,7 @@ class MyInvoisService
                 'subtotal' => $subtotal,
                 'itemDescription' => $item->product_name,
                 'itemCommodityClassification' => [
-                    'code' => '001',
+                    'code' => '022',
                     'listID' => 'CLASS'
                 ],
                 'lineTaxTotal' => [

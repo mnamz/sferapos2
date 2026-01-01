@@ -30,6 +30,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/shop-settings', [ShopSettingsController::class, 'index'])->name('settings.index');
     Route::post('/shop-settings', [ShopSettingsController::class, 'update'])->name('settings.update');
     Route::get('/orders/{order}/invoice', [InvoiceController::class, 'generate'])->name('orders.invoice');
+    Route::get('/orders/{order}/e-invoice', [OrderController::class, 'eInvoice'])->name('orders.eInvoice');
+    Route::get('/orders/{order}/e-invoice/pdf', [OrderController::class, 'eInvoicePdf'])->name('orders.eInvoicePdf');
     Route::post('/orders/{order}/send-invoice', [InvoiceController::class, 'send'])->name('orders.send-invoice');
     Route::get('/orders/create', [\App\Http\Controllers\OrderController::class, 'create'])->name('orders.create');
     Route::get('/sales', [\App\Http\Controllers\OrderController::class, 'mySales'])->name(name: 'sales.index');
@@ -47,6 +49,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/orders/{order}/delivery', [OrderController::class, 'updateDelivery'])->name('orders.updateDelivery');
     Route::put('/orders/{order}/customer', [OrderController::class, 'updateCustomer'])->name('orders.updateCustomer');
     Route::post('/orders/{order}/consolidation', [OrderController::class, 'addToConsolidation'])->name('orders.addToConsolidation');
+    Route::post('/orders/{order}/push-myinvois', [OrderController::class, 'pushToMyInvois'])->name('orders.pushMyInvois');
+    Route::post('/orders/{order}/clear-queue', [OrderController::class, 'clearFromQueue'])->name('orders.clearQueue');
+    Route::post('/orders/{order}/add-to-queue', [OrderController::class, 'addToQueue'])->name('orders.addToQueue');
+    Route::put('/orders/{order}/cancel-myinvois', [OrderController::class, 'cancelMyInvoisInvoice'])->name('orders.cancelMyInvois');
     Route::delete('/orders/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
     
     // MyInvois Push Status
@@ -77,6 +83,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::get('/backup/sql', [BackupController::class, 'downloadSql'])
     ->middleware(['auth'])
     ->name('backup.sql');
+
+// API endpoint for external systems to submit MyInvois invoice with custom customer info
+// Excluded from CSRF protection for external API access
+Route::post('/api/orders/{orderId}/submit-myinvois', [OrderController::class, 'apiSubmitMyInvois'])
+    ->withoutMiddleware(['web'])
+    ->name('api.orders.submitMyInvois');
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';

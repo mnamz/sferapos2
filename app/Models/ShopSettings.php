@@ -19,6 +19,10 @@ class ShopSettings extends Model
         'invoice_logo_path',
         'company_number',
         'tax_number',
+        'identification_number',
+        'identification_scheme',
+        'industry_classification_code',
+        'industry_classification_name',
         'payment_details',
         'footer_text'
     ];

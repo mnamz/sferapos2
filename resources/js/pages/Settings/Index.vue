@@ -187,6 +187,72 @@
                                         <InputError :message="form.errors.tax_number" class="mt-2" />
                                     </div>
 
+                                    <!-- Identification Number (for MyInvois) -->
+                                    <div>
+                                        <Label for="identification_number">Identification Number (NRIC/BRN)</Label>
+                                        <Input
+                                            id="identification_number"
+                                            v-model="form.identification_number"
+                                            type="text"
+                                            class="mt-1 block w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                                            placeholder="e.g., 010810101477 or 202001234567"
+                                        />
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            Used for MyInvois supplier identification
+                                        </p>
+                                        <InputError :message="form.errors.identification_number" class="mt-2" />
+                                    </div>
+
+                                    <!-- Identification Scheme -->
+                                    <div>
+                                        <Label for="identification_scheme">Identification Type</Label>
+                                        <select
+                                            id="identification_scheme"
+                                            v-model="form.identification_scheme"
+                                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 focus:border-indigo-500 focus:ring-indigo-500"
+                                        >
+                                            <option value="">Select Type</option>
+                                            <option value="NRIC">NRIC (National Registration ID)</option>
+                                            <option value="BRN">BRN (Business Registration Number)</option>
+                                        </select>
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            Select the type of identification number above
+                                        </p>
+                                        <InputError :message="form.errors.identification_scheme" class="mt-2" />
+                                    </div>
+
+                                    <!-- Industry Classification Code -->
+                                    <div>
+                                        <Label for="industry_classification_code">Industry Classification Code</Label>
+                                        <Input
+                                            id="industry_classification_code"
+                                            v-model="form.industry_classification_code"
+                                            type="text"
+                                            class="mt-1 block w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                                            placeholder="e.g., 01111"
+                                        />
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            Used for MyInvois supplier industry classification
+                                        </p>
+                                        <InputError :message="form.errors.industry_classification_code" class="mt-2" />
+                                    </div>
+
+                                    <!-- Industry Classification Name -->
+                                    <div>
+                                        <Label for="industry_classification_name">Industry Classification Name</Label>
+                                        <Input
+                                            id="industry_classification_name"
+                                            v-model="form.industry_classification_name"
+                                            type="text"
+                                            class="mt-1 block w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                                            placeholder="e.g., Growing of maize"
+                                        />
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            Description of the industry classification
+                                        </p>
+                                        <InputError :message="form.errors.industry_classification_name" class="mt-2" />
+                                    </div>
+
                                     <!-- Payment Details -->
                                     <div>
                                         <Label for="payment_details">Payment Details</Label>
@@ -261,6 +327,10 @@ const props = defineProps<{
         logo_path?: string;
         company_number?: string;
         tax_number?: string;
+        identification_number?: string;
+        identification_scheme?: string;
+        industry_classification_code?: string;
+        industry_classification_name?: string;
         payment_details?: string;
         footer_text?: string;
         invoice_logo_path?: string;
@@ -278,6 +348,10 @@ const form = useForm({
     invoice_logo: null,
     company_number: props.settings.company_number || '',
     tax_number: props.settings.tax_number || '',
+    identification_number: props.settings.identification_number || '',
+    identification_scheme: props.settings.identification_scheme || '',
+    industry_classification_code: props.settings.industry_classification_code || '',
+    industry_classification_name: props.settings.industry_classification_name || '',
     payment_details: props.settings.payment_details || '',
     footer_text: props.settings.footer_text || '',
 });

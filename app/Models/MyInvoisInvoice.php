@@ -9,6 +9,8 @@ class MyInvoisInvoice extends Model
 {
     use HasFactory;
 
+    protected $table = 'myinvois_invoices';
+
     protected $fillable = [
         'order_id',
         'submission_uid',

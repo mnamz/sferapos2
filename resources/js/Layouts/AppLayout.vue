@@ -15,6 +15,9 @@ withDefaults(defineProps<Props>(), {
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbs" :collapse-sidebar="collapseSidebar">
+        <template v-if="$slots.header" #header>
+            <slot name="header" />
+        </template>
         <slot />
     </AppLayout>
 </template>
