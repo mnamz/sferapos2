@@ -20,6 +20,7 @@ class ReportController extends Controller
 
         $query = Order::query()
             ->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->where('orders.status', '!=', 'cancelled')
             ->when($request->input('delivery_method'), function($query, $method) {
                 if ($method === 'in-store') {
                     $query->whereIn('delivery_method', ['walk-in', 'delivery', 'pickup']);
@@ -112,6 +113,7 @@ class ReportController extends Controller
         $profitDetails = DB::table('order_items')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->where('orders.status', '!=', 'cancelled')
             ->select(
                 'order_items.product_id',
                 'order_items.product_name',
@@ -149,6 +151,7 @@ class ReportController extends Controller
         $orders = Order::query()
             ->with(['customer', 'user'])
             ->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->where('status', '!=', 'cancelled')
             ->when($request->input('delivery_method'), function($query, $method) {
                 if ($method === 'in-store') {
                     $query->whereIn('delivery_method', ['walk-in', 'delivery']);

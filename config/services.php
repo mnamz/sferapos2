@@ -41,4 +41,10 @@ return [
         'is_test' => env('TMS_IS_TEST', false),
     ],
 
+    'myinvois' => [
+        'enabled' => filter_var(env('MYINVOIS_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
+        'base_url' => env('MYINVOIS_BASE_URL', 'https://myinvois.myrccornertrading.com'),
+        'queue_delay_hours' => env('MYINVOIS_QUEUE_DELAY_HOURS', 72),
+    ],
+
 ];

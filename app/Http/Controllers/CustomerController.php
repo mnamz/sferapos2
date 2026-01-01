@@ -36,8 +36,15 @@ class CustomerController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|unique:customers',
-            'phone' => 'nullable|string|max:20',
+            'phone' => ['nullable', 'string', 'max:20', 'regex:/^\+[1-9]\d{1,14}$/'],
             'address' => 'nullable|string',
+            'city' => 'nullable|string|max:255',
+            'postal_code' => 'nullable|string|max:20',
+            'state_code' => 'nullable|string|max:2',
+            'country' => 'nullable|string|max:3',
+            'tin' => 'nullable|string|max:50',
+            'brn' => 'nullable|string|max:50',
+            'nric' => 'nullable|string|max:50',
             'status' => 'required|in:active,inactive',
         ]);
 
@@ -59,8 +66,15 @@ class CustomerController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|unique:customers,email,' . $customer->id,
-            'phone' => 'nullable|string|max:20',
+            'phone' => ['nullable', 'string', 'max:20', 'regex:/^\+[1-9]\d{1,14}$/'],
             'address' => 'nullable|string',
+            'city' => 'nullable|string|max:255',
+            'postal_code' => 'nullable|string|max:20',
+            'state_code' => 'nullable|string|max:2',
+            'country' => 'nullable|string|max:3',
+            'tin' => 'nullable|string|max:50',
+            'brn' => 'nullable|string|max:50',
+            'nric' => 'nullable|string|max:50',
             'status' => 'required|in:active,inactive',
         ]);
 

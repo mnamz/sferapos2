@@ -1,16 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Invoice #{{ $order->id }}</title>
+    <title>E-Invoice #{{ $order->id }}</title>
 </head>
 <body>
-    <h3>Dear {{ $order->customer->name }},</h3>
+    <h3>Dear {{ $customerName }},</h3>
     
-    <p>Thank you for your business. Please find attached the invoice for your recent order.</p>
-    
-    @if($eInvoicePdf && $order->myInvoisInvoice)
-    <p><strong>Note:</strong> The e-invoice (validated by MyInvois) is also attached to this email.</p>
-    @endif
+    <p>Thank you for your business. Please find attached your e-invoice for your recent order.</p>
     
     <p>Order Details:</p>
     <ul>
@@ -19,12 +15,16 @@
         <li>Total Amount: {{ $settings->currency }}{{ number_format($order->total, 2) }}</li>
         @if($order->myInvoisInvoice)
         <li>E-Invoice Code: {{ $order->myInvoisInvoice->invoice_code_number }}</li>
+        <li>Status: Validated</li>
         @endif
     </ul>
+    
+    <p>This e-invoice has been validated and submitted to MyInvois. You can scan the QR code in the attached PDF to verify the invoice.</p>
     
     <p>If you have any questions, please don't hesitate to contact us.</p>
     
     <p>Best regards,<br>
     {{ $settings->shop_name }}</p>
 </body>
-</html> 
+</html>
+

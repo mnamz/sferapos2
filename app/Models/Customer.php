@@ -15,6 +15,13 @@ class Customer extends Model
         'email',
         'phone',
         'address',
+        'city',
+        'postal_code',
+        'state_code',
+        'country',
         'status',
+        'tin',
+        'brn',
+        'nric',
     ];
 } 

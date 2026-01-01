@@ -142,12 +142,19 @@
                                                 View
                                             </Link>
                                             <Link
-                                                v-if="userRole.name == 'admin' || userRole.name == 'manager'"
+                                                v-if="(userRole.name == 'admin' || userRole.name == 'manager') && !order.myinvois_invoice"
                                                 :href="route('orders.edit', order.id)"
                                                 class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
                                             >
                                                 Edit
                                             </Link>
+                                            <span
+                                                v-if="(userRole.name == 'admin' || userRole.name == 'manager') && order.myinvois_invoice"
+                                                class="text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                                                title="Cannot edit order with pushed MyInvois invoice. Cancel the invoice first."
+                                            >
+                                                Edit (Locked)
+                                            </span>
                                             <button
                                                 v-if="userRole.name == 'admin'"
                                                 @click="destroy(order.id)"
@@ -203,11 +210,19 @@
                                         View
                                     </Link>
                                     <Link
+                                        v-if="!order.myinvois_invoice"
                                         :href="route('orders.edit', order.id)"
                                         class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                                     >
                                         Edit
                                     </Link>
+                                    <span
+                                        v-if="order.myinvois_invoice"
+                                        class="text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                                        title="Cannot edit order with pushed MyInvois invoice. Cancel the invoice first."
+                                    >
+                                        Edit (Locked)
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -217,6 +232,46 @@
                 </div>
             </div>
         </div>
+
+        <!-- Delete Confirmation Modal -->
+        <Modal :show="showDeleteModal" @close="showDeleteModal = false">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Delete Order
+                </h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Are you sure you want to delete order #{{ orderToDelete }}? This action cannot be undone.
+                </p>
+                <div class="mb-4">
+                    <label for="deletion_reason" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Deletion Reason <span class="text-red-500">*</span>
+                    </label>
+                    <textarea
+                        id="deletion_reason"
+                        v-model="deletionReason"
+                        rows="4"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                        placeholder="Please provide a reason for deleting this order..."
+                        required
+                    ></textarea>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button
+                        @click="showDeleteModal = false"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        @click="confirmDelete"
+                        :disabled="!deletionReason || deletionReason.trim() === ''"
+                        class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Delete Order
+                    </button>
+                </div>
+            </div>
+        </Modal>
     </AppLayout>
 </template>
 
@@ -225,6 +280,7 @@ import { ref, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import Pagination from '@/Components/Pagination.vue';
+import Modal from '@/Components/Modal.vue';
 import debounce from 'lodash/debounce';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-vue-next';
 import { toast } from 'vue3-toastify';
@@ -253,6 +309,9 @@ const endDate = ref(props.filters?.end_date || '');
 const sortColumn = ref('');
 const sortDirection = ref('asc');
 const userRole = computed(() => page.props?.auth?.user?.roles[0] || '');
+const showDeleteModal = ref(false);
+const orderToDelete = ref(null);
+const deletionReason = ref('');
 
 const columns = computed(() => {
     const baseColumns = [
@@ -324,13 +383,35 @@ function printOrders() {
 }
 
 function destroy(id) {
-    if (confirm('Are you sure you want to delete this order?')) {
-        router.delete(route('orders.destroy', id), {
-            onSuccess: () => {
-                toast.success('Order deleted successfully');
-            },
-        });
+    orderToDelete.value = id;
+    deletionReason.value = '';
+    showDeleteModal.value = true;
+}
+
+function confirmDelete() {
+    if (!deletionReason.value || deletionReason.value.trim() === '') {
+        toast.error('Please provide a deletion reason');
+        return;
     }
+
+    router.delete(route('orders.destroy', orderToDelete.value), {
+        data: {
+            deletion_reason: deletionReason.value.trim(),
+        },
+        onSuccess: () => {
+            toast.success('Order deleted successfully');
+            showDeleteModal.value = false;
+            orderToDelete.value = null;
+            deletionReason.value = '';
+        },
+        onError: (errors) => {
+            if (errors.deletion_reason) {
+                toast.error(errors.deletion_reason);
+            } else {
+                toast.error('Failed to delete order');
+            }
+        },
+    });
 }
 </script>
 

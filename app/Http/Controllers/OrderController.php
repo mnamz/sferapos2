@@ -10,12 +10,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use App\Services\TmsReceiptService;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class OrderController extends Controller
 {
     public function index()
     {
-        $orders = Order::with(['customer', 'user', 'items.product'])
+        $orders = Order::with(['customer', 'user', 'items.product', 'myInvoisInvoice'])
             ->when(request('search'), function($query, $search) {
                 $query->where(function($q) use ($search) {
                     $q->where('id', 'like', "%{$search}%")
@@ -89,6 +90,8 @@ class OrderController extends Controller
                     'status' => $order->status,
                     'created_at' => $order->created_at->format('Y-m-d H:i:s'),
                     'items_count' => $order->items->count(),
+                    'deletion_reason' => $order->deletion_reason,
+                    'myinvois_invoice' => $order->myInvoisInvoice ? true : false,
                 ];
             })
             ->withQueryString();
@@ -141,7 +144,7 @@ class OrderController extends Controller
 
     public function show(Order $order)
     {
-        $order->load(['customer', 'user', 'items.product']);
+        $order->load(['customer', 'user', 'items.product', 'myInvoisQueue', 'myInvoisInvoice']);
         
         $orderData = [
             'id' => $order->id,
@@ -185,11 +188,219 @@ class OrderController extends Controller
             'payment_status' => $order->paid_amount >= $order->total ? 'paid' : 
                 ($order->paid_amount > 0 ? 'partial' : 'pending'),
             'created_at' => $order->created_at->format('Y-m-d H:i:s'),
+            'myinvois_queue_status' => $order->myInvoisQueue ? $order->myInvoisQueue->status : null,
+            'myinvois_id' => $order->myInvoisQueue ? $order->myInvoisQueue->myinvois_id : null,
+            'myinvois_invoice' => $order->myInvoisInvoice ? true : false,
         ];
 
         return Inertia::render('Orders/Show', [
             'order' => $orderData,
+            'myinvoisQueueDelayHours' => config('services.myinvois.queue_delay_hours', 72),
         ]);
+    }
+
+    public function eInvoice(Order $order)
+    {
+        $order->load(['customer', 'user', 'items.product', 'myInvoisInvoice']);
+        
+        $myInvoisInvoice = $order->myInvoisInvoice;
+        $qrCodeUrl = null;
+        $documentDetails = null;
+
+        if ($myInvoisInvoice) {
+            $myInvoisService = app(\App\Services\MyInvoisService::class);
+            $documentDetails = $myInvoisService->getDocumentDetails($myInvoisInvoice->uuid);
+            
+            // Try to get longId from API response first
+            $longId = null;
+            if ($documentDetails && isset($documentDetails['longId'])) {
+                $longId = $documentDetails['longId'];
+            } elseif ($myInvoisInvoice->response_payload && isset($myInvoisInvoice->response_payload['longId'])) {
+                // Fallback to stored response payload
+                $longId = $myInvoisInvoice->response_payload['longId'];
+            }
+            
+            if ($longId && $myInvoisInvoice->uuid) {
+                $qrCodeUrl = $myInvoisService->generateQrCodeUrl(
+                    $myInvoisInvoice->uuid,
+                    $longId
+                );
+            }
+        }
+
+        $settings = \App\Models\ShopSettings::first();
+
+        $orderData = [
+            'id' => $order->id,
+            'order_number' => $order->order_number,
+            'customer' => $order->customer ? [
+                'id' => $order->customer->id,
+                'name' => $order->customer->name,
+                'email' => $order->customer->email,
+                'phone' => $order->customer->phone,
+                'address' => $order->customer->address,
+                'city' => $order->customer->city,
+                'postal_code' => $order->customer->postal_code,
+                'state_code' => $order->customer->state_code,
+                'country' => $order->customer->country,
+                'tin' => $order->customer->tin,
+                'brn' => $order->customer->brn,
+                'nric' => $order->customer->nric,
+            ] : null,
+            'items' => $order->items->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product_name,
+                    'quantity' => $item->quantity,
+                    'price' => $item->price,
+                    'total' => $item->total,
+                    'profit' => $item->profit,
+                    'remark' => $item->remark,
+                ];
+            }),
+            'subtotal' => $order->subtotal,
+            'tax' => $order->tax,
+            'delivery_cost' => $order->delivery_cost,
+            'discount' => $order->discount,
+            'total' => $order->total,
+            'created_at' => $order->created_at,
+            'myinvois_invoice' => $myInvoisInvoice ? [
+                'uuid' => $myInvoisInvoice->uuid,
+                'invoice_code_number' => $myInvoisInvoice->invoice_code_number,
+                'submission_uid' => $myInvoisInvoice->submission_uid,
+                'created_at' => $myInvoisInvoice->created_at,
+            ] : null,
+            'qr_code_url' => $qrCodeUrl,
+            'document_details' => $documentDetails,
+        ];
+
+        $shopSettings = [
+            'shop_name' => $settings->shop_name ?? '',
+            'shop_address' => $settings->shop_address ?? '',
+            'shop_phone' => $settings->shop_phone ?? '',
+            'shop_email' => $settings->shop_email ?? '',
+            'tax_number' => $settings->tax_number ?? '',
+            'identification_number' => $settings->identification_number ?? '',
+            'identification_scheme' => $settings->identification_scheme ?? '',
+            'industry_classification_code' => $settings->industry_classification_code ?? '',
+            'industry_classification_name' => $settings->industry_classification_name ?? '',
+        ];
+
+        return Inertia::render('Orders/EInvoice', [
+            'order' => $orderData,
+            'shopSettings' => $shopSettings,
+        ]);
+    }
+
+    public function eInvoicePdf(Order $order)
+    {
+        $order->load(['customer', 'user', 'items.product', 'myInvoisInvoice']);
+        
+        $myInvoisInvoice = $order->myInvoisInvoice;
+        $qrCodeUrl = null;
+        $documentDetails = null;
+
+        if ($myInvoisInvoice) {
+            $myInvoisService = app(\App\Services\MyInvoisService::class);
+            $documentDetails = $myInvoisService->getDocumentDetails($myInvoisInvoice->uuid);
+            
+            // Try to get longId from API response first
+            $longId = null;
+            if ($documentDetails && isset($documentDetails['longId'])) {
+                $longId = $documentDetails['longId'];
+            } elseif ($myInvoisInvoice->response_payload && isset($myInvoisInvoice->response_payload['longId'])) {
+                // Fallback to stored response payload
+                $longId = $myInvoisInvoice->response_payload['longId'];
+            }
+            
+            if ($longId && $myInvoisInvoice->uuid) {
+                $qrCodeUrl = $myInvoisService->generateQrCodeUrl(
+                    $myInvoisInvoice->uuid,
+                    $longId
+                );
+            }
+        }
+
+        $settings = ShopSettings::first();
+
+        $orderData = [
+            'id' => $order->id,
+            'order_number' => $order->order_number,
+            'customer' => $order->customer ? [
+                'id' => $order->customer->id,
+                'name' => $order->customer->name,
+                'email' => $order->customer->email,
+                'phone' => $order->customer->phone,
+                'address' => $order->customer->address,
+                'city' => $order->customer->city,
+                'postal_code' => $order->customer->postal_code,
+                'state_code' => $order->customer->state_code,
+                'country' => $order->customer->country,
+                'tin' => $order->customer->tin,
+                'brn' => $order->customer->brn,
+                'nric' => $order->customer->nric,
+            ] : null,
+            'items' => $order->items->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product_name,
+                    'quantity' => $item->quantity,
+                    'price' => $item->price,
+                    'total' => $item->total,
+                    'profit' => $item->profit,
+                    'remark' => $item->remark,
+                ];
+            }),
+            'subtotal' => $order->subtotal,
+            'tax' => $order->tax,
+            'delivery_cost' => $order->delivery_cost,
+            'discount' => $order->discount,
+            'total' => $order->total,
+            'created_at' => $order->created_at,
+            'myinvois_invoice' => $myInvoisInvoice ? [
+                'uuid' => $myInvoisInvoice->uuid,
+                'invoice_code_number' => $myInvoisInvoice->invoice_code_number,
+                'submission_uid' => $myInvoisInvoice->submission_uid,
+                'created_at' => $myInvoisInvoice->created_at,
+            ] : null,
+            'qr_code_url' => $qrCodeUrl,
+            'qr_code_base64' => null,
+        ];
+
+        // Generate QR code as base64 for PDF
+        if ($qrCodeUrl) {
+            try {
+                $qrCodeImageUrl = "https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=" . urlencode($qrCodeUrl);
+                $qrCodeImage = file_get_contents($qrCodeImageUrl);
+                if ($qrCodeImage) {
+                    $orderData['qr_code_base64'] = 'data:image/png;base64,' . base64_encode($qrCodeImage);
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Failed to generate QR code for PDF', ['error' => $e->getMessage()]);
+            }
+        }
+
+        $shopSettings = [
+            'shop_name' => $settings->shop_name ?? '',
+            'shop_address' => $settings->shop_address ?? '',
+            'shop_phone' => $settings->shop_phone ?? '',
+            'shop_email' => $settings->shop_email ?? '',
+            'tax_number' => $settings->tax_number ?? '',
+            'identification_number' => $settings->identification_number ?? '',
+            'identification_scheme' => $settings->identification_scheme ?? '',
+            'industry_classification_code' => $settings->industry_classification_code ?? '',
+            'industry_classification_name' => $settings->industry_classification_name ?? '',
+            'currency' => $settings->currency ?? 'RM',
+        ];
+
+        $pdf = Pdf::loadView('pdf.e-invoice', [
+            'order' => $orderData,
+            'shopSettings' => $shopSettings,
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download("e-invoice-{$order->id}.pdf");
     }
 
     public function store(Request $request)
@@ -277,13 +488,15 @@ class OrderController extends Controller
                 $product->decrement('stock', $item['quantity']);
             }
 
-            // Submit to MyInvois
-            // $myInvoisService = new \App\Services\MyInvoisService();
-            // $myInvoisService->submitInvoice($order);
-
-            // Call TMS service to send receipt
-            // $tmsReceiptService = new TmsReceiptService();
-            // $tmsReceiptService->sendReceipt($order->receipt_id);
+            // Queue invoice for MyInvois (configurable delay) - only for walk-in orders
+            try {
+                $myInvoisService = app(\App\Services\MyInvoisService::class);
+                if ($myInvoisService->isEnabled() && $validated['delivery_method'] === 'walk-in') {
+                    $myInvoisService->queueInvoice($order);
+                }
+            } catch (\Throwable $e) {
+                \Log::error('Failed to queue MyInvois invoice', ['error' => $e->getMessage()]);
+            }
 
             DB::commit();
 
@@ -402,6 +615,11 @@ class OrderController extends Controller
                 $totalProfit -= $validated['discount'];
             }
 
+            // Check if delivery_method changed
+            $oldDeliveryMethod = $order->delivery_method;
+            $newDeliveryMethod = $validated['delivery_method'];
+            $deliveryMethodChanged = $oldDeliveryMethod !== $newDeliveryMethod;
+
             // Update order details
             $order->update([
                 'customer_id' => $validated['customer_id'],
@@ -421,6 +639,41 @@ class OrderController extends Controller
                           $validated['discount'],
                 'profit' => $totalProfit,
             ]);
+
+            // Handle MyInvois queue based on delivery_method change
+            if ($deliveryMethodChanged) {
+                $myInvoisService = app(\App\Services\MyInvoisService::class);
+                $queueItem = $order->myInvoisQueue;
+                
+                if ($newDeliveryMethod !== 'walk-in') {
+                    // If changed to non-walk-in, remove from queue if exists
+                    if ($queueItem && $queueItem->status === 'pending') {
+                        $queueItem->delete();
+                        \Log::info('Removed order from MyInvois queue - delivery method changed to non-walk-in', [
+                            'order_id' => $order->id,
+                            'old_delivery_method' => $oldDeliveryMethod,
+                            'new_delivery_method' => $newDeliveryMethod
+                        ]);
+                    }
+                } else {
+                    // If changed to walk-in, ensure it's in queue
+                    if (!$queueItem && $myInvoisService->isEnabled()) {
+                        try {
+                            $myInvoisService->queueInvoice($order);
+                            \Log::info('Added order to MyInvois queue - delivery method changed to walk-in', [
+                                'order_id' => $order->id,
+                                'old_delivery_method' => $oldDeliveryMethod,
+                                'new_delivery_method' => $newDeliveryMethod
+                            ]);
+                        } catch (\Throwable $e) {
+                            \Log::error('Failed to queue MyInvois invoice after delivery method change', [
+                                'order_id' => $order->id,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+                    }
+                }
+            }
 
             // Update order items
             // Restore stock for all existing order items before deleting
@@ -486,30 +739,76 @@ class OrderController extends Controller
         return back()->with('success', 'Order status updated successfully');
     }
 
-    public function destroy(Order $order)
+    public function destroy(Request $request, Order $order)
     {
+        $validated = $request->validate([
+            'deletion_reason' => 'required|string|max:1000',
+        ]);
+
         try {
             DB::beginTransaction();
 
-            // Send void receipt to external API (fire-and-forget)
-            try {
-                $tmsService = app(TmsReceiptService::class);
-                if ($tmsService->isEnabled()) {
-                    $tmsService->sendReceipt($this->buildReceiptPayload($order, true));
+            // Check if order is older than configured delay hours and has been pushed to MyInvois
+            $delayHours = config('services.myinvois.queue_delay_hours', 72);
+            $orderAge = $order->created_at->diffInHours(now());
+            $queueItem = $order->myInvoisQueue;
+            
+            if ($orderAge >= $delayHours && $queueItem && $queueItem->status === 'pushed' && $queueItem->myinvois_id) {
+                // Order is pushed to MyInvois, need to cancel it first
+                try {
+                    $myInvoisService = app(\App\Services\MyInvoisService::class);
+                    if ($myInvoisService->isEnabled()) {
+                        $myInvoisService->cancelInvoice($queueItem->myinvois_id, $validated['deletion_reason']);
+                        
+                        // Update queue status
+                        $queueItem->update(['status' => 'cancelled']);
+                    }
+                    
+                    // Mark order as cancelled instead of deleting
+                    $order->update([
+                        'status' => 'cancelled',
+                        'deletion_reason' => $validated['deletion_reason'],
+                    ]);
+                    
+                    \Log::info('Order cancelled on MyInvois', [
+                        'order_id' => $order->id,
+                        'myinvois_id' => $queueItem->myinvois_id,
+                    ]);
+                } catch (\Throwable $e) {
+                    \Log::error('Failed to cancel MyInvois invoice', ['error' => $e->getMessage()]);
+                    throw $e;
                 }
-            } catch (\Throwable $e) {
-                \Log::error('Failed to send VOID TMS receipt', ['error' => $e->getMessage()]);
-            }
-
-            // Restore product stock
-            foreach ($order->items as $item) {
-                if ($item->product) {
-                    $item->product->increment('stock', $item->quantity);
+            } else {
+                // Order can be deleted right away (not yet pushed or less than 72 hours old)
+                if ($queueItem) {
+                    $queueItem->update(['status' => 'cancelled']);
                 }
-            }
 
-            // Delete the order (this will also delete order items due to cascade)
-            $order->delete();
+                // Save deletion reason before deleting
+                $order->update([
+                    'deletion_reason' => $validated['deletion_reason'],
+                ]);
+
+                // Send void receipt to external API (fire-and-forget)
+                try {
+                    $tmsService = app(TmsReceiptService::class);
+                    if ($tmsService->isEnabled()) {
+                        $tmsService->sendReceipt($this->buildReceiptPayload($order, true));
+                    }
+                } catch (\Throwable $e) {
+                    \Log::error('Failed to send VOID TMS receipt', ['error' => $e->getMessage()]);
+                }
+
+                // Restore product stock
+                foreach ($order->items as $item) {
+                    if ($item->product) {
+                        $item->product->increment('stock', $item->quantity);
+                    }
+                }
+
+                // Delete the order (this will also delete order items due to cascade)
+                $order->delete();
+            }
 
             DB::commit();
 
@@ -517,6 +816,131 @@ class OrderController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Failed to delete order: ' . $e->getMessage());
+        }
+    }
+
+    public function pushToMyInvois(Order $order)
+    {
+        try {
+            $myInvoisService = app(\App\Services\MyInvoisService::class);
+            
+            if (!$myInvoisService->isEnabled()) {
+                return back()->with('error', 'MyInvois service is not enabled');
+            }
+
+            // Force refresh to use latest order/customer data instead of old queue payload
+            $result = $myInvoisService->submitInvoice($order, forceRefresh: true);
+
+            if ($result) {
+                return back()->with('success', 'Invoice pushed to MyInvois successfully');
+            } else {
+                return back()->with('error', 'Failed to push invoice to MyInvois. Check logs for details.');
+            }
+        } catch (\Exception $e) {
+            \Log::error('Push to MyInvois failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            return back()->with('error', 'Failed to push invoice: ' . $e->getMessage());
+        }
+    }
+
+    public function clearFromQueue(Order $order)
+    {
+        try {
+            $queueItem = $order->myInvoisQueue;
+
+            if (!$queueItem) {
+                return back()->with('error', 'No queue item found for this order');
+            }
+
+            if ($queueItem->status === 'pushed') {
+                return back()->with('error', 'Cannot clear invoice that has already been pushed');
+            }
+
+            $queueItem->update(['status' => 'cancelled']);
+
+            return back()->with('success', 'Invoice cleared from MyInvois queue');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to clear invoice: ' . $e->getMessage());
+        }
+    }
+
+    public function addToQueue(Order $order)
+    {
+        try {
+            // Only allow walk-in orders to be added to queue
+            if ($order->delivery_method !== 'walk-in') {
+                return back()->with('error', 'Only walk-in orders can be added to MyInvois queue');
+            }
+
+            // Check if already in queue
+            if ($order->myInvoisQueue) {
+                return back()->with('error', 'Order is already in the MyInvois queue');
+            }
+
+            // Check if already pushed to MyInvois
+            if ($order->myInvoisInvoice) {
+                return back()->with('error', 'Order has already been pushed to MyInvois');
+            }
+
+            $myInvoisService = app(\App\Services\MyInvoisService::class);
+            
+            if (!$myInvoisService->isEnabled()) {
+                return back()->with('error', 'MyInvois service is not enabled');
+            }
+
+            $myInvoisService->queueInvoice($order);
+
+            return back()->with('success', 'Invoice added to consolidation queue successfully');
+        } catch (\Exception $e) {
+            \Log::error('Failed to add invoice to queue', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            return back()->with('error', 'Failed to add invoice to queue: ' . $e->getMessage());
+        }
+    }
+
+    public function cancelMyInvoisInvoice(Request $request, Order $order)
+    {
+        try {
+            $validated = $request->validate([
+                'reason' => 'required|string|max:1000',
+            ]);
+
+            $myInvoisInvoice = $order->myInvoisInvoice;
+
+            if (!$myInvoisInvoice) {
+                return back()->with('error', 'No MyInvois invoice found for this order');
+            }
+
+            $myInvoisService = app(\App\Services\MyInvoisService::class);
+            
+            if (!$myInvoisService->isEnabled()) {
+                return back()->with('error', 'MyInvois service is not enabled');
+            }
+
+            $result = $myInvoisService->cancelInvoice($myInvoisInvoice->uuid, $validated['reason']);
+
+            if ($result) {
+                // Delete the MyInvois invoice record and queue entry
+                $myInvoisInvoice->delete();
+                $order->myInvoisQueue()->delete();
+                
+                // Set order status to cancelled
+                $order->update(['status' => 'cancelled']);
+
+                return back()->with('success', 'MyInvois invoice cancelled successfully and order status updated to cancelled. You can now edit the order and resubmit.');
+            } else {
+                return back()->with('error', 'Failed to cancel MyInvois invoice. Check logs for details.');
+            }
+        } catch (\Exception $e) {
+            \Log::error('Cancel MyInvois invoice failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+            return back()->with('error', 'Failed to cancel invoice: ' . $e->getMessage());
         }
     }
 
@@ -589,6 +1013,361 @@ class OrderController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    public function apiSubmitMyInvois(Request $request, $orderId)
+    {
+        try {
+            // Find the order - include soft-deleted orders for API access
+            $order = Order::withTrashed()->findOrFail($orderId);
+            
+            // Ensure order has an ID
+            if (!$order->id) {
+                \Log::error('Order ID is null after findOrFail', [
+                    'order_id_param' => $orderId,
+                    'order' => $order->toArray()
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid order: Order ID is missing'
+                ], 422);
+            }
+
+            \Log::info('API Submit MyInvois - Order loaded', [
+                'order_id' => $order->id,
+                'order_exists' => $order->exists,
+                'is_soft_deleted' => $order->trashed()
+            ]);
+
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|max:255',
+                'phone' => 'nullable|string|max:20',
+                'address' => 'nullable|string|max:500',
+                'city' => 'nullable|string|max:100',
+                'postal_code' => 'nullable|string|max:10',
+                'state_code' => 'nullable|string|max:2',
+                'country' => 'nullable|string|max:3',
+                'tin' => 'nullable|string|max:20',
+                'brn' => 'nullable|string|max:50',
+                'nric' => 'nullable|string|max:50',
+            ]);
+
+            // Set default values for optional fields
+            $validated['country'] = $validated['country'] ?? 'MYS';
+
+            // Find or create customer by phone number
+            $customer = null;
+            $customerWasCreated = false;
+            $customerWasUpdated = false;
+            
+            if (!empty($validated['phone'])) {
+                // Try to find customer by phone number (normalize phone for comparison)
+                $normalizedPhone = preg_replace('/[^0-9+]/', '', $validated['phone']);
+                $customer = \App\Models\Customer::where(function($query) use ($validated, $normalizedPhone) {
+                    $query->where('phone', $validated['phone'])
+                          ->orWhere('phone', $normalizedPhone)
+                          ->orWhereRaw("REPLACE(REPLACE(phone, ' ', ''), '-', '') = ?", [preg_replace('/[^0-9+]/', '', $validated['phone'])]);
+                })->first();
+
+                if ($customer) {
+                    // Update existing customer with new information
+                    $customerWasUpdated = true;
+                    $customer->update([
+                        'name' => $validated['name'],
+                        'email' => $validated['email'],
+                        'phone' => $validated['phone'],
+                        'address' => $validated['address'] ?? $customer->address,
+                        'city' => $validated['city'] ?? $customer->city,
+                        'postal_code' => $validated['postal_code'] ?? $customer->postal_code,
+                        'state_code' => $validated['state_code'] ?? $customer->state_code,
+                        'country' => $validated['country'] ?? $customer->country ?? 'MYS',
+                        'tin' => $validated['tin'] ?? $customer->tin,
+                        'brn' => $validated['brn'] ?? $customer->brn,
+                        'nric' => $validated['nric'] ?? $customer->nric,
+                        'status' => 'active', // Ensure customer is active
+                    ]);
+                    \Log::info('API Submit MyInvois - Customer updated', [
+                        'customer_id' => $customer->id,
+                        'phone' => $validated['phone']
+                    ]);
+                } else {
+                    // Create new customer
+                    $customerWasCreated = true;
+                    $customer = \App\Models\Customer::create([
+                        'name' => $validated['name'],
+                        'email' => $validated['email'],
+                        'phone' => $validated['phone'],
+                        'address' => $validated['address'] ?? null,
+                        'city' => $validated['city'] ?? null,
+                        'postal_code' => $validated['postal_code'] ?? null,
+                        'state_code' => $validated['state_code'] ?? null,
+                        'country' => $validated['country'] ?? 'MYS',
+                        'tin' => $validated['tin'] ?? null,
+                        'brn' => $validated['brn'] ?? null,
+                        'nric' => $validated['nric'] ?? null,
+                        'status' => 'active',
+                    ]);
+                    \Log::info('API Submit MyInvois - Customer created', [
+                        'customer_id' => $customer->id,
+                        'phone' => $validated['phone']
+                    ]);
+                }
+            } else {
+                // If no phone provided, try to find by email
+                if (!empty($validated['email'])) {
+                    $customer = \App\Models\Customer::where('email', $validated['email'])->first();
+                    
+                    if ($customer) {
+                        // Update existing customer
+                        $customerWasUpdated = true;
+                        $customer->update([
+                            'name' => $validated['name'],
+                            'email' => $validated['email'],
+                            'phone' => $validated['phone'] ?? $customer->phone,
+                            'address' => $validated['address'] ?? $customer->address,
+                            'city' => $validated['city'] ?? $customer->city,
+                            'postal_code' => $validated['postal_code'] ?? $customer->postal_code,
+                            'state_code' => $validated['state_code'] ?? $customer->state_code,
+                            'country' => $validated['country'] ?? $customer->country ?? 'MYS',
+                            'tin' => $validated['tin'] ?? $customer->tin,
+                            'brn' => $validated['brn'] ?? $customer->brn,
+                            'nric' => $validated['nric'] ?? $customer->nric,
+                            'status' => 'active',
+                        ]);
+                        \Log::info('API Submit MyInvois - Customer updated by email', [
+                            'customer_id' => $customer->id,
+                            'email' => $validated['email']
+                        ]);
+                    } else {
+                        // Create new customer without phone
+                        $customerWasCreated = true;
+                        $customer = \App\Models\Customer::create([
+                            'name' => $validated['name'],
+                            'email' => $validated['email'],
+                            'phone' => $validated['phone'] ?? null,
+                            'address' => $validated['address'] ?? null,
+                            'city' => $validated['city'] ?? null,
+                            'postal_code' => $validated['postal_code'] ?? null,
+                            'state_code' => $validated['state_code'] ?? null,
+                            'country' => $validated['country'] ?? 'MYS',
+                            'tin' => $validated['tin'] ?? null,
+                            'brn' => $validated['brn'] ?? null,
+                            'nric' => $validated['nric'] ?? null,
+                            'status' => 'active',
+                        ]);
+                        \Log::info('API Submit MyInvois - Customer created by email', [
+                            'customer_id' => $customer->id,
+                            'email' => $validated['email']
+                        ]);
+                    }
+                }
+            }
+
+            // Assign order to customer if customer was found/created
+            if ($customer) {
+                $order->update(['customer_id' => $customer->id]);
+                \Log::info('API Submit MyInvois - Order assigned to customer', [
+                    'order_id' => $order->id,
+                    'customer_id' => $customer->id
+                ]);
+            }
+
+            $myInvoisService = app(\App\Services\MyInvoisService::class);
+            
+            if (!$myInvoisService->isEnabled()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'MyInvois service is not enabled'
+                ], 400);
+            }
+
+            // Prepare custom customer info (use customer data if available, otherwise use validated data)
+            $customCustomerInfo = [
+                'name' => $customer ? $customer->name : $validated['name'],
+                'phone' => $customer ? $customer->phone : ($validated['phone'] ?? null),
+                'address' => $customer ? $customer->address : ($validated['address'] ?? null),
+                'city' => $customer ? $customer->city : ($validated['city'] ?? null),
+                'postal_code' => $customer ? $customer->postal_code : ($validated['postal_code'] ?? null),
+                'state_code' => $customer ? $customer->state_code : ($validated['state_code'] ?? null),
+                'country' => $customer ? $customer->country : ($validated['country'] ?? 'MYS'),
+                'tin' => $customer ? $customer->tin : ($validated['tin'] ?? null),
+                'brn' => $customer ? $customer->brn : ($validated['brn'] ?? null),
+                'nric' => $customer ? $customer->nric : ($validated['nric'] ?? null),
+            ];
+
+            // Submit invoice with custom customer info
+            $result = $myInvoisService->submitInvoice($order, forceRefresh: true, customCustomerInfo: $customCustomerInfo);
+
+            if (!$result) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to submit invoice to MyInvois. Check logs for details.'
+                ], 500);
+            }
+
+            // Send e-invoice PDF via email
+            $emailSent = false;
+            if (!empty($validated['email'])) {
+                try {
+                    $order->load(['customer', 'user', 'items.product', 'myInvoisInvoice']);
+                    
+                    $myInvoisInvoice = $order->myInvoisInvoice;
+                    $qrCodeUrl = null;
+                    $documentDetails = null;
+
+                    if ($myInvoisInvoice) {
+                        $documentDetails = $myInvoisService->getDocumentDetails($myInvoisInvoice->uuid);
+                        
+                        $longId = null;
+                        if ($documentDetails && isset($documentDetails['longId'])) {
+                            $longId = $documentDetails['longId'];
+                        } elseif ($myInvoisInvoice->response_payload && isset($myInvoisInvoice->response_payload['longId'])) {
+                            $longId = $myInvoisInvoice->response_payload['longId'];
+                        }
+                        
+                        if ($longId && $myInvoisInvoice->uuid) {
+                            $qrCodeUrl = $myInvoisService->generateQrCodeUrl(
+                                $myInvoisInvoice->uuid,
+                                $longId
+                            );
+                        }
+                    }
+
+                    $settings = ShopSettings::first();
+                    $orderData = $this->prepareOrderDataForPdf($order, $myInvoisInvoice, $qrCodeUrl);
+                    $shopSettings = $this->prepareShopSettingsForPdf($settings);
+
+                    // Generate QR code as base64 for PDF
+                    $qrCodeBase64 = null;
+                    if ($qrCodeUrl) {
+                        try {
+                            $qrCodeImageUrl = "https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=" . urlencode($qrCodeUrl);
+                            $qrCodeImage = file_get_contents($qrCodeImageUrl);
+                            if ($qrCodeImage) {
+                                $qrCodeBase64 = 'data:image/png;base64,' . base64_encode($qrCodeImage);
+                            }
+                        } catch (\Exception $e) {
+                            \Log::warning('Failed to generate QR code for PDF', ['error' => $e->getMessage()]);
+                        }
+                    }
+                    $orderData['qr_code_base64'] = $qrCodeBase64;
+
+                    $pdf = Pdf::loadView('pdf.e-invoice', [
+                        'order' => $orderData,
+                        'shopSettings' => $shopSettings,
+                    ])->setPaper('a4', 'portrait');
+
+                    // Reload order with myInvoisInvoice relationship for email
+                    $order->load('myInvoisInvoice');
+                    
+                    \Illuminate\Support\Facades\Mail::to($validated['email'])
+                        ->send(new \App\Mail\EInvoiceEmail($order, $pdf->output(), $validated['name']));
+
+                    $emailSent = true;
+                } catch (\Exception $e) {
+                    \Log::error('Failed to send e-invoice email', [
+                        'order_id' => $order->id,
+                        'email' => $validated['email'],
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Invoice submitted to MyInvois successfully' . ($emailSent ? ' and e-invoice sent via email' : ''),
+                'data' => [
+                    'order_id' => $order->id,
+                    'customer_id' => $customer ? $customer->id : null,
+                    'customer_created' => $customerWasCreated,
+                    'customer_updated' => $customerWasUpdated,
+                    'email_sent' => $emailSent,
+                    'email' => $validated['email'] ?? null,
+                ]
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('API Submit MyInvois failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to submit invoice: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    protected function prepareOrderDataForPdf(Order $order, $myInvoisInvoice, $qrCodeUrl)
+    {
+        return [
+            'id' => $order->id,
+            'order_number' => $order->order_number,
+            'customer' => $order->customer ? [
+                'id' => $order->customer->id,
+                'name' => $order->customer->name,
+                'email' => $order->customer->email,
+                'phone' => $order->customer->phone,
+                'address' => $order->customer->address,
+                'city' => $order->customer->city,
+                'postal_code' => $order->customer->postal_code,
+                'state_code' => $order->customer->state_code,
+                'country' => $order->customer->country,
+                'tin' => $order->customer->tin,
+                'brn' => $order->customer->brn,
+                'nric' => $order->customer->nric,
+            ] : null,
+            'items' => $order->items->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product_name,
+                    'quantity' => $item->quantity,
+                    'price' => $item->price,
+                    'total' => $item->total,
+                    'profit' => $item->profit,
+                    'remark' => $item->remark,
+                ];
+            }),
+            'subtotal' => $order->subtotal,
+            'tax' => $order->tax,
+            'delivery_cost' => $order->delivery_cost,
+            'discount' => $order->discount,
+            'total' => $order->total,
+            'created_at' => $order->created_at,
+            'myinvois_invoice' => $myInvoisInvoice ? [
+                'uuid' => $myInvoisInvoice->uuid,
+                'invoice_code_number' => $myInvoisInvoice->invoice_code_number,
+                'submission_uid' => $myInvoisInvoice->submission_uid,
+                'created_at' => $myInvoisInvoice->created_at,
+            ] : null,
+            'qr_code_url' => $qrCodeUrl,
+        ];
+    }
+
+    protected function prepareShopSettingsForPdf($settings)
+    {
+        return [
+            'shop_name' => $settings->shop_name ?? '',
+            'shop_address' => $settings->shop_address ?? '',
+            'shop_phone' => $settings->shop_phone ?? '',
+            'shop_email' => $settings->shop_email ?? '',
+            'tax_number' => $settings->tax_number ?? '',
+            'identification_number' => $settings->identification_number ?? '',
+            'identification_scheme' => $settings->identification_scheme ?? '',
+            'industry_classification_code' => $settings->industry_classification_code ?? '',
+            'industry_classification_name' => $settings->industry_classification_name ?? '',
+            'currency' => $settings->currency ?? 'RM',
+        ];
     }
 
     protected function buildReceiptPayload(Order $order, bool $void = false): array

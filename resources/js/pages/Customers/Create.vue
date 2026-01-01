@@ -63,6 +63,100 @@
                                         <InputError :message="form.errors.address" class="mt-2" />
                                     </div>
 
+                                    <!-- City -->
+                                    <div>
+                                        <Label for="city" class="text-gray-900 dark:text-gray-100">City</Label>
+                                        <Input
+                                            id="city"
+                                            v-model="form.city"
+                                            type="text"
+                                            class="mt-1 block w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                                            placeholder="e.g., Kuala Lumpur"
+                                        />
+                                        <InputError :message="form.errors.city" class="mt-2" />
+                                    </div>
+
+                                    <!-- Postal Code -->
+                                    <div>
+                                        <Label for="postal_code" class="text-gray-900 dark:text-gray-100">Postal Code</Label>
+                                        <Input
+                                            id="postal_code"
+                                            v-model="form.postal_code"
+                                            type="text"
+                                            class="mt-1 block w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                                            placeholder="e.g., 50480"
+                                        />
+                                        <InputError :message="form.errors.postal_code" class="mt-2" />
+                                    </div>
+
+                                    <!-- State -->
+                                    <div>
+                                        <Label for="state_code" class="text-gray-900 dark:text-gray-100">State</Label>
+                                        <Select
+                                            id="state_code"
+                                            v-model="form.state_code"
+                                            class="mt-1 block w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                                        >
+                                            <option value="">Select State</option>
+                                            <option value="01">01 - Johor</option>
+                                            <option value="02">02 - Kedah</option>
+                                            <option value="03">03 - Kelantan</option>
+                                            <option value="04">04 - Melaka</option>
+                                            <option value="05">05 - Negeri Sembilan</option>
+                                            <option value="06">06 - Pahang</option>
+                                            <option value="07">07 - Pulau Pinang</option>
+                                            <option value="08">08 - Perak</option>
+                                            <option value="09">09 - Perlis</option>
+                                            <option value="10">10 - Selangor</option>
+                                            <option value="11">11 - Terengganu</option>
+                                            <option value="12">12 - Sabah</option>
+                                            <option value="13">13 - Sarawak</option>
+                                            <option value="14">14 - WP Kuala Lumpur</option>
+                                            <option value="15">15 - WP Labuan</option>
+                                            <option value="16">16 - WP Putrajaya</option>
+                                        </Select>
+                                        <InputError :message="form.errors.state_code" class="mt-2" />
+                                    </div>
+
+                                    <!-- TIN -->
+                                    <div>
+                                        <Label for="tin" class="text-gray-900 dark:text-gray-100">TIN (Tax Identification Number)</Label>
+                                        <Input
+                                            id="tin"
+                                            v-model="form.tin"
+                                            type="text"
+                                            class="mt-1 block w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                                            placeholder="e.g., C12345678900"
+                                        />
+                                        <InputError :message="form.errors.tin" class="mt-2" />
+                                    </div>
+
+                                    <!-- BRN -->
+                                    <div>
+                                        <Label for="brn" class="text-gray-900 dark:text-gray-100">BRN (Business Registration Number)</Label>
+                                        <Input
+                                            id="brn"
+                                            v-model="form.brn"
+                                            type="text"
+                                            class="mt-1 block w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                                            placeholder="e.g., 202001234567"
+                                        />
+                                        <InputError :message="form.errors.brn" class="mt-2" />
+                                    </div>
+
+                                    <!-- NRIC -->
+                                    <div>
+                                        <Label for="nric" class="text-gray-900 dark:text-gray-100">NRIC (National Registration ID)</Label>
+                                        <Input
+                                            id="nric"
+                                            v-model="form.nric"
+                                            type="text"
+                                            class="mt-1 block w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                                            placeholder="e.g., 900101015678"
+                                        />
+                                        <InputError :message="form.errors.nric" class="mt-2" />
+                                    </div>
+
                                     <!-- Status -->
                                     <div>
                                         <Label for="status" class="text-gray-900 dark:text-gray-100">Status</Label>
@@ -114,6 +208,13 @@ const form = useForm({
     email: '',
     phone: '',
     address: '',
+    city: '',
+    postal_code: '',
+    state_code: '',
+    country: 'MYS',
+    tin: '',
+    brn: '',
+    nric: '',
     status: 'active',
 });
 

@@ -1,31 +1,19 @@
 <template>
     <Head :title="'Order #' + order.id" />
 
-    <AppLayout>
-        <template #header>
-            <div class="flex justify-between items-center">
-                <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                    Order #{{ order.order_number }}
-                </h2>
-                <div class="flex gap-2">
-                    <Link
-                        :href="route('orders.index')"
-                        class="px-4 py-2 bg-gray-500 dark:bg-gray-600 text-white rounded-lg hover:bg-gray-600 dark:hover:bg-gray-500"
-                    >
-                        Back to Orders
-                    </Link>
-                    <Link
-                        :href="route('orders.edit', order.id)"
-                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                    >
-                        Edit Order
-                    </Link>
-                </div>
+    <AppLayout :breadcrumbs="[
+        { name: 'Orders', href: route('orders.index') },
+        { name: 'Order #' + order.id, href: route('orders.show', order.id) }
+    ]">
+        <div class="container mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <!-- Header -->
+            <div class="flex items-center justify-between mb-6">
+                <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">
+                    Order #{{ order.id }}
+                </h1>
             </div>
-        </template>
 
-        <div class="py-12">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-7xl mx-auto">
                 <!-- Success Message -->
                 <div v-if="$page.props.success" class="mb-4">
                     <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
@@ -199,11 +187,19 @@
                     Back to Orders
                 </Link>
                 <Link
+                    v-if="!order.myinvois_invoice"
                     :href="route('orders.edit', order.id)"
                     class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                 >
                     Edit Order
                 </Link>
+                <span
+                    v-if="order.myinvois_invoice"
+                    class="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed"
+                    title="Cannot edit order with pushed MyInvois invoice. Cancel the invoice first."
+                >
+                    Edit Order (Locked)
+                </span>
                 <a
                     :href="route('orders.invoice', order.id)"
                     class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
@@ -211,6 +207,14 @@
                 >
                     Print Invoice
                 </a>
+                <Link
+                    v-if="order.myinvois_invoice"
+                    :href="route('orders.eInvoice', order.id)"
+                    class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                    target="_blank"
+                >
+                    View E-Invoice
+                </Link>
                 <button
                     v-if="order.customer?.email"
                     @click="sendInvoice"
@@ -220,14 +224,88 @@
                     <span v-if="sendingInvoice">Sending...</span>
                     <span v-else>Send Invoice</span>
                 </button>
+                <button
+                    v-if="order.delivery_method === 'walk-in' && !order.myinvois_queue_status && !order.myinvois_invoice"
+                    @click="addToQueue"
+                    class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                    Add to Consolidation Queue
+                </button>
+                <button
+                    v-if="order.myinvois_queue_status === 'pending'"
+                    @click="pushToMyInvois"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                    Push to MyInvois
+                </button>
+                <button
+                    v-if="order.myinvois_queue_status === 'pending'"
+                    @click="clearFromQueue"
+                    class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+                >
+                    Clear from Queue
+                </button>
+                <span
+                    v-if="order.myinvois_queue_status === 'pushed'"
+                    class="px-4 py-2 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-lg flex items-center"
+                >
+                    ✓ Pushed to MyInvois
+                </span>
+                <button
+                    v-if="order.myinvois_invoice"
+                    @click="showCancelModal = true"
+                    class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                >
+                    Cancel MyInvois Invoice
+                </button>
             </div>
         </div>
 
+        <!-- Cancel MyInvois Invoice Modal -->
+        <Modal :show="showCancelModal" @close="showCancelModal = false">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Cancel MyInvois Invoice
+                </h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Please provide a reason for cancelling this invoice. After cancellation, you will be able to edit the order and resubmit.
+                </p>
+                <div class="mb-4">
+                    <label for="cancel_reason" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Cancellation Reason <span class="text-red-500">*</span>
+                    </label>
+                    <textarea
+                        id="cancel_reason"
+                        v-model="cancelReason"
+                        rows="4"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-gray-100"
+                        placeholder="Enter reason for cancellation..."
+                        required
+                    ></textarea>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button
+                        @click="showCancelModal = false"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        @click="cancelMyInvoisInvoice"
+                        :disabled="!cancelReason || cancelReason.trim() === ''"
+                        class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                        Confirm Cancellation
+                    </button>
+                </div>
+            </div>
+        </Modal>
     </AppLayout>
 </template>
 
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Modal from '@/Components/Modal.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 
@@ -236,6 +314,10 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    myinvoisQueueDelayHours: {
+        type: Number,
+        default: 72,
+    },
 });
 
 const page = usePage();
@@ -243,6 +325,8 @@ const currency = computed(() => page.props.settings?.currency || 'USD');
 
 const showStatusDropdown = ref(false);
 const sendingInvoice = ref(false);
+const showCancelModal = ref(false);
+const cancelReason = ref('');
 
 const updateStatus = (status) => {
     if (confirm(`Are you sure you want to change the order status to ${status}?`)) {
@@ -279,6 +363,70 @@ const sendInvoice = () => {
             }
         );
     }
+};
+
+const pushToMyInvois = () => {
+    if (confirm(`Are you sure you want to push this invoice to MyInvois now? This will bypass the ${props.myinvoisQueueDelayHours}-hour delay.`)) {
+        router.post(
+            route('orders.pushMyInvois', props.order.id),
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    router.reload({ only: ['order'] });
+                },
+            }
+        );
+    }
+};
+
+const clearFromQueue = () => {
+    if (confirm('Are you sure you want to remove this invoice from the MyInvois queue? It will not be pushed.')) {
+        router.post(
+            route('orders.clearQueue', props.order.id),
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    router.reload({ only: ['order'] });
+                },
+            }
+        );
+    }
+};
+
+const addToQueue = () => {
+    if (confirm(`Add this invoice to the consolidation queue? It will be automatically pushed to MyInvois after ${props.myinvoisQueueDelayHours} hours.`)) {
+        router.post(
+            route('orders.addToQueue', props.order.id),
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    router.reload({ only: ['order'] });
+                },
+            }
+        );
+    }
+};
+
+const cancelMyInvoisInvoice = () => {
+    if (!cancelReason.value || cancelReason.value.trim() === '') {
+        return;
+    }
+
+    router.put(
+        route('orders.cancelMyInvois', props.order.id),
+        { reason: cancelReason.value },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                showCancelModal.value = false;
+                cancelReason.value = '';
+                router.reload({ only: ['order'] });
+            },
+        }
+    );
 };
 
 // Close dropdown when clicking outside

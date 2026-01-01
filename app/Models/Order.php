@@ -31,6 +31,7 @@ class Order extends Model implements Auditable
         'delivery_method',
         'remarks',
         'status',
+        'deletion_reason',
     ];
 
     protected $casts = [
@@ -92,6 +93,11 @@ class Order extends Model implements Auditable
     public function myInvoisInvoice()
     {
         return $this->hasOne(MyInvoisInvoice::class);
+    }
+
+    public function myInvoisQueue()
+    {
+        return $this->hasOne(MyInvoisQueue::class);
     }
 
     // Calculate due amount based on total and paid amount
