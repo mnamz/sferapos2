@@ -296,17 +296,8 @@ class MyInvoisService
      * Generate QR code URL for MyInvois invoice
      */
     public function generateQrCodeUrl(string $uuid, string $longId): string
-    {
-        $baseUrl = $this->baseUrl;
-        
-        // Determine if production or sandbox based on base URL
-        if (str_contains($baseUrl, 'myinvois.hasil.gov.my') && !str_contains($baseUrl, 'preprod')) {
-            // Production
-            return "https://myinvois.hasil.gov.my/{$uuid}/share/{$longId}";
-        } else {
-            // Sandbox/Preprod
-            return "https://preprod.myinvois.hasil.gov.my/{$uuid}/share/{$longId}";
-        }
+    {        
+        return "https://myinvois.hasil.gov.my/{$uuid}/share/{$longId}";
     }
 
     protected function prepareInvoicePayload(Order $order, ?array $customCustomerInfo = null)
