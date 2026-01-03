@@ -13,9 +13,34 @@ class InvoiceController extends Controller
 {
     public function generate(Order $order)
     {
+        $order->load('myInvoisQueue');
+        $settings = ShopSettings::first();
+        
+        // Check if order is queued for pushing
+        $qrCodeBase64 = null;
+        $isQueued = $order->myInvoisQueue && $order->myInvoisQueue->status === 'pending';
+        
+        if ($isQueued) {
+            $claimUrl = config('services.myinvois.einvoice_claim_url', 'https://einvoice.myrccornertrading.com');
+            $qrCodeUrl = $claimUrl . '?order_id=' . $order->id;
+            
+            // Generate QR code as base64 for PDF
+            try {
+                $qrCodeImageUrl = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" . urlencode($qrCodeUrl);
+                $qrCodeImage = file_get_contents($qrCodeImageUrl);
+                if ($qrCodeImage) {
+                    $qrCodeBase64 = 'data:image/png;base64,' . base64_encode($qrCodeImage);
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Failed to generate QR code for invoice PDF', ['error' => $e->getMessage()]);
+            }
+        }
+        
         $pdf = PDF::loadView('pdf.invoice', [
             'order' => $order,
-            'settings' => ShopSettings::first(),
+            'settings' => $settings,
+            'isQueued' => $isQueued,
+            'qrCodeBase64' => $qrCodeBase64,
         ]);
 
         return $pdf->stream("invoice-{$order->id}.pdf");
@@ -27,12 +52,35 @@ class InvoiceController extends Controller
             return back()->with('error', 'Customer email not found.');
         }
 
-        $order->load(['customer', 'user', 'items.product', 'myInvoisInvoice']);
+        $order->load(['customer', 'user', 'items.product', 'myInvoisInvoice', 'myInvoisQueue']);
 
         $settings = ShopSettings::first();
+        
+        // Check if order is queued for pushing
+        $qrCodeBase64 = null;
+        $isQueued = $order->myInvoisQueue && $order->myInvoisQueue->status === 'pending';
+        
+        if ($isQueued) {
+            $claimUrl = config('services.myinvois.einvoice_claim_url', 'https://einvoice.myrccornertrading.com');
+            $qrCodeUrl = $claimUrl . '?order_id=' . $order->id;
+            
+            // Generate QR code as base64 for PDF
+            try {
+                $qrCodeImageUrl = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" . urlencode($qrCodeUrl);
+                $qrCodeImage = file_get_contents($qrCodeImageUrl);
+                if ($qrCodeImage) {
+                    $qrCodeBase64 = 'data:image/png;base64,' . base64_encode($qrCodeImage);
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Failed to generate QR code for invoice PDF', ['error' => $e->getMessage()]);
+            }
+        }
+        
         $pdf = PDF::loadView('pdf.invoice', [
             'order' => $order,
-            'settings' => $settings
+            'settings' => $settings,
+            'isQueued' => $isQueued,
+            'qrCodeBase64' => $qrCodeBase64,
         ]);
 
         // Generate e-invoice PDF if order has been pushed to MyInvois
