@@ -313,6 +313,15 @@ class MyInvoisService
             ? $order->created_at->setTimezone('UTC') 
             : now()->setTimezone('UTC');
         
+        // Determine customer TIN for item code logic
+        $customerTin = null;
+        if ($customCustomerInfo) {
+            $customerTin = $customCustomerInfo['tin'] ?? 'EI00000000010';
+        } else {
+            $customer = $order->customer;
+            $customerTin = $customer ? ($customer->tin ?: 'EI00000000010') : 'EI00000000010';
+        }
+        
         return [
             'documents' => [
                 [
@@ -339,7 +348,7 @@ class MyInvoisService
                         ]
                     ],
                     'customer' => $customCustomerInfo ? $this->prepareCustomCustomerInfo($customCustomerInfo) : $this->prepareCustomerInfo($order),
-                    'invoiceLines' => $this->prepareInvoiceLines($order),
+                    'invoiceLines' => $this->prepareInvoiceLines($order, $customerTin),
                     'taxTotal' => $this->prepareTaxTotal($order),
                     'legalMonetaryTotal' => $this->prepareMonetaryTotal($order)
                 ]
@@ -382,7 +391,7 @@ class MyInvoisService
         } else {
             // If neither BRN nor NRIC provided, use default
             $identificationScheme = 'BRN';
-            $identificationNumber = '000000000000';
+            $identificationNumber = 'NA';
         }
 
         return [
@@ -419,7 +428,7 @@ class MyInvoisService
         } else {
             // If neither BRN nor NRIC provided, use default
             $identificationScheme = 'BRN';
-            $identificationNumber = '000000000000';
+            $identificationNumber = 'NA';
         }
 
         return [
@@ -438,9 +447,12 @@ class MyInvoisService
         ];
     }
 
-    protected function prepareInvoiceLines(Order $order)
+    protected function prepareInvoiceLines(Order $order, string $customerTin = 'EI00000000010')
     {
-        return $order->items->map(function ($item, $index) {
+        // Use item code "004" if customer TIN is "EI00000000010", otherwise use "022"
+        $itemCode = ($customerTin === 'EI00000000010') ? '004' : '022';
+        
+        return $order->items->map(function ($item, $index) use ($itemCode) {
             $taxAmount = (float)($item->price * $item->quantity) * ($this->settings->tax_percentage / 100);
             $subtotal = (float)($item->price * $item->quantity);
             
@@ -452,7 +464,7 @@ class MyInvoisService
                 'subtotal' => $subtotal,
                 'itemDescription' => $item->product_name,
                 'itemCommodityClassification' => [
-                    'code' => '022',
+                    'code' => $itemCode,
                     'listID' => 'CLASS'
                 ],
                 'lineTaxTotal' => [
