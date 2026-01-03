@@ -339,7 +339,7 @@ class MyInvoisService
                         ]
                     ],
                     'customer' => $customCustomerInfo ? $this->prepareCustomCustomerInfo($customCustomerInfo) : $this->prepareCustomerInfo($order),
-                    'invoiceLines' => $this->prepareInvoiceLines($order),
+                    'invoiceLines' => $this->prepareInvoiceLines($order, $customCustomerInfo),
                     'taxTotal' => $this->prepareTaxTotal($order),
                     'legalMonetaryTotal' => $this->prepareMonetaryTotal($order)
                 ]
@@ -382,7 +382,7 @@ class MyInvoisService
         } else {
             // If neither BRN nor NRIC provided, use default
             $identificationScheme = 'BRN';
-            $identificationNumber = '000000000000';
+            $identificationNumber = 'NA';
         }
 
         return [
@@ -419,7 +419,7 @@ class MyInvoisService
         } else {
             // If neither BRN nor NRIC provided, use default
             $identificationScheme = 'BRN';
-            $identificationNumber = '000000000000';
+            $identificationNumber = 'NA';
         }
 
         return [
@@ -438,9 +438,25 @@ class MyInvoisService
         ];
     }
 
-    protected function prepareInvoiceLines(Order $order)
+    protected function prepareInvoiceLines(Order $order, ?array $customCustomerInfo = null)
     {
-        return $order->items->map(function ($item, $index) {
+        // Determine the customer TIN
+        $customerTin = null;
+        if ($customCustomerInfo) {
+            $customerTin = $customCustomerInfo['tin'] ?? 'EI00000000010';
+        } else {
+            $customer = $order->customer;
+            if ($customer) {
+                $customerTin = $customer->tin ?: 'EI00000000010';
+            } else {
+                $customerTin = 'EI00000000010';
+            }
+        }
+        
+        // Set item code based on TIN: "004" for EI00000000010, otherwise "022"
+        $itemCode = ($customerTin === 'EI00000000010') ? '004' : '022';
+        
+        return $order->items->map(function ($item, $index) use ($itemCode) {
             $taxAmount = (float)($item->price * $item->quantity) * ($this->settings->tax_percentage / 100);
             $subtotal = (float)($item->price * $item->quantity);
             
@@ -452,7 +468,7 @@ class MyInvoisService
                 'subtotal' => $subtotal,
                 'itemDescription' => $item->product_name,
                 'itemCommodityClassification' => [
-                    'code' => '022',
+                    'code' => $itemCode,
                     'listID' => 'CLASS'
                 ],
                 'lineTaxTotal' => [
