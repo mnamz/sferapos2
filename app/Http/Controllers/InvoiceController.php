@@ -22,7 +22,8 @@ class InvoiceController extends Controller
         
         if ($isQueued) {
             $claimUrl = config('services.myinvois.einvoice_claim_url', 'https://einvoice.myrccornertrading.com');
-            $qrCodeUrl = $claimUrl . '?order_id=' . $order->id;
+            $branch = config('services.myinvois.branch', '');
+            $qrCodeUrl = $claimUrl . '?order_id=' . $order->id . ($branch ? '&branch=' . urlencode($branch) : '');
             
             // Generate QR code as base64 for PDF
             try {
@@ -62,7 +63,8 @@ class InvoiceController extends Controller
         
         if ($isQueued) {
             $claimUrl = config('services.myinvois.einvoice_claim_url', 'https://einvoice.myrccornertrading.com');
-            $qrCodeUrl = $claimUrl . '?order_id=' . $order->id;
+            $branch = config('services.myinvois.branch', '');
+            $qrCodeUrl = $claimUrl . '?order_id=' . $order->id . ($branch ? '&branch=' . urlencode($branch) : '');
             
             // Generate QR code as base64 for PDF
             try {
