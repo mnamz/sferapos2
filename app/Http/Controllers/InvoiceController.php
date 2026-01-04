@@ -42,6 +42,7 @@ class InvoiceController extends Controller
             'settings' => $settings,
             'isQueued' => $isQueued,
             'qrCodeBase64' => $qrCodeBase64,
+            'queueDelayHours' => config('services.myinvois.queue_delay_hours', 72),
         ]);
 
         return $pdf->stream("invoice-{$order->id}.pdf");
@@ -83,6 +84,7 @@ class InvoiceController extends Controller
             'settings' => $settings,
             'isQueued' => $isQueued,
             'qrCodeBase64' => $qrCodeBase64,
+            'queueDelayHours' => config('services.myinvois.queue_delay_hours', 72),
         ]);
 
         // Generate e-invoice PDF if order has been pushed to MyInvois

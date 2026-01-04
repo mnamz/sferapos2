@@ -218,7 +218,8 @@
         <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #ddd; text-align: center; clear: both;">
             <div style="margin-bottom: 15px;">
                 <strong style="font-size: 14px;">Request Your E-Invoice</strong><br>
-                <span style="font-size: 12px;">Please scan the QR code below to request your e-invoice:</span>
+                <span style="font-size: 12px;">Please scan the QR code below to request your e-invoice:</span><br>
+                <span style="font-size: 11px; color: #666; margin-top: 5px; display: inline-block;">Note: You can request your e-invoice within {{ $queueDelayHours ?? 72 }} hours of purchase.</span>
             </div>
             <div style="display: inline-block; padding: 15px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 5px;">
                 <img src="{{ $qrCodeBase64 }}" alt="E-Invoice QR Code" style="width: 150px; height: 150px; display: block;">
