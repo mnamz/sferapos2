@@ -220,6 +220,15 @@
                 <strong style="font-size: 14px;">Request Your E-Invoice</strong><br>
                 <span style="font-size: 12px;">Please scan the QR code below to request your e-invoice:</span><br>
                 <span style="font-size: 11px; color: #666; margin-top: 5px; display: inline-block;">Note: You can request your e-invoice within {{ $queueDelayHours ?? 72 }} hours of purchase.</span>
+                @php
+                    $invoiceDate = \Carbon\Carbon::parse($order->created_at);
+                    $endOfMonth = $invoiceDate->copy()->endOfMonth();
+                    $daysUntilEndOfMonth = $invoiceDate->diffInDays($endOfMonth, false);
+                    $isApproachingEndOfMonth = $daysUntilEndOfMonth <= 3 && $daysUntilEndOfMonth >= 0;
+                @endphp
+                @if($isApproachingEndOfMonth)
+                <br><span style="font-size: 11px; color: #d97706; margin-top: 5px; display: inline-block; font-weight: bold;">Important: Please request your e-invoice before the end of this month.</span>
+                @endif
             </div>
             <div style="display: inline-block; padding: 15px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 5px;">
                 <img src="{{ $qrCodeBase64 }}" alt="E-Invoice QR Code" style="width: 150px; height: 150px; display: block;">

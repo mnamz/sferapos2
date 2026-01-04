@@ -6,6 +6,7 @@ use App\Models\MyInvoisQueue;
 use App\Services\MyInvoisService;
 use Illuminate\Console\Command;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class PushMyInvoisQueue extends Command
 {
@@ -29,7 +30,7 @@ class PushMyInvoisQueue extends Command
     public function handle()
     {
         $delayHours = config('services.myinvois.queue_delay_hours', 72);
-        $this->info("Checking for MyInvois invoices older than {$delayHours} hours...");
+        Log::info("Checking for MyInvois invoices older than {$delayHours} hours...");
 
         // Get invoices older than configured hours with pending status
         $cutoffTime = Carbon::now()->subHours($delayHours);
@@ -47,7 +48,7 @@ class PushMyInvoisQueue extends Command
             return 0;
         }
 
-        $this->info("Found {$pendingInvoices->count()} invoice(s) to push.");
+        Log::info("Found {$pendingInvoices->count()} invoice(s) to push.");
 
         $myInvoisService = app(MyInvoisService::class);
         $successCount = 0;
@@ -76,10 +77,10 @@ class PushMyInvoisQueue extends Command
                 $result = $myInvoisService->submitInvoice($order);
                 
                 if ($result) {
-                    $this->info("✓ Successfully pushed invoice for Order #{$order->id}");
+                    Log::info("✓ Successfully pushed invoice for Order #{$order->id}");
                     $successCount++;
                 } else {
-                    $this->error("✗ Failed to push invoice for Order #{$order->id}");
+                    Log::error("✗ Failed to push invoice for Order #{$order->id}");
                     $failCount++;
                 }
             } catch (\Exception $e) {
