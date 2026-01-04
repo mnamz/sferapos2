@@ -313,10 +313,12 @@ class MyInvoisService
             ? $order->created_at->setTimezone('UTC') 
             : now()->setTimezone('UTC');
         
+        $branch = config('services.myinvois.branch', '');
+        
         return [
             'documents' => [
                 [
-                    'id' => (string) $orderId,
+                    'id' => (string) $orderId . '-' . $branch,
                     'issueDate' => $issueDate->format('Y-m-d'),
                     'issueTime' => $issueDate->format('H:i:s\Z'), // Match exact format: "05:25:00Z"
                     'documentCurrencyCode' => 'MYR',
