@@ -462,7 +462,7 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: -20mm; /* Negative margin to move table up - adjust as needed */
-            margin-bottom: 12px;
+            margin-bottom: 25px;
             font-size: 11px;
         }
         .info-table th {
@@ -749,7 +749,7 @@
             </tr>
             <tr>
                 <td></td>
-                <td>8604351269</td>
+                <td>CIMB Bank: 8604351269</td>
             </tr>
             <tr>
                 <td>Issuer Authorized Signature</td>
