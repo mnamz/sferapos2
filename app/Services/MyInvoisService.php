@@ -356,7 +356,7 @@ class MyInvoisService
             return [
                 'TIN' => 'EI00000000010',
                 'legalName' => 'Walk-in Customer',
-                'identificationNumber' => '000000000000',
+                'identificationNumber' => 'NA',
                 'identificationScheme' => 'BRN',
                 'telephone' => $this->formatPhoneNumber(null),
                 'address' => [
