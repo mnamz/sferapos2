@@ -119,7 +119,7 @@
                                     </div>
 
                                     <!-- TIN -->
-                                    <div>
+                                    <div v-if="!isStaff">
                                         <Label for="tin" class="text-gray-900 dark:text-gray-100">TIN (Tax Identification Number)</Label>
                                         <Input
                                             id="tin"
@@ -132,7 +132,7 @@
                                     </div>
 
                                     <!-- BRN -->
-                                    <div>
+                                    <div v-if="!isStaff">
                                         <Label for="brn" class="text-gray-900 dark:text-gray-100">BRN (Business Registration Number)</Label>
                                         <Input
                                             id="brn"
@@ -145,7 +145,7 @@
                                     </div>
 
                                     <!-- NRIC -->
-                                    <div>
+                                    <div v-if="!isStaff">
                                         <Label for="nric" class="text-gray-900 dark:text-gray-100">NRIC (National Registration ID)</Label>
                                         <Input
                                             id="nric"
@@ -195,13 +195,17 @@
 
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Select } from '@/Components/ui/select';
 import { Textarea } from '@/Components/ui/textarea';
 import InputError from '@/Components/InputError.vue';
+
+const page = usePage();
+const roles = page.props.auth?.roles || [];
+const isStaff = roles.includes('staff');
 
 const form = useForm({
     name: '',
