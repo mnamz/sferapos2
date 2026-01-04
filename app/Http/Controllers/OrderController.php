@@ -1039,6 +1039,27 @@ class OrderController extends Controller
                 'is_soft_deleted' => $order->trashed()
             ]);
 
+            // Check if invoice has already been submitted to MyInvois
+            $order->load('myInvoisInvoice');
+            if ($order->myInvoisInvoice) {
+                \Log::warning('API Submit MyInvois - Invoice already submitted', [
+                    'order_id' => $order->id,
+                    'myinvois_uuid' => $order->myInvoisInvoice->uuid,
+                    'invoice_code_number' => $order->myInvoisInvoice->invoice_code_number
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invoice has already been submitted to MyInvois',
+                    'error_code' => 'ALREADY_SUBMITTED',
+                    'myinvois_invoice' => [
+                        'uuid' => $order->myInvoisInvoice->uuid,
+                        'invoice_code_number' => $order->myInvoisInvoice->invoice_code_number,
+                        'submission_uid' => $order->myInvoisInvoice->submission_uid,
+                        'submitted_at' => $order->myInvoisInvoice->created_at->toIso8601String(),
+                    ]
+                ], 409); // 409 Conflict is appropriate for "already exists" scenarios
+            }
+
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
                 'email' => 'required|email|max:255',
