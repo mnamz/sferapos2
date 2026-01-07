@@ -1097,48 +1097,48 @@ class OrderController extends Controller
                 $customer = \App\Models\Customer::where('email', $validated['email'])->first();
             }
 
-            if ($customer) {
-                // Update existing customer with new information
-                $customerWasUpdated = true;
-                $customer->update([
-                    'name' => $validated['name'],
-                    'email' => $validated['email'],
+                if ($customer) {
+                    // Update existing customer with new information
+                    $customerWasUpdated = true;
+                    $customer->update([
+                        'name' => $validated['name'],
+                        'email' => $validated['email'],
                     'phone' => $validated['phone'] ?? $customer->phone,
-                    'address' => $validated['address'] ?? $customer->address,
-                    'city' => $validated['city'] ?? $customer->city,
-                    'postal_code' => $validated['postal_code'] ?? $customer->postal_code,
-                    'state_code' => $validated['state_code'] ?? $customer->state_code,
-                    'country' => $validated['country'] ?? $customer->country ?? 'MYS',
-                    'tin' => $validated['tin'] ?? $customer->tin,
-                    'brn' => $validated['brn'] ?? $customer->brn,
-                    'nric' => $validated['nric'] ?? $customer->nric,
-                    'status' => 'active', // Ensure customer is active
-                ]);
-                \Log::info('API Submit MyInvois - Customer updated', [
-                    'customer_id' => $customer->id,
+                        'address' => $validated['address'] ?? $customer->address,
+                        'city' => $validated['city'] ?? $customer->city,
+                        'postal_code' => $validated['postal_code'] ?? $customer->postal_code,
+                        'state_code' => $validated['state_code'] ?? $customer->state_code,
+                        'country' => $validated['country'] ?? $customer->country ?? 'MYS',
+                        'tin' => $validated['tin'] ?? $customer->tin,
+                        'brn' => $validated['brn'] ?? $customer->brn,
+                        'nric' => $validated['nric'] ?? $customer->nric,
+                        'status' => 'active', // Ensure customer is active
+                    ]);
+                    \Log::info('API Submit MyInvois - Customer updated', [
+                        'customer_id' => $customer->id,
                     'phone' => $validated['phone'] ?? null,
                     'email' => $validated['email'] ?? null
-                ]);
-            } else {
-                // Create new customer
-                $customerWasCreated = true;
-                $customer = \App\Models\Customer::create([
-                    'name' => $validated['name'],
-                    'email' => $validated['email'],
+                    ]);
+                } else {
+                    // Create new customer
+                    $customerWasCreated = true;
+                    $customer = \App\Models\Customer::create([
+                        'name' => $validated['name'],
+                        'email' => $validated['email'],
                     'phone' => $validated['phone'] ?? null,
-                    'address' => $validated['address'] ?? null,
-                    'city' => $validated['city'] ?? null,
-                    'postal_code' => $validated['postal_code'] ?? null,
-                    'state_code' => $validated['state_code'] ?? null,
-                    'country' => $validated['country'] ?? 'MYS',
-                    'tin' => $validated['tin'] ?? null,
-                    'brn' => $validated['brn'] ?? null,
-                    'nric' => $validated['nric'] ?? null,
-                    'status' => 'active',
-                ]);
-                \Log::info('API Submit MyInvois - Customer created', [
-                    'customer_id' => $customer->id,
-                    'phone' => $validated['phone'] ?? null,
+                        'address' => $validated['address'] ?? null,
+                        'city' => $validated['city'] ?? null,
+                        'postal_code' => $validated['postal_code'] ?? null,
+                        'state_code' => $validated['state_code'] ?? null,
+                        'country' => $validated['country'] ?? 'MYS',
+                        'tin' => $validated['tin'] ?? null,
+                        'brn' => $validated['brn'] ?? null,
+                        'nric' => $validated['nric'] ?? null,
+                        'status' => 'active',
+                    ]);
+                    \Log::info('API Submit MyInvois - Customer created', [
+                        'customer_id' => $customer->id,
+                            'phone' => $validated['phone'] ?? null,
                     'email' => $validated['email'] ?? null
                 ]);
             }
