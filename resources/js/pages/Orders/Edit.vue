@@ -465,9 +465,12 @@ const filteredCustomers = computed(() => {
 });
 
 const filteredProducts = computed(() => {
-    if (!productSearch.value) return props.products;
+    // Filter out products with no stock
+    const availableProducts = props.products.filter(product => product.stock > 0);
+    
+    if (!productSearch.value) return availableProducts;
     const search = productSearch.value.toLowerCase();
-    return props.products.filter(product => 
+    return availableProducts.filter(product => 
         product.name.toLowerCase().includes(search)
     );
 });

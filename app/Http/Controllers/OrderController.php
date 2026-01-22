@@ -572,7 +572,9 @@ class OrderController extends Controller
                 'created_at' => $order->created_at->format('Y-m-d H:i:s'),
             ],
             'customers' => \App\Models\Customer::select('id', 'name', 'email', 'phone', 'address')->get(),
-            'products' => \App\Models\Product::select('id', 'name', 'price', 'stock')->get(),
+            'products' => \App\Models\Product::select('id', 'name', 'price', 'stock')
+                ->where('stock', '>', 0)
+                ->get(),
         ]);
     }
 
