@@ -20,6 +20,13 @@
                     >
                         Inventory Cost
                     </Link>
+                    <Link
+                        :href="route('products.report')"
+                        v-if="!roles.includes('staff')"
+                        class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition text-center"
+                    >
+                        Product Report
+                    </Link>
                     <!-- <button
                         @click="exportCSV"
                         class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition text-center"

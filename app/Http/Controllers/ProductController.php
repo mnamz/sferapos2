@@ -329,4 +329,127 @@ class ProductController extends Controller
             ->limit(20)
             ->get();
     }
+
+    public function report(Request $request)
+    {
+        $startDate = $request->input('start_date', \Carbon\Carbon::now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', \Carbon\Carbon::now()->format('Y-m-d'));
+
+        // Get products sold within the date range
+        $query = \DB::table('order_items')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->where('orders.status', '!=', 'cancelled')
+            ->select(
+                'order_items.product_id',
+                'order_items.product_name',
+                'categories.name as category_name',
+                \DB::raw('SUM(order_items.quantity) as total_quantity'),
+                \DB::raw('AVG(order_items.price) as avg_price'),
+                \DB::raw('AVG(order_items.cost_price) as avg_cost_price'),
+                \DB::raw('SUM(order_items.total) as total_revenue'),
+                \DB::raw('SUM(order_items.cost_price * order_items.quantity) as total_cost'),
+                \DB::raw('SUM(order_items.profit) as total_profit')
+            )
+            ->groupBy('order_items.product_id', 'order_items.product_name', 'categories.name');
+
+        // Apply sorting
+        $sortColumn = $request->input('sort_column', 'total_revenue');
+        $sortDirection = $request->input('sort_direction', 'desc');
+        $query->orderBy($sortColumn, $sortDirection);
+
+        $products = $query->paginate(15)->withQueryString();
+
+        // Calculate summary statistics
+        $summary = \DB::table('order_items')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->where('orders.status', '!=', 'cancelled')
+            ->select(
+                \DB::raw('COUNT(DISTINCT order_items.product_id) as total_products'),
+                \DB::raw('SUM(order_items.quantity) as total_quantity'),
+                \DB::raw('SUM(order_items.total) as total_revenue'),
+                \DB::raw('SUM(order_items.cost_price * order_items.quantity) as total_cost'),
+                \DB::raw('SUM(order_items.profit) as total_profit')
+            )
+            ->first();
+
+        return Inertia::render('Products/Report', [
+            'products' => $products,
+            'summary' => $summary,
+            'filters' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'sort_column' => $sortColumn,
+                'sort_direction' => $sortDirection,
+            ],
+        ]);
+    }
+
+    public function exportReport(Request $request)
+    {
+        $startDate = $request->input('start_date', \Carbon\Carbon::now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', \Carbon\Carbon::now()->format('Y-m-d'));
+
+        $products = \DB::table('order_items')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->where('orders.status', '!=', 'cancelled')
+            ->select(
+                'order_items.product_name',
+                'categories.name as category_name',
+                \DB::raw('SUM(order_items.quantity) as total_quantity'),
+                \DB::raw('AVG(order_items.price) as avg_price'),
+                \DB::raw('AVG(order_items.cost_price) as avg_cost_price'),
+                \DB::raw('SUM(order_items.total) as total_revenue'),
+                \DB::raw('SUM(order_items.cost_price * order_items.quantity) as total_cost'),
+                \DB::raw('SUM(order_items.profit) as total_profit')
+            )
+            ->groupBy('order_items.product_id', 'order_items.product_name', 'categories.name')
+            ->orderByDesc('total_revenue')
+            ->get();
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="product-report-' . $startDate . '-to-' . $endDate . '.csv"',
+        ];
+
+        $callback = function() use ($products) {
+            $file = fopen('php://output', 'w');
+            
+            // Add headers
+            fputcsv($file, [
+                'Product Name',
+                'Category',
+                'Total Quantity Sold',
+                'Average Price',
+                'Average Cost Price',
+                'Total Revenue',
+                'Total Cost',
+                'Total Profit'
+            ]);
+            
+            // Add data
+            foreach ($products as $product) {
+                fputcsv($file, [
+                    $product->product_name,
+                    $product->category_name ?? 'N/A',
+                    $product->total_quantity,
+                    number_format($product->avg_price, 2),
+                    number_format($product->avg_cost_price, 2),
+                    number_format($product->total_revenue, 2),
+                    number_format($product->total_cost, 2),
+                    number_format($product->total_profit, 2)
+                ]);
+            }
+            
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
 } 
