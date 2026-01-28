@@ -6,45 +6,60 @@
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <!-- Date Range Filter -->
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-6 p-4">
-                    <div class="flex flex-col sm:flex-row gap-4 items-end">
+                    <div class="flex flex-col gap-4">
                         <div class="flex-1">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Start Date
+                                Search Products
                             </label>
                             <input 
-                                type="date" 
-                                v-model="filters.start_date"
+                                type="text" 
+                                v-model="filters.search"
+                                @keyup.enter="applyFilters"
+                                placeholder="Search by product name or category..."
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 dark:text-white"
                             >
                         </div>
-                        <div class="flex-1">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                End Date
-                            </label>
-                            <input 
-                                type="date" 
-                                v-model="filters.end_date"
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 dark:text-white"
-                            >
-                        </div>
-                        <div class="flex gap-2">
-                            <button 
-                                @click="applyFilters"
-                                class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                            >
-                                Apply Filters
-                            </button>
-                            <a
-                                :href="route('products.report.export', { 
-                                    start_date: filters.start_date, 
-                                    end_date: filters.end_date
-                                })"
-                                class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center gap-2"
-                                target="_blank"
-                            >
-                                <FileSpreadsheet class="w-4 h-4" />
-                                Export CSV
-                            </a>
+                        <div class="flex flex-col sm:flex-row gap-4 items-end">
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Start Date
+                                </label>
+                                <input 
+                                    type="date" 
+                                    v-model="filters.start_date"
+                                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 dark:text-white"
+                                >
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    End Date
+                                </label>
+                                <input 
+                                    type="date" 
+                                    v-model="filters.end_date"
+                                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 dark:text-white"
+                                >
+                            </div>
+                            <div class="flex gap-2">
+                                <button 
+                                    @click="applyFilters"
+                                    class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                >
+                                    Apply Filters
+                                </button>
+                                <a
+                                    :href="route('products.report.export', { 
+                                        start_date: filters.start_date, 
+                                        end_date: filters.end_date,
+                                        search: filters.search
+                                    })"
+                                    class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center gap-2"
+                                    target="_blank"
+                                >
+                                    <FileSpreadsheet class="w-4 h-4" />
+                                    Export CSV
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -178,6 +193,7 @@ const sortDirection = ref(props.filters?.sort_direction || 'desc');
 const filters = ref({
     start_date: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
     end_date: new Date().toISOString().split('T')[0],
+    search: '',
     ...props.filters
 });
 
@@ -203,6 +219,7 @@ function applyFilters(resetPage = true) {
     router.get(route('products.report'), {
         start_date: filters.value.start_date,
         end_date: filters.value.end_date,
+        search: filters.value.search || undefined,
         sort_column: sortColumn.value,
         sort_direction: sortDirection.value,
         page: resetPage ? 1 : undefined

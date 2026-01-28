@@ -342,6 +342,13 @@ class ProductController extends Controller
             ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
             ->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
             ->where('orders.status', '!=', 'cancelled')
+            ->when($request->input('search'), function($query, $search) {
+                $lower = strtolower($search);
+                $query->where(function($q) use ($lower) {
+                    $q->whereRaw('LOWER(order_items.product_name) LIKE ?', ["%{$lower}%"])
+                      ->orWhereRaw('LOWER(categories.name) LIKE ?', ["%{$lower}%"]);
+                });
+            })
             ->select(
                 'order_items.product_id',
                 'order_items.product_name',
@@ -382,6 +389,7 @@ class ProductController extends Controller
             'filters' => [
                 'start_date' => $startDate,
                 'end_date' => $endDate,
+                'search' => $request->input('search'),
                 'sort_column' => $sortColumn,
                 'sort_direction' => $sortDirection,
             ],
@@ -399,6 +407,13 @@ class ProductController extends Controller
             ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
             ->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
             ->where('orders.status', '!=', 'cancelled')
+            ->when($request->input('search'), function($query, $search) {
+                $lower = strtolower($search);
+                $query->where(function($q) use ($lower) {
+                    $q->whereRaw('LOWER(order_items.product_name) LIKE ?', ["%{$lower}%"])
+                      ->orWhereRaw('LOWER(categories.name) LIKE ?', ["%{$lower}%"]);
+                });
+            })
             ->select(
                 'order_items.product_name',
                 'categories.name as category_name',
