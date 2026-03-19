@@ -157,8 +157,8 @@
                 <tr style="border-bottom: 1px solid #ccc;">
                     <td style="padding: 6px 4px; border: none; text-align: left;">{{ $item->product_name }} {{ $item->remark ? '('.$item->remark.')' : '' }}</td>
                     <td style="padding: 6px 4px; border: none; text-align: center;">{{ $item->quantity }}</td>
-                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ number_format($item->price, 0) }}</td>
-                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ number_format($item->total, 0) }}</td>
+                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ number_format($item->price, 2) }}</td>
+                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ number_format($item->total, 2) }}</td>
                 </tr>
                 @endforeach
             </tbody>
@@ -186,19 +186,19 @@
                     <table style="width: 100%; border: none; font-size: 14px;">
                         <tr>
                             <td style="border: none; font-weight: bold; padding: 1px 0;">Subtotal</td>
-                            <td style="border: none; text-align: right; padding: 1px 0;">{{ $settings->currency }} {{ number_format($order->subtotal, 0) }}</td>
+                            <td style="border: none; text-align: right; padding: 1px 0;">{{ $settings->currency }} {{ number_format($order->subtotal, 2) }}</td>
                         </tr>
                         <tr>
                             <td style="border: none; font-weight: bold; padding: 1px 0;">Tax</td>
-                            <td style="border: none; text-align: right; padding: 1px 0;">{{ $settings->currency }} {{ number_format($order->tax, 0) }}</td>
+                            <td style="border: none; text-align: right; padding: 1px 0;">{{ $settings->currency }} {{ number_format($order->tax, 2) }}</td>
                         </tr>
                         <tr>
                             <td style="border: none; font-weight: bold; padding: 1px 0;">Discount</td>
-                            <td style="border: none; text-align: right; padding: 1px 0;">{{ $settings->currency }} {{ number_format($order->discount ?? 0, 0) }}</td>
+                            <td style="border: none; text-align: right; padding: 1px 0;">{{ $settings->currency }} {{ number_format($order->discount ?? 0, 2) }}</td>
                         </tr>
                         <tr>
                             <td style="border: none; font-weight: bold; background: #ddd; padding: 1px 0;">Total</td>
-                            <td style="border: none; background: #ddd; text-align: right; font-weight: bold; padding: 1px 0;">{{ $settings->currency }} {{ number_format($order->total, 0) }}</td>
+                            <td style="border: none; background: #ddd; text-align: right; font-weight: bold; padding: 1px 0;">{{ $settings->currency }} {{ number_format($order->total, 2) }}</td>
                         </tr>
                     </table>
                 </td>
