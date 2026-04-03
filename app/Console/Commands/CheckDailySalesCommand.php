@@ -23,7 +23,7 @@ class CheckDailySalesCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Check if there are sales for the day, if not push dummy invoice to TMS';
+    protected $description = 'Consolidate and send all finalized daily receipts to TMS at end of day. Cancelled orders are excluded. Sends a dummy receipt if no sales exist.';
 
     /**
      * Execute the console command.
@@ -31,28 +31,17 @@ class CheckDailySalesCommand extends Command
     public function handle(): int
     {
         $today = Carbon::today('Asia/Kuala_Lumpur');
-        
-        // Check if there are any orders for today
-        $orderCount = Order::whereDate('created_at', $today)->count();
-        
-        $this->info("Checking sales for {$today->format('Y-m-d')}");
-        $this->info("Total orders found: {$orderCount}");
-        
-        if ($orderCount > 0) {
-            $this->info('Sales exist for today. No action needed.');
-            Log::info('Daily sales check: Sales exist', [
-                'date' => $today->format('Y-m-d'),
-                'order_count' => $orderCount,
-            ]);
-            return Command::SUCCESS;
-        }
-        
-        // No sales found, send dummy receipt to TMS
-        $this->warn('No sales found for today. Sending dummy receipt to TMS...');
-        
+
+        // Only non-deleted (non-cancelled) orders count as finalized sales
+        $orders = Order::whereDate('created_at', $today)->get();
+        $orderCount = $orders->count();
+
+        $this->info("Consolidating sales for {$today->format('Y-m-d')}");
+        $this->info("Finalized orders: {$orderCount}");
+
         try {
             $tmsService = app(TmsReceiptService::class);
-            
+
             if (!$tmsService->isEnabled()) {
                 $this->error('TMS Receipt Service is not enabled (missing authorization token).');
                 Log::warning('Daily sales check: TMS service not enabled', [
@@ -60,28 +49,52 @@ class CheckDailySalesCommand extends Command
                 ]);
                 return Command::FAILURE;
             }
-            
-            // Build dummy receipt payload
-            $dummyReceipt = $this->buildDummyReceiptPayload($today);
-            
-            // Send dummy receipt
-            $success = $tmsService->sendReceipt($dummyReceipt);
-            
+
+            if ($orderCount === 0) {
+                // No finalized sales (none created, or all cancelled) — send dummy
+                $this->warn('No finalized sales for today. Sending dummy receipt to TMS...');
+
+                $dummyReceipt = $this->buildDummyReceiptPayload($today);
+                $success = $tmsService->sendReceipt($dummyReceipt);
+
+                if ($success) {
+                    $this->info('✓ Dummy receipt sent successfully to TMS.');
+                    Log::info('Daily sales check: Dummy receipt sent', [
+                        'date' => $today->format('Y-m-d'),
+                        'payload' => $dummyReceipt,
+                    ]);
+                    return Command::SUCCESS;
+                } else {
+                    $this->error('✗ Failed to send dummy receipt to TMS.');
+                    Log::error('Daily sales check: Failed to send dummy receipt', [
+                        'date' => $today->format('Y-m-d'),
+                    ]);
+                    return Command::FAILURE;
+                }
+            }
+
+            // Batch-send all finalized receipts for today
+            $this->info("Sending {$orderCount} receipt(s) to TMS...");
+
+            $receipts = $orders->map(fn (Order $order) => $tmsService->buildReceiptPayload($order))->toArray();
+            $success = $tmsService->sendReceipts($receipts);
+
             if ($success) {
-                $this->info('✓ Dummy receipt sent successfully to TMS.');
-                Log::info('Daily sales check: Dummy receipt sent', [
+                $this->info("✓ {$orderCount} receipt(s) sent successfully to TMS.");
+                Log::info('Daily sales check: Receipts sent', [
                     'date' => $today->format('Y-m-d'),
-                    'payload' => $dummyReceipt,
+                    'order_count' => $orderCount,
                 ]);
                 return Command::SUCCESS;
             } else {
-                $this->error('✗ Failed to send dummy receipt to TMS.');
-                Log::error('Daily sales check: Failed to send dummy receipt', [
+                $this->error('✗ Failed to send receipts to TMS.');
+                Log::error('Daily sales check: Failed to send receipts', [
                     'date' => $today->format('Y-m-d'),
+                    'order_count' => $orderCount,
                 ]);
                 return Command::FAILURE;
             }
-            
+
         } catch (\Throwable $e) {
             $this->error("Exception: {$e->getMessage()}");
             Log::error('Daily sales check: Exception occurred', [

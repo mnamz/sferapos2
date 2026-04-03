@@ -34,6 +34,7 @@ class ActivityLogController extends Controller
 
         $audits = $query->latest()
             ->paginate(10)
+            ->withQueryString()
             ->through(function ($audit) {
                 return [
                     'id' => $audit->id,

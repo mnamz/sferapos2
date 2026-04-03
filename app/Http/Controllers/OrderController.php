@@ -9,7 +9,6 @@ use App\Models\ShopSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use App\Services\TmsReceiptService;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class OrderController extends Controller
@@ -500,16 +499,6 @@ class OrderController extends Controller
 
             DB::commit();
 
-            // Send receipt to external API (fire-and-forget)
-            try {
-                $tmsService = app(TmsReceiptService::class);
-                if ($tmsService->isEnabled()) {
-                    $tmsService->sendReceipt($this->buildReceiptPayload($order));
-                }
-            } catch (\Throwable $e) {
-                \Log::error('Failed to send TMS receipt', ['error' => $e->getMessage()]);
-            }
-
             return response()->json([
                 'success' => true,
                 'message' => 'Order created successfully',
@@ -790,16 +779,6 @@ class OrderController extends Controller
                 $order->update([
                     'deletion_reason' => $validated['deletion_reason'],
                 ]);
-
-                // Send void receipt to external API (fire-and-forget)
-                try {
-                    $tmsService = app(TmsReceiptService::class);
-                    if ($tmsService->isEnabled()) {
-                        $tmsService->sendReceipt($this->buildReceiptPayload($order, true));
-                    }
-                } catch (\Throwable $e) {
-                    \Log::error('Failed to send VOID TMS receipt', ['error' => $e->getMessage()]);
-                }
 
                 // Restore product stock
                 foreach ($order->items as $item) {
@@ -1351,21 +1330,4 @@ class OrderController extends Controller
         ];
     }
 
-    protected function buildReceiptPayload(Order $order, bool $void = false): array
-    {
-        $settings = ShopSettings::first();
-        $discountPercent = $order->subtotal > 0 ? round(($order->discount / $order->subtotal) * 100, 2) : 0.0;
-
-        return [
-            'ReceiptNo'           => (string) $order->id,
-            'ReceiptDateAndTime2' => $order->created_at->format('Y-m-d H:i:s'),
-            'SubTotal'            => (float) $order->subtotal,
-            'DiscountPercent'     => (float) $discountPercent,
-            'DiscountAmount'      => (float) $order->discount,
-            'GstPercent'          => $settings ? (float) $settings->tax_percentage : 0.0,
-            'GstAmount'           => (float) $order->tax,
-            'GrandTotal'          => (float) $order->total,
-            'IsVoid'              => $void,
-        ];
-    }
 } 

@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Order;
+use App\Models\ShopSettings;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -35,6 +37,27 @@ class TmsReceiptService
     public function isEnabled(): bool
     {
         return filled($this->authorization);
+    }
+
+    /**
+     * Build a receipt payload from an Order model.
+     */
+    public function buildReceiptPayload(Order $order, bool $void = false): array
+    {
+        $settings = ShopSettings::first();
+        $discountPercent = $order->subtotal > 0 ? round(($order->discount / $order->subtotal) * 100, 2) : 0.0;
+
+        return [
+            'ReceiptNo'           => (string) $order->id,
+            'ReceiptDateAndTime2' => $order->created_at->format('Y-m-d H:i:s'),
+            'SubTotal'            => (float) $order->subtotal,
+            'DiscountPercent'     => (float) $discountPercent,
+            'DiscountAmount'      => (float) $order->discount,
+            'GstPercent'          => $settings ? (float) $settings->tax_percentage : 0.0,
+            'GstAmount'           => (float) $order->tax,
+            'GrandTotal'          => (float) $order->total,
+            'IsVoid'              => $void,
+        ];
     }
 
     /**
