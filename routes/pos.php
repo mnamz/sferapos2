@@ -34,8 +34,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/shop-settings', [ShopSettingsController::class, 'update'])->name('pos.settings.update');
     });
 
-    // Edit/update routes restricted to staff and admin
-    Route::middleware('role:admin|staff')->group(function () {
+    // Edit/update routes restricted to admin and manager
+    Route::middleware('role:admin|manager')->group(function () {
         Route::resource('products', ProductController::class)->only(['edit', 'update']);
         Route::resource('categories', CategoryController::class)->only(['edit', 'update']);
         Route::resource('customers', CustomerController::class)->only(['edit', 'update']);

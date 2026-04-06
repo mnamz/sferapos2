@@ -60,8 +60,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['auth'])
         ->name('orders.exportCsv');
 
-    // Edit/update routes restricted to staff and admin
-    Route::middleware('role:admin|staff')->group(function () {
+    // Edit/update routes restricted to admin and manager
+    Route::middleware('role:admin|manager')->group(function () {
         Route::resource('suppliers', SupplierController::class)->only(['edit', 'update']);
         Route::resource('users', UserController::class)->only(['edit', 'update']);
         Route::resource('quotes', QuoteController::class)->only(['edit', 'update']);
