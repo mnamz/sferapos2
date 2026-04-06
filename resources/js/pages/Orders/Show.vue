@@ -225,34 +225,34 @@
                     <span v-else>Send Invoice</span>
                 </button>
                 <button
-                    v-if="order.delivery_method === 'walk-in' && !order.myinvois_queue_status && !order.myinvois_invoice"
+                    v-if="canEdit && order.delivery_method === 'walk-in' && !order.myinvois_queue_status && !order.myinvois_invoice"
                     @click="addToQueue"
                     class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
                 >
                     Add to Consolidation Queue
                 </button>
                 <button
-                    v-if="order.myinvois_queue_status === 'pending'"
+                    v-if="canEdit && order.myinvois_queue_status === 'pending'"
                     @click="pushToMyInvois"
                     class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                     Push to MyInvois
                 </button>
                 <button
-                    v-if="order.myinvois_queue_status === 'pending'"
+                    v-if="canEdit && order.myinvois_queue_status === 'pending'"
                     @click="clearFromQueue"
                     class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
                 >
                     Clear from Queue
                 </button>
                 <span
-                    v-if="order.myinvois_queue_status === 'pushed'"
+                    v-if="canEdit && order.myinvois_queue_status === 'pushed'"
                     class="px-4 py-2 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-lg flex items-center"
                 >
                     ✓ Pushed to MyInvois
                 </span>
                 <button
-                    v-if="order.myinvois_invoice"
+                    v-if="canEdit && order.myinvois_invoice"
                     @click="showCancelModal = true"
                     class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                 >
