@@ -187,14 +187,14 @@
                     Back to Orders
                 </Link>
                 <Link
-                    v-if="!order.myinvois_invoice"
+                    v-if="canEdit && !order.myinvois_invoice"
                     :href="route('orders.edit', order.id)"
                     class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                 >
                     Edit Order
                 </Link>
                 <span
-                    v-if="order.myinvois_invoice"
+                    v-if="canEdit && order.myinvois_invoice"
                     class="px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed"
                     title="Cannot edit order with pushed MyInvois invoice. Cancel the invoice first."
                 >
@@ -322,6 +322,10 @@ const props = defineProps({
 
 const page = usePage();
 const currency = computed(() => page.props.settings?.currency || 'USD');
+const canEdit = computed(() => {
+    const roles = page.props.auth?.roles ?? [];
+    return roles.includes('admin') || roles.includes('manager');
+});
 
 const showStatusDropdown = ref(false);
 const sendingInvoice = ref(false);
