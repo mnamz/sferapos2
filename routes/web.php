@@ -22,21 +22,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/export', [ReportController::class, 'export'])->name('reports.export');
-    Route::get('activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index');
-    Route::resource('suppliers', SupplierController::class);
+    Route::resource('suppliers', SupplierController::class)->except(['edit', 'update']);
     Route::get('/api/suppliers/search', [SupplierController::class, 'search'])->name('api.suppliers.search');
-    Route::resource('users', UserController::class); 
-    Route::get('/shop-settings', [ShopSettingsController::class, 'index'])->name('settings.index');
-    Route::post('/shop-settings', [ShopSettingsController::class, 'update'])->name('settings.update');
+    Route::resource('users', UserController::class)->except(['edit', 'update']);
+
+    // Admin-only routes
+    Route::middleware('role:admin')->group(function () {
+        Route::get('activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index');
+        Route::get('/shop-settings', [ShopSettingsController::class, 'index'])->name('settings.index');
+        Route::post('/shop-settings', [ShopSettingsController::class, 'update'])->name('settings.update');
+    });
     Route::get('/orders/{order}/invoice', [InvoiceController::class, 'generate'])->name('orders.invoice');
     Route::get('/orders/{order}/e-invoice', [OrderController::class, 'eInvoice'])->name('orders.eInvoice');
     Route::get('/orders/{order}/e-invoice/pdf', [OrderController::class, 'eInvoicePdf'])->name('orders.eInvoicePdf');
     Route::post('/orders/{order}/send-invoice', [InvoiceController::class, 'send'])->name('orders.send-invoice');
     Route::get('/orders/create', [\App\Http\Controllers\OrderController::class, 'create'])->name('orders.create');
     Route::get('/sales', [\App\Http\Controllers\OrderController::class, 'mySales'])->name(name: 'sales.index');
-    Route::resource('quotes', QuoteController::class);
+    Route::resource('quotes', QuoteController::class)->except(['edit', 'update']);
     Route::get('quotes/{quote}/pdf', [QuoteController::class, 'pdf'])->name('quotes.pdf');
-    
+
     // Add low stock products route
     Route::get('/products/low-stock', [ProductController::class, 'lowStock'])->name('products.low-stock');
     Route::get('/products/inventory-cost', [ProductController::class, 'inventoryCost'])->name('products.inventory-cost');
@@ -55,6 +59,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/orders/export-csv', [OrderController::class, 'exportCsv'])
         ->middleware(['auth'])
         ->name('orders.exportCsv');
+
+    // Edit/update routes restricted to staff and admin
+    Route::middleware('role:admin|staff')->group(function () {
+        Route::resource('suppliers', SupplierController::class)->only(['edit', 'update']);
+        Route::resource('users', UserController::class)->only(['edit', 'update']);
+        Route::resource('quotes', QuoteController::class)->only(['edit', 'update']);
+    });
 });
 
 Route::get('/backup/sql', [BackupController::class, 'downloadSql'])

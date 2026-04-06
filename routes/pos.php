@@ -15,20 +15,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('pos.index');
 
     // Products Routes
-    Route::resource('products', ProductController::class);
+    Route::resource('products', ProductController::class)->except(['edit', 'update']);
     Route::get('/pos-products', [ProductController::class, 'getPosProducts'])->name('pos.products');
     Route::get('products/low-stock', [ProductController::class, 'lowStock'])->name('products.low-stock');
 
     // Categories Routes
-    Route::resource('categories', CategoryController::class);
+    Route::resource('categories', CategoryController::class)->except(['edit', 'update']);
 
-    Route::resource('customers', CustomerController::class);
+    Route::resource('customers', CustomerController::class)->except(['edit', 'update']);
     Route::get('/api/customers/search', [CustomerController::class, 'search'])->name('customers.search');
 
     // Orders Routes
-    Route::resource('orders', OrderController::class);
+    Route::resource('orders', OrderController::class)->except(['edit', 'update']);
 
-    // Shop Settings Routes
-    Route::get('/shop-settings', [ShopSettingsController::class, 'index'])->name('pos.settings');
-    Route::post('/shop-settings', [ShopSettingsController::class, 'update'])->name('pos.settings.update');
+    // Shop Settings Routes (admin only)
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/shop-settings', [ShopSettingsController::class, 'index'])->name('pos.settings');
+        Route::post('/shop-settings', [ShopSettingsController::class, 'update'])->name('pos.settings.update');
+    });
+
+    // Edit/update routes restricted to staff and admin
+    Route::middleware('role:admin|staff')->group(function () {
+        Route::resource('products', ProductController::class)->only(['edit', 'update']);
+        Route::resource('categories', CategoryController::class)->only(['edit', 'update']);
+        Route::resource('customers', CustomerController::class)->only(['edit', 'update']);
+        Route::resource('orders', OrderController::class)->only(['edit', 'update']);
+    });
 }); 
