@@ -45,6 +45,7 @@ return [
         'enabled' => filter_var(env('MYINVOIS_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
         'base_url' => env('MYINVOIS_BASE_URL', 'https://myinvois.myrccornertrading.com'),
         'queue_delay_hours' => env('MYINVOIS_QUEUE_DELAY_HOURS', 72),
+        'cancellation_window_hours' => (int) env('MYINVOIS_CANCELLATION_WINDOW_HOURS', 72),
         'einvoice_claim_url' => env('EINVOICE_CLAIM_URL', 'https://einvoice.myrccornertrading.com'),
         'branch' => env('EINVOICE_BRANCH', ''),
     ],
