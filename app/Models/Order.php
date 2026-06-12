@@ -92,7 +92,18 @@ class Order extends Model implements Auditable
 
     public function myInvoisInvoice()
     {
-        return $this->hasOne(MyInvoisInvoice::class);
+        // The currently-valid e-invoice; cancelled/credited rows are kept for audit
+        return $this->hasOne(MyInvoisInvoice::class)->where('status', 'active')->latest('id');
+    }
+
+    public function myInvoisInvoices()
+    {
+        return $this->hasMany(MyInvoisInvoice::class);
+    }
+
+    public function myInvoisCreditNotes()
+    {
+        return $this->hasMany(MyInvoisCreditNote::class);
     }
 
     public function myInvoisQueue()
