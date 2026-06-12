@@ -29,6 +29,25 @@ class MyInvoisService
     }
 
     /**
+     * LHDN allows cancellation only within a fixed window (default 72h) of validation.
+     * We approximate validation time with the local submission timestamp.
+     */
+    public function isWithinCancellationWindow(\App\Models\MyInvoisInvoice $invoice): bool
+    {
+        $hours = (int) config('services.myinvois.cancellation_window_hours', 72);
+
+        return $invoice->created_at->gt(now()->subHours($hours));
+    }
+
+    /**
+     * Public wrapper so callers/tests can inspect the payload.
+     */
+    public function buildInvoicePayload(Order $order, ?array $customCustomerInfo = null): array
+    {
+        return $this->prepareInvoicePayload($order, $customCustomerInfo);
+    }
+
+    /**
      * Format phone number to match MyInvois regex: ^\+[1-9]\d{1,14}$
      * Requirements:
      * - Must start with +
@@ -309,16 +328,14 @@ class MyInvoisService
         }
 
         // Use the order's created_at timestamp in UTC, or current time if not set
-        $issueDate = $order->created_at 
-            ? $order->created_at->setTimezone('UTC') 
+        $issueDate = $order->created_at
+            ? $order->created_at->setTimezone('UTC')
             : now()->setTimezone('UTC');
-        
-        $branch = config('services.myinvois.branch', '');
-        
+
         return [
             'documents' => [
                 [
-                    'id' => (string) $orderId . '-' . $branch,
+                    'id' => $this->documentId($order),
                     'issueDate' => $issueDate->format('Y-m-d'),
                     'issueTime' => $issueDate->format('H:i:s\Z'), // Match exact format: "05:25:00Z"
                     'documentCurrencyCode' => 'MYR',
@@ -347,6 +364,19 @@ class MyInvoisService
                 ]
             ]
         ];
+    }
+
+    /**
+     * MyInvois rejects duplicate internal document IDs per supplier, so a
+     * reissue after cancellation/credit note needs a unique suffix.
+     */
+    protected function documentId(Order $order): string
+    {
+        $branch = config('services.myinvois.branch', '');
+        $base = (string) ($order->id ?? $order->order_number) . '-' . $branch;
+        $priorSubmissions = \App\Models\MyInvoisInvoice::where('order_id', $order->id)->count();
+
+        return $priorSubmissions === 0 ? $base : $base . '-R' . $priorSubmissions;
     }
 
     protected function prepareCustomerInfo(Order $order)
