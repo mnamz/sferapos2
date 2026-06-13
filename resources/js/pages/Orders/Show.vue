@@ -251,12 +251,26 @@
                 >
                     ✓ Pushed to MyInvois
                 </span>
+                <span
+                    v-if="order.myinvois_invoice && order.myinvois_invoice.within_cancellation_window"
+                    class="px-4 py-2 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-lg flex items-center"
+                    title="LHDN allows cancellation within 72 hours of validation"
+                >
+                    Cancellable until {{ order.myinvois_invoice.window_expires_at }}
+                </span>
                 <button
-                    v-if="order.myinvois_invoice"
+                    v-if="order.myinvois_invoice && order.myinvois_invoice.within_cancellation_window"
                     @click="showCancelModal = true"
                     class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                 >
                     Cancel MyInvois Invoice
+                </button>
+                <button
+                    v-if="order.myinvois_invoice && !order.myinvois_invoice.within_cancellation_window"
+                    @click="showCreditNoteModal = true"
+                    class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+                >
+                    Issue Credit Note &amp; Reissue
                 </button>
             </div>
         </div>
@@ -300,6 +314,47 @@
                 </div>
             </div>
         </Modal>
+
+        <!-- Credit Note & Reissue Modal -->
+        <Modal :show="showCreditNoteModal" @close="showCreditNoteModal = false">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Issue Credit Note &amp; Reissue
+                </h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    The LHDN 72-hour cancellation window for this e-invoice has lapsed, so it can no longer be cancelled.
+                    A Credit Note e-invoice will be issued to reverse it. After that, you can edit the order and push a corrected invoice to MyInvois.
+                </p>
+                <div class="mb-4">
+                    <label for="credit_note_reason" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Reason <span class="text-red-500">*</span>
+                    </label>
+                    <textarea
+                        id="credit_note_reason"
+                        v-model="creditNoteReason"
+                        rows="4"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-gray-100"
+                        placeholder="Enter reason for the credit note..."
+                        required
+                    ></textarea>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button
+                        @click="showCreditNoteModal = false"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        @click="submitCreditNote"
+                        :disabled="!creditNoteReason || creditNoteReason.trim() === ''"
+                        class="px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                        Submit Credit Note
+                    </button>
+                </div>
+            </div>
+        </Modal>
     </AppLayout>
 </template>
 
@@ -327,6 +382,8 @@ const showStatusDropdown = ref(false);
 const sendingInvoice = ref(false);
 const showCancelModal = ref(false);
 const cancelReason = ref('');
+const showCreditNoteModal = ref(false);
+const creditNoteReason = ref('');
 
 const updateStatus = (status) => {
     if (confirm(`Are you sure you want to change the order status to ${status}?`)) {
@@ -423,6 +480,25 @@ const cancelMyInvoisInvoice = () => {
             onSuccess: () => {
                 showCancelModal.value = false;
                 cancelReason.value = '';
+                router.reload({ only: ['order'] });
+            },
+        }
+    );
+};
+
+const submitCreditNote = () => {
+    if (!creditNoteReason.value || creditNoteReason.value.trim() === '') {
+        return;
+    }
+
+    router.post(
+        route('orders.creditNoteMyInvois', props.order.id),
+        { reason: creditNoteReason.value },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                showCreditNoteModal.value = false;
+                creditNoteReason.value = '';
                 router.reload({ only: ['order'] });
             },
         }
