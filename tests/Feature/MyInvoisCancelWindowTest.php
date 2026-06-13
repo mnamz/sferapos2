@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\User;
 use App\Services\MyInvoisService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
 
@@ -37,7 +39,7 @@ it('suffixes the document id on reissue', function () {
 
     $payload = app(MyInvoisService::class)->buildInvoicePayload($order);
 
-    expect($payload['documents'][0]['id'])->toBe($order->id . '-TEST-R1');
+    expect($payload['documents'][0]['id'])->toBe($order->id.'-TEST-R1');
 });
 
 it('uses the plain document id on first issue', function () {
@@ -45,5 +47,35 @@ it('uses the plain document id on first issue', function () {
 
     $payload = app(MyInvoisService::class)->buildInvoicePayload($order);
 
-    expect($payload['documents'][0]['id'])->toBe($order->id . '-TEST');
+    expect($payload['documents'][0]['id'])->toBe($order->id.'-TEST');
+});
+
+it('blocks cancellation via HTTP after the window lapses', function () {
+    $order = makeOrder();
+    $invoice = makeInvoice($order);
+    $invoice->created_at = now()->subHours(73);
+    $invoice->save();
+
+    $this->actingAs(User::first())
+        ->put(route('orders.cancelMyInvois', $order), ['reason' => 'typo in name'])
+        ->assertSessionHas('error');
+
+    expect($invoice->fresh()->status)->toBe('active');
+});
+
+it('cancels within the window and keeps the row for audit', function () {
+    Http::fake([
+        'sandbox-middleware.test/documents/*/cancel*' => Http::response(['ok' => true], 200),
+    ]);
+
+    $order = makeOrder();
+    $invoice = makeInvoice($order);
+
+    $this->actingAs(User::first())
+        ->put(route('orders.cancelMyInvois', $order), ['reason' => 'typo in name'])
+        ->assertSessionHas('success');
+
+    expect($invoice->fresh()->status)->toBe('cancelled')
+        ->and($order->fresh()->status)->toBe('cancelled')
+        ->and($order->fresh()->myInvoisInvoice)->toBeNull();
 });
