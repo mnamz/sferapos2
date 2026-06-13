@@ -1,18 +1,17 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
-use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\ShopSettingsController;
-use App\Http\Controllers\InvoiceController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\ReportController;
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\BackupController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ShopSettingsController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\UserController;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
@@ -55,6 +54,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/orders/{order}/clear-queue', [OrderController::class, 'clearFromQueue'])->name('orders.clearQueue');
     Route::post('/orders/{order}/add-to-queue', [OrderController::class, 'addToQueue'])->name('orders.addToQueue');
     Route::put('/orders/{order}/cancel-myinvois', [OrderController::class, 'cancelMyInvoisInvoice'])->name('orders.cancelMyInvois');
+    Route::post('/orders/{order}/credit-note-myinvois', [OrderController::class, 'creditNoteMyInvois'])->name('orders.creditNoteMyInvois');
     Route::delete('/orders/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
     Route::get('/orders/export-csv', [OrderController::class, 'exportCsv'])
         ->middleware(['auth'])

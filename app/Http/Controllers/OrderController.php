@@ -6,43 +6,43 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ShopSettings;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use Barryvdh\DomPDF\Facade\Pdf;
 
 class OrderController extends Controller
 {
     public function index()
     {
         $orders = Order::with(['customer', 'user', 'items.product', 'myInvoisInvoice'])
-            ->when(request('search'), function($query, $search) {
-                $query->where(function($q) use ($search) {
+            ->when(request('search'), function ($query, $search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('id', 'like', "%{$search}%")
-                      ->orWhereHas('customer', function($q) use ($search) {
-                          $q->where('name', 'like', "%{$search}%");
-                      });
+                        ->orWhereHas('customer', function ($q) use ($search) {
+                            $q->where('name', 'like', "%{$search}%");
+                        });
                 });
             })
-            ->when(request('remark'), function($query, $remark) {
-                $query->whereHas('items', function($q) use ($remark) {
+            ->when(request('remark'), function ($query, $remark) {
+                $query->whereHas('items', function ($q) use ($remark) {
                     $q->where('remark', 'like', "%{$remark}%");
                 });
             })
-            ->when(request('start_date'), function($query, $startDate) {
+            ->when(request('start_date'), function ($query, $startDate) {
                 $query->whereDate('created_at', '>=', $startDate);
             })
-            ->when(request('end_date'), function($query, $endDate) {
+            ->when(request('end_date'), function ($query, $endDate) {
                 $query->whereDate('created_at', '<=', $endDate);
             })
-            ->when(request('product_search'), function($query, $productSearch) {
-                $query->whereHas('items.product', function($q) use ($productSearch) {
+            ->when(request('product_search'), function ($query, $productSearch) {
+                $query->whereHas('items.product', function ($q) use ($productSearch) {
                     $q->where('name', 'like', "%{$productSearch}%");
                 });
             })
-            ->when(request('sort_column'), function($query, $column) {
+            ->when(request('sort_column'), function ($query, $column) {
                 $direction = request('sort_direction', 'asc');
-                
+
                 // Map frontend column names to database column names
                 $columnMap = [
                     'id' => 'orders.id',
@@ -53,23 +53,23 @@ class OrderController extends Controller
                     'payment_method' => 'orders.payment_method',
                     'delivery_method' => 'orders.delivery_method',
                     'status' => 'orders.status',
-                    'created_at' => 'orders.created_at'
+                    'created_at' => 'orders.created_at',
                 ];
 
                 $dbColumn = $columnMap[$column] ?? $column;
 
                 if ($dbColumn === 'customers.name') {
                     $query->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
-                          ->select('orders.*')
-                          ->orderBy('customers.name', $direction)
-                          ->orderBy('orders.id', $direction);
+                        ->select('orders.*')
+                        ->orderBy('customers.name', $direction)
+                        ->orderBy('orders.id', $direction);
                 } elseif ($dbColumn === 'items_count') {
                     $query->withCount('items')
-                          ->orderBy('items_count', $direction);
+                        ->orderBy('items_count', $direction);
                 } else {
                     $query->orderBy($dbColumn, $direction);
                 }
-            }, function($query) {
+            }, function ($query) {
                 $query->latest('orders.created_at');
             })
             ->paginate(10)
@@ -83,7 +83,7 @@ class OrderController extends Controller
                     'profit' => number_format($order->profit, 2),
                     'due' => number_format($order->due_amount, 2),
                     'payment_method' => ucfirst($order->payment_method),
-                    'payment_status' => $order->paid_amount >= $order->total ? 'paid' : 
+                    'payment_status' => $order->paid_amount >= $order->total ? 'paid' :
                         ($order->paid_amount > 0 ? 'partial' : 'pending'),
                     'delivery_method' => $order->delivery_method,
                     'status' => $order->status,
@@ -109,12 +109,12 @@ class OrderController extends Controller
     {
         $orders = Order::with(['customer', 'user', 'items.product'])
             ->where('user_id', auth()->id())
-            ->when(request('search'), function($query, $search) {
-                $query->where(function($q) use ($search) {
+            ->when(request('search'), function ($query, $search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('order_number', 'like', "%{$search}%")
-                      ->orWhereHas('customer', function($q) use ($search) {
-                          $q->where('name', 'like', "%{$search}%");
-                      });
+                        ->orWhereHas('customer', function ($q) use ($search) {
+                            $q->where('name', 'like', "%{$search}%");
+                        });
                 });
             })
             ->latest()
@@ -126,7 +126,7 @@ class OrderController extends Controller
                     'customer_name' => $order->customer ? $order->customer->name : 'Walk-in Customer',
                     'total_amount' => number_format($order->total, 2),
                     'payment_method' => ucfirst($order->payment_method),
-                    'payment_status' => $order->paid_amount >= $order->total ? 'paid' : 
+                    'payment_status' => $order->paid_amount >= $order->total ? 'paid' :
                         ($order->paid_amount > 0 ? 'partial' : 'pending'),
                     'status' => $order->status,
                     'created_at' => $order->created_at->format('Y-m-d H:i:s'),
@@ -144,7 +144,7 @@ class OrderController extends Controller
     public function show(Order $order)
     {
         $order->load(['customer', 'user', 'items.product', 'myInvoisQueue', 'myInvoisInvoice']);
-        
+
         $orderData = [
             'id' => $order->id,
             'order_number' => $order->order_number,
@@ -184,12 +184,21 @@ class OrderController extends Controller
             'delivery_method' => ucfirst($order->delivery_method),
             'remarks' => $order->remarks,
             'status' => $order->status,
-            'payment_status' => $order->paid_amount >= $order->total ? 'paid' : 
+            'payment_status' => $order->paid_amount >= $order->total ? 'paid' :
                 ($order->paid_amount > 0 ? 'partial' : 'pending'),
             'created_at' => $order->created_at->format('Y-m-d H:i:s'),
             'myinvois_queue_status' => $order->myInvoisQueue ? $order->myInvoisQueue->status : null,
             'myinvois_id' => $order->myInvoisQueue ? $order->myInvoisQueue->myinvois_id : null,
-            'myinvois_invoice' => $order->myInvoisInvoice ? true : false,
+            'myinvois_invoice' => $order->myInvoisInvoice ? [
+                'uuid' => $order->myInvoisInvoice->uuid,
+                'invoice_code_number' => $order->myInvoisInvoice->invoice_code_number,
+                'submitted_at' => $order->myInvoisInvoice->created_at->format('Y-m-d H:i:s'),
+                'within_cancellation_window' => app(\App\Services\MyInvoisService::class)->isWithinCancellationWindow($order->myInvoisInvoice),
+                'window_expires_at' => $order->myInvoisInvoice->created_at
+                    ->copy()
+                    ->addHours((int) config('services.myinvois.cancellation_window_hours', 72))
+                    ->format('Y-m-d H:i'),
+            ] : null,
         ];
 
         return Inertia::render('Orders/Show', [
@@ -201,7 +210,7 @@ class OrderController extends Controller
     public function eInvoice(Order $order)
     {
         $order->load(['customer', 'user', 'items.product', 'myInvoisInvoice']);
-        
+
         $myInvoisInvoice = $order->myInvoisInvoice;
         $qrCodeUrl = null;
         $documentDetails = null;
@@ -209,7 +218,7 @@ class OrderController extends Controller
         if ($myInvoisInvoice) {
             $myInvoisService = app(\App\Services\MyInvoisService::class);
             $documentDetails = $myInvoisService->getDocumentDetails($myInvoisInvoice->uuid);
-            
+
             // Try to get longId from API response first
             $longId = null;
             if ($documentDetails && isset($documentDetails['longId'])) {
@@ -218,7 +227,7 @@ class OrderController extends Controller
                 // Fallback to stored response payload
                 $longId = $myInvoisInvoice->response_payload['longId'];
             }
-            
+
             if ($longId && $myInvoisInvoice->uuid) {
                 $qrCodeUrl = $myInvoisService->generateQrCodeUrl(
                     $myInvoisInvoice->uuid,
@@ -295,7 +304,7 @@ class OrderController extends Controller
     public function eInvoicePdf(Order $order)
     {
         $order->load(['customer', 'user', 'items.product', 'myInvoisInvoice']);
-        
+
         $myInvoisInvoice = $order->myInvoisInvoice;
         $qrCodeUrl = null;
         $documentDetails = null;
@@ -303,7 +312,7 @@ class OrderController extends Controller
         if ($myInvoisInvoice) {
             $myInvoisService = app(\App\Services\MyInvoisService::class);
             $documentDetails = $myInvoisService->getDocumentDetails($myInvoisInvoice->uuid);
-            
+
             // Try to get longId from API response first
             $longId = null;
             if ($documentDetails && isset($documentDetails['longId'])) {
@@ -312,7 +321,7 @@ class OrderController extends Controller
                 // Fallback to stored response payload
                 $longId = $myInvoisInvoice->response_payload['longId'];
             }
-            
+
             if ($longId && $myInvoisInvoice->uuid) {
                 $qrCodeUrl = $myInvoisService->generateQrCodeUrl(
                     $myInvoisInvoice->uuid,
@@ -371,10 +380,10 @@ class OrderController extends Controller
         // Generate QR code as base64 for PDF
         if ($qrCodeUrl) {
             try {
-                $qrCodeImageUrl = "https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=" . urlencode($qrCodeUrl);
+                $qrCodeImageUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data='.urlencode($qrCodeUrl);
                 $qrCodeImage = file_get_contents($qrCodeImageUrl);
                 if ($qrCodeImage) {
-                    $orderData['qr_code_base64'] = 'data:image/png;base64,' . base64_encode($qrCodeImage);
+                    $orderData['qr_code_base64'] = 'data:image/png;base64,'.base64_encode($qrCodeImage);
                 }
             } catch (\Exception $e) {
                 \Log::warning('Failed to generate QR code for PDF', ['error' => $e->getMessage()]);
@@ -464,7 +473,7 @@ class OrderController extends Controller
             // Create order items and update product stock
             foreach ($validated['items'] as $item) {
                 $product = Product::find($item['id']);
-                
+
                 // Check if enough stock is available
                 if ($product->stock < $item['quantity']) {
                     throw new \Exception("Insufficient stock for product: {$product->name}");
@@ -507,6 +516,7 @@ class OrderController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -517,7 +527,7 @@ class OrderController extends Controller
     public function edit(Order $order)
     {
         $order->load(['customer', 'user', 'items.product']);
-        
+
         return Inertia::render('Orders/Edit', [
             'order' => [
                 'id' => $order->id,
@@ -556,7 +566,7 @@ class OrderController extends Controller
                 'delivery_method' => $order->delivery_method,
                 'remarks' => $order->remarks,
                 'status' => $order->status,
-                'payment_status' => $order->paid_amount >= $order->total ? 'paid' : 
+                'payment_status' => $order->paid_amount >= $order->total ? 'paid' :
                     ($order->paid_amount > 0 ? 'partial' : 'pending'),
                 'created_at' => $order->created_at->format('Y-m-d H:i:s'),
             ],
@@ -624,8 +634,8 @@ class OrderController extends Controller
                 'discount' => $validated['discount'],
                 'subtotal' => collect($validated['items'])->sum('total'),
                 'tax' => collect($validated['items'])->sum('total') * (settings('tax_percentage', 0) / 100),
-                'total' => collect($validated['items'])->sum('total') + 
-                          (collect($validated['items'])->sum('total') * (settings('tax_percentage', 0) / 100)) + 
+                'total' => collect($validated['items'])->sum('total') +
+                          (collect($validated['items'])->sum('total') * (settings('tax_percentage', 0) / 100)) +
                           $validated['delivery_cost'] -
                           $validated['discount'],
                 'profit' => $totalProfit,
@@ -635,7 +645,7 @@ class OrderController extends Controller
             if ($deliveryMethodChanged) {
                 $myInvoisService = app(\App\Services\MyInvoisService::class);
                 $queueItem = $order->myInvoisQueue;
-                
+
                 if ($newDeliveryMethod !== 'walk-in') {
                     // If changed to non-walk-in, remove from queue if exists
                     if ($queueItem && $queueItem->status === 'pending') {
@@ -643,23 +653,23 @@ class OrderController extends Controller
                         \Log::info('Removed order from MyInvois queue - delivery method changed to non-walk-in', [
                             'order_id' => $order->id,
                             'old_delivery_method' => $oldDeliveryMethod,
-                            'new_delivery_method' => $newDeliveryMethod
+                            'new_delivery_method' => $newDeliveryMethod,
                         ]);
                     }
                 } else {
                     // If changed to walk-in, ensure it's in queue
-                    if (!$queueItem && $myInvoisService->isEnabled()) {
+                    if (! $queueItem && $myInvoisService->isEnabled()) {
                         try {
                             $myInvoisService->queueInvoice($order);
                             \Log::info('Added order to MyInvois queue - delivery method changed to walk-in', [
                                 'order_id' => $order->id,
                                 'old_delivery_method' => $oldDeliveryMethod,
-                                'new_delivery_method' => $newDeliveryMethod
+                                'new_delivery_method' => $newDeliveryMethod,
                             ]);
                         } catch (\Throwable $e) {
                             \Log::error('Failed to queue MyInvois invoice after delivery method change', [
                                 'order_id' => $order->id,
-                                'error' => $e->getMessage()
+                                'error' => $e->getMessage(),
                             ]);
                         }
                     }
@@ -677,7 +687,7 @@ class OrderController extends Controller
             foreach ($validated['items'] as $item) {
                 $product = Product::find($item['product_id']);
                 $costPrice = $product ? $product->cost_price : 0;
-                
+
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $item['product_id'],
@@ -706,7 +716,8 @@ class OrderController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to update order: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to update order: '.$e->getMessage());
         }
     }
 
@@ -714,6 +725,7 @@ class OrderController extends Controller
     {
         $settings = ShopSettings::first();
         $taxPercentage = $settings ? $settings->tax_percentage : 0;
+
         return Inertia::render('Orders/Create', [
             'tax_percentage' => $taxPercentage,
         ]);
@@ -743,24 +755,24 @@ class OrderController extends Controller
             $delayHours = config('services.myinvois.queue_delay_hours', 72);
             $orderAge = $order->created_at->diffInHours(now());
             $queueItem = $order->myInvoisQueue;
-            
+
             if ($orderAge >= $delayHours && $queueItem && $queueItem->status === 'pushed' && $queueItem->myinvois_id) {
                 // Order is pushed to MyInvois, need to cancel it first
                 try {
                     $myInvoisService = app(\App\Services\MyInvoisService::class);
                     if ($myInvoisService->isEnabled()) {
                         $myInvoisService->cancelInvoice($queueItem->myinvois_id, $validated['deletion_reason']);
-                        
+
                         // Update queue status
                         $queueItem->update(['status' => 'cancelled']);
                     }
-                    
+
                     // Mark order as cancelled instead of deleting
                     $order->update([
                         'status' => 'cancelled',
                         'deletion_reason' => $validated['deletion_reason'],
                     ]);
-                    
+
                     \Log::info('Order cancelled on MyInvois', [
                         'order_id' => $order->id,
                         'myinvois_id' => $queueItem->myinvois_id,
@@ -796,7 +808,8 @@ class OrderController extends Controller
             return back()->with('success', 'Order deleted successfully');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to delete order: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to delete order: '.$e->getMessage());
         }
     }
 
@@ -804,8 +817,8 @@ class OrderController extends Controller
     {
         try {
             $myInvoisService = app(\App\Services\MyInvoisService::class);
-            
-            if (!$myInvoisService->isEnabled()) {
+
+            if (! $myInvoisService->isEnabled()) {
                 return back()->with('error', 'MyInvois service is not enabled');
             }
 
@@ -822,7 +835,8 @@ class OrderController extends Controller
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
             ]);
-            return back()->with('error', 'Failed to push invoice: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to push invoice: '.$e->getMessage());
         }
     }
 
@@ -831,7 +845,7 @@ class OrderController extends Controller
         try {
             $queueItem = $order->myInvoisQueue;
 
-            if (!$queueItem) {
+            if (! $queueItem) {
                 return back()->with('error', 'No queue item found for this order');
             }
 
@@ -843,7 +857,7 @@ class OrderController extends Controller
 
             return back()->with('success', 'Invoice cleared from MyInvois queue');
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to clear invoice: ' . $e->getMessage());
+            return back()->with('error', 'Failed to clear invoice: '.$e->getMessage());
         }
     }
 
@@ -866,8 +880,8 @@ class OrderController extends Controller
             }
 
             $myInvoisService = app(\App\Services\MyInvoisService::class);
-            
-            if (!$myInvoisService->isEnabled()) {
+
+            if (! $myInvoisService->isEnabled()) {
                 return back()->with('error', 'MyInvois service is not enabled');
             }
 
@@ -879,7 +893,8 @@ class OrderController extends Controller
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
             ]);
-            return back()->with('error', 'Failed to add invoice to queue: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to add invoice to queue: '.$e->getMessage());
         }
     }
 
@@ -892,23 +907,27 @@ class OrderController extends Controller
 
             $myInvoisInvoice = $order->myInvoisInvoice;
 
-            if (!$myInvoisInvoice) {
+            if (! $myInvoisInvoice) {
                 return back()->with('error', 'No MyInvois invoice found for this order');
             }
 
             $myInvoisService = app(\App\Services\MyInvoisService::class);
-            
-            if (!$myInvoisService->isEnabled()) {
+
+            if (! $myInvoisService->isEnabled()) {
                 return back()->with('error', 'MyInvois service is not enabled');
+            }
+
+            if (! $myInvoisService->isWithinCancellationWindow($myInvoisInvoice)) {
+                return back()->with('error', 'The LHDN 72-hour cancellation window has lapsed. Use "Issue Credit Note & Reissue" instead.');
             }
 
             $result = $myInvoisService->cancelInvoice($myInvoisInvoice->uuid, $validated['reason']);
 
             if ($result) {
-                // Delete the MyInvois invoice record and queue entry
-                $myInvoisInvoice->delete();
+                // Keep the row for audit; the active-scoped relation hides it
+                $myInvoisInvoice->update(['status' => 'cancelled']);
                 $order->myInvoisQueue()->delete();
-                
+
                 // Set order status to cancelled
                 $order->update(['status' => 'cancelled']);
 
@@ -921,34 +940,72 @@ class OrderController extends Controller
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
             ]);
-            return back()->with('error', 'Failed to cancel invoice: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to cancel invoice: '.$e->getMessage());
+        }
+    }
+
+    public function creditNoteMyInvois(Request $request, Order $order)
+    {
+        try {
+            $validated = $request->validate([
+                'reason' => 'required|string|max:1000',
+            ]);
+
+            if (! $order->myInvoisInvoice) {
+                return back()->with('error', 'No active MyInvois invoice found for this order');
+            }
+
+            $myInvoisService = app(\App\Services\MyInvoisService::class);
+
+            if (! $myInvoisService->isEnabled()) {
+                return back()->with('error', 'MyInvois service is not enabled');
+            }
+
+            $result = $myInvoisService->submitCreditNote($order, $validated['reason']);
+
+            if ($result) {
+                $order->myInvoisQueue()->delete();
+                $order->update(['status' => 'cancelled']);
+
+                return back()->with('success', 'Credit note submitted to MyInvois. The original e-invoice has been reversed — you can now edit the order and push a corrected invoice to MyInvois.');
+            }
+
+            return back()->with('error', 'Failed to submit credit note to MyInvois. Check logs for details.');
+        } catch (\Exception $e) {
+            \Log::error('Credit note MyInvois failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('error', 'Failed to submit credit note: '.$e->getMessage());
         }
     }
 
     public function exportCsv()
     {
         $orders = \App\Models\Order::with(['customer', 'user', 'items.product'])
-            ->when(request('search'), function($query, $search) {
-                $query->where(function($q) use ($search) {
+            ->when(request('search'), function ($query, $search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('id', 'like', "%{$search}%")
-                      ->orWhereHas('customer', function($q) use ($search) {
-                          $q->where('name', 'like', "%{$search}%");
-                      });
+                        ->orWhereHas('customer', function ($q) use ($search) {
+                            $q->where('name', 'like', "%{$search}%");
+                        });
                 });
             })
-            ->when(request('remark'), function($query, $remark) {
-                $query->whereHas('items', function($q) use ($remark) {
+            ->when(request('remark'), function ($query, $remark) {
+                $query->whereHas('items', function ($q) use ($remark) {
                     $q->where('remark', 'like', "%{$remark}%");
                 });
             })
-            ->when(request('start_date'), function($query, $startDate) {
+            ->when(request('start_date'), function ($query, $startDate) {
                 $query->whereDate('created_at', '>=', $startDate);
             })
-            ->when(request('end_date'), function($query, $endDate) {
+            ->when(request('end_date'), function ($query, $endDate) {
                 $query->whereDate('created_at', '<=', $endDate);
             })
-            ->when(request('product_search'), function($query, $productSearch) {
-                $query->whereHas('items.product', function($q) use ($productSearch) {
+            ->when(request('product_search'), function ($query, $productSearch) {
+                $query->whereHas('items.product', function ($q) use ($productSearch) {
                     $q->where('name', 'like', "%{$productSearch}%");
                 });
             })
@@ -961,10 +1018,10 @@ class OrderController extends Controller
         ];
 
         $columns = [
-            'id', 'order_number', 'customer_name', 'cashier_name', 'subtotal', 'tax', 'total', 'profit', 'paid_amount', 'due_amount', 'change_amount', 'payment_method', 'delivery_method', 'status', 'created_at', 'item_remarks'
+            'id', 'order_number', 'customer_name', 'cashier_name', 'subtotal', 'tax', 'total', 'profit', 'paid_amount', 'due_amount', 'change_amount', 'payment_method', 'delivery_method', 'status', 'created_at', 'item_remarks',
         ];
 
-        $callback = function() use ($orders, $columns) {
+        $callback = function () use ($orders, $columns) {
             $file = fopen('php://output', 'w');
             // Header
             fputcsv($file, $columns);
@@ -1001,23 +1058,24 @@ class OrderController extends Controller
         try {
             // Find the order - include soft-deleted orders for API access
             $order = Order::withTrashed()->findOrFail($orderId);
-            
+
             // Ensure order has an ID
-            if (!$order->id) {
+            if (! $order->id) {
                 \Log::error('Order ID is null after findOrFail', [
                     'order_id_param' => $orderId,
-                    'order' => $order->toArray()
+                    'order' => $order->toArray(),
                 ]);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid order: Order ID is missing'
+                    'message' => 'Invalid order: Order ID is missing',
                 ], 422);
             }
 
             \Log::info('API Submit MyInvois - Order loaded', [
                 'order_id' => $order->id,
                 'order_exists' => $order->exists,
-                'is_soft_deleted' => $order->trashed()
+                'is_soft_deleted' => $order->trashed(),
             ]);
 
             // Check if invoice has already been submitted to MyInvois
@@ -1026,8 +1084,9 @@ class OrderController extends Controller
                 \Log::warning('API Submit MyInvois - Invoice already submitted', [
                     'order_id' => $order->id,
                     'myinvois_uuid' => $order->myInvoisInvoice->uuid,
-                    'invoice_code_number' => $order->myInvoisInvoice->invoice_code_number
+                    'invoice_code_number' => $order->myInvoisInvoice->invoice_code_number,
                 ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invoice has already been submitted to MyInvois',
@@ -1037,7 +1096,7 @@ class OrderController extends Controller
                         'invoice_code_number' => $order->myInvoisInvoice->invoice_code_number,
                         'submission_uid' => $order->myInvoisInvoice->submission_uid,
                         'submitted_at' => $order->myInvoisInvoice->created_at->toIso8601String(),
-                    ]
+                    ],
                 ], 409); // 409 Conflict is appropriate for "already exists" scenarios
             }
 
@@ -1062,65 +1121,65 @@ class OrderController extends Controller
             $customer = null;
             $customerWasCreated = false;
             $customerWasUpdated = false;
-            
-            if (!empty($validated['phone'])) {
+
+            if (! empty($validated['phone'])) {
                 // Try to find customer by phone number first (normalize phone for comparison)
                 $normalizedPhone = preg_replace('/[^0-9+]/', '', $validated['phone']);
-                $customer = \App\Models\Customer::where(function($query) use ($validated, $normalizedPhone) {
+                $customer = \App\Models\Customer::where(function ($query) use ($validated, $normalizedPhone) {
                     $query->where('phone', $validated['phone'])
-                          ->orWhere('phone', $normalizedPhone)
-                          ->orWhereRaw("REPLACE(REPLACE(phone, ' ', ''), '-', '') = ?", [preg_replace('/[^0-9+]/', '', $validated['phone'])]);
+                        ->orWhere('phone', $normalizedPhone)
+                        ->orWhereRaw("REPLACE(REPLACE(phone, ' ', ''), '-', '') = ?", [preg_replace('/[^0-9+]/', '', $validated['phone'])]);
                 })->first();
             }
-            
+
             // If not found by phone (or phone not provided), try to find by email
-            if (!$customer && !empty($validated['email'])) {
+            if (! $customer && ! empty($validated['email'])) {
                 $customer = \App\Models\Customer::where('email', $validated['email'])->first();
             }
 
-                if ($customer) {
-                    // Update existing customer with new information
-                    $customerWasUpdated = true;
-                    $customer->update([
-                        'name' => $validated['name'],
-                        'email' => $validated['email'],
+            if ($customer) {
+                // Update existing customer with new information
+                $customerWasUpdated = true;
+                $customer->update([
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
                     'phone' => $validated['phone'] ?? $customer->phone,
-                        'address' => $validated['address'] ?? $customer->address,
-                        'city' => $validated['city'] ?? $customer->city,
-                        'postal_code' => $validated['postal_code'] ?? $customer->postal_code,
-                        'state_code' => $validated['state_code'] ?? $customer->state_code,
-                        'country' => $validated['country'] ?? $customer->country ?? 'MYS',
-                        'tin' => $validated['tin'] ?? $customer->tin,
-                        'brn' => $validated['brn'] ?? $customer->brn,
-                        'nric' => $validated['nric'] ?? $customer->nric,
-                        'status' => 'active', // Ensure customer is active
-                    ]);
-                    \Log::info('API Submit MyInvois - Customer updated', [
-                        'customer_id' => $customer->id,
+                    'address' => $validated['address'] ?? $customer->address,
+                    'city' => $validated['city'] ?? $customer->city,
+                    'postal_code' => $validated['postal_code'] ?? $customer->postal_code,
+                    'state_code' => $validated['state_code'] ?? $customer->state_code,
+                    'country' => $validated['country'] ?? $customer->country ?? 'MYS',
+                    'tin' => $validated['tin'] ?? $customer->tin,
+                    'brn' => $validated['brn'] ?? $customer->brn,
+                    'nric' => $validated['nric'] ?? $customer->nric,
+                    'status' => 'active', // Ensure customer is active
+                ]);
+                \Log::info('API Submit MyInvois - Customer updated', [
+                    'customer_id' => $customer->id,
                     'phone' => $validated['phone'] ?? null,
-                    'email' => $validated['email'] ?? null
-                    ]);
-                } else {
-                    // Create new customer
-                    $customerWasCreated = true;
-                    $customer = \App\Models\Customer::create([
-                        'name' => $validated['name'],
-                        'email' => $validated['email'],
+                    'email' => $validated['email'] ?? null,
+                ]);
+            } else {
+                // Create new customer
+                $customerWasCreated = true;
+                $customer = \App\Models\Customer::create([
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
                     'phone' => $validated['phone'] ?? null,
-                        'address' => $validated['address'] ?? null,
-                        'city' => $validated['city'] ?? null,
-                        'postal_code' => $validated['postal_code'] ?? null,
-                        'state_code' => $validated['state_code'] ?? null,
-                        'country' => $validated['country'] ?? 'MYS',
-                        'tin' => $validated['tin'] ?? null,
-                        'brn' => $validated['brn'] ?? null,
-                        'nric' => $validated['nric'] ?? null,
-                        'status' => 'active',
-                    ]);
-                    \Log::info('API Submit MyInvois - Customer created', [
-                        'customer_id' => $customer->id,
-                            'phone' => $validated['phone'] ?? null,
-                    'email' => $validated['email'] ?? null
+                    'address' => $validated['address'] ?? null,
+                    'city' => $validated['city'] ?? null,
+                    'postal_code' => $validated['postal_code'] ?? null,
+                    'state_code' => $validated['state_code'] ?? null,
+                    'country' => $validated['country'] ?? 'MYS',
+                    'tin' => $validated['tin'] ?? null,
+                    'brn' => $validated['brn'] ?? null,
+                    'nric' => $validated['nric'] ?? null,
+                    'status' => 'active',
+                ]);
+                \Log::info('API Submit MyInvois - Customer created', [
+                    'customer_id' => $customer->id,
+                    'phone' => $validated['phone'] ?? null,
+                    'email' => $validated['email'] ?? null,
                 ]);
             }
 
@@ -1129,16 +1188,16 @@ class OrderController extends Controller
                 $order->update(['customer_id' => $customer->id]);
                 \Log::info('API Submit MyInvois - Order assigned to customer', [
                     'order_id' => $order->id,
-                    'customer_id' => $customer->id
+                    'customer_id' => $customer->id,
                 ]);
             }
 
             $myInvoisService = app(\App\Services\MyInvoisService::class);
-            
-            if (!$myInvoisService->isEnabled()) {
+
+            if (! $myInvoisService->isEnabled()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'MyInvois service is not enabled'
+                    'message' => 'MyInvois service is not enabled',
                 ], 400);
             }
 
@@ -1159,33 +1218,33 @@ class OrderController extends Controller
             // Submit invoice with custom customer info
             $result = $myInvoisService->submitInvoice($order, forceRefresh: true, customCustomerInfo: $customCustomerInfo);
 
-            if (!$result) {
+            if (! $result) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Failed to submit invoice to MyInvois. Check logs for details.'
+                    'message' => 'Failed to submit invoice to MyInvois. Check logs for details.',
                 ], 500);
             }
 
             // Send e-invoice PDF via email
             $emailSent = false;
-            if (!empty($validated['email'])) {
+            if (! empty($validated['email'])) {
                 try {
                     $order->load(['customer', 'user', 'items.product', 'myInvoisInvoice']);
-                    
+
                     $myInvoisInvoice = $order->myInvoisInvoice;
                     $qrCodeUrl = null;
                     $documentDetails = null;
 
                     if ($myInvoisInvoice) {
                         $documentDetails = $myInvoisService->getDocumentDetails($myInvoisInvoice->uuid);
-                        
+
                         $longId = null;
                         if ($documentDetails && isset($documentDetails['longId'])) {
                             $longId = $documentDetails['longId'];
                         } elseif ($myInvoisInvoice->response_payload && isset($myInvoisInvoice->response_payload['longId'])) {
                             $longId = $myInvoisInvoice->response_payload['longId'];
                         }
-                        
+
                         if ($longId && $myInvoisInvoice->uuid) {
                             $qrCodeUrl = $myInvoisService->generateQrCodeUrl(
                                 $myInvoisInvoice->uuid,
@@ -1202,10 +1261,10 @@ class OrderController extends Controller
                     $qrCodeBase64 = null;
                     if ($qrCodeUrl) {
                         try {
-                            $qrCodeImageUrl = "https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=" . urlencode($qrCodeUrl);
+                            $qrCodeImageUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data='.urlencode($qrCodeUrl);
                             $qrCodeImage = file_get_contents($qrCodeImageUrl);
                             if ($qrCodeImage) {
-                                $qrCodeBase64 = 'data:image/png;base64,' . base64_encode($qrCodeImage);
+                                $qrCodeBase64 = 'data:image/png;base64,'.base64_encode($qrCodeImage);
                             }
                         } catch (\Exception $e) {
                             \Log::warning('Failed to generate QR code for PDF', ['error' => $e->getMessage()]);
@@ -1220,7 +1279,7 @@ class OrderController extends Controller
 
                     // Reload order with myInvoisInvoice relationship for email
                     $order->load('myInvoisInvoice');
-                    
+
                     \Illuminate\Support\Facades\Mail::to($validated['email'])
                         ->send(new \App\Mail\EInvoiceEmail($order, $pdf->output(), $validated['name']));
 
@@ -1229,14 +1288,14 @@ class OrderController extends Controller
                     \Log::error('Failed to send e-invoice email', [
                         'order_id' => $order->id,
                         'email' => $validated['email'],
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ]);
                 }
             }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Invoice submitted to MyInvois successfully' . ($emailSent ? ' and e-invoice sent via email' : ''),
+                'message' => 'Invoice submitted to MyInvois successfully'.($emailSent ? ' and e-invoice sent via email' : ''),
                 'data' => [
                     'order_id' => $order->id,
                     'customer_id' => $customer ? $customer->id : null,
@@ -1244,25 +1303,25 @@ class OrderController extends Controller
                     'customer_updated' => $customerWasUpdated,
                     'email_sent' => $emailSent,
                     'email' => $validated['email'] ?? null,
-                ]
+                ],
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
             \Log::error('API Submit MyInvois failed', [
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
-            
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to submit invoice: ' . $e->getMessage()
+                'message' => 'Failed to submit invoice: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -1329,5 +1388,4 @@ class OrderController extends Controller
             'currency' => $settings->currency ?? 'RM',
         ];
     }
-
-} 
+}

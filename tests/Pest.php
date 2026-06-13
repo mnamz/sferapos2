@@ -45,3 +45,48 @@ function something()
 {
     // ..
 }
+
+function makeShopSettings(): \App\Models\ShopSettings
+{
+    return \App\Models\ShopSettings::create([
+        'shop_name' => 'Test Shop',
+        'shop_address' => '1 Test Street',
+        'shop_phone' => '+60123456789',
+        'shop_email' => 'shop@test.local',
+        'currency' => 'MYR',
+        'tax_percentage' => 0,
+    ]);
+}
+
+function makeOrder(): \App\Models\Order
+{
+    $user = \App\Models\User::factory()->create();
+
+    return \App\Models\Order::create([
+        'user_id' => $user->id,
+        'subtotal' => 100,
+        'tax' => 0,
+        'delivery_cost' => 0,
+        'discount' => 0,
+        'total' => 100,
+        'profit' => 0,
+        'paid_amount' => 100,
+        'due_amount' => 0,
+        'change_amount' => 0,
+        'payment_method' => 'cash',
+        'delivery_method' => 'walk-in',
+        'status' => 'completed',
+    ]);
+}
+
+function makeInvoice(\App\Models\Order $order, array $overrides = []): \App\Models\MyInvoisInvoice
+{
+    return \App\Models\MyInvoisInvoice::create(array_merge([
+        'order_id' => $order->id,
+        'submission_uid' => 'SUB123',
+        'uuid' => 'UUID123',
+        'invoice_code_number' => $order->id . '-TEST',
+        'request_payload' => ['documents' => [['id' => $order->id . '-TEST']]],
+        'response_payload' => ['ok' => true],
+    ], $overrides));
+}

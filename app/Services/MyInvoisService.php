@@ -4,13 +4,16 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\ShopSettings;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class MyInvoisService
 {
     protected $baseUrl;
+
     protected $settings;
+
     protected $enabled;
 
     public function __construct()
@@ -29,15 +32,32 @@ class MyInvoisService
     }
 
     /**
+     * LHDN allows cancellation only within a fixed window (default 72h) of validation.
+     * We approximate validation time with the local submission timestamp.
+     */
+    public function isWithinCancellationWindow(\App\Models\MyInvoisInvoice $invoice): bool
+    {
+        $hours = (int) config('services.myinvois.cancellation_window_hours', 72);
+
+        return $invoice->created_at->gt(now()->subHours($hours));
+    }
+
+    /**
+     * Public wrapper so callers/tests can inspect the payload.
+     */
+    public function buildInvoicePayload(Order $order, ?array $customCustomerInfo = null): array
+    {
+        return $this->prepareInvoicePayload($order, $customCustomerInfo);
+    }
+
+    /**
      * Format phone number to match MyInvois regex: ^\+[1-9]\d{1,14}$
      * Requirements:
      * - Must start with +
      * - First digit after + must be 1-9 (not 0)
      * - Total length: 2-15 digits
-     * 
-     * @param string|null $phone
-     * @param string $default Default phone if invalid/empty
-     * @return string
+     *
+     * @param  string  $default  Default phone if invalid/empty
      */
     protected function formatPhoneNumber(?string $phone, string $default = '+60123456789'): string
     {
@@ -49,16 +69,16 @@ class MyInvoisService
         $cleaned = preg_replace('/[^\d+]/', '', $phone);
 
         // If doesn't start with +, add it
-        if (!str_starts_with($cleaned, '+')) {
+        if (! str_starts_with($cleaned, '+')) {
             // Remove leading zeros if any
             $cleaned = ltrim($cleaned, '0');
-            $cleaned = '+' . $cleaned;
+            $cleaned = '+'.$cleaned;
         }
 
         // Ensure first digit after + is 1-9
         if (strlen($cleaned) > 1 && $cleaned[1] === '0') {
             // Replace leading 0 after + with a valid digit (use 6 for Malaysia)
-            $cleaned = '+' . '6' . substr($cleaned, 2);
+            $cleaned = '+'.'6'.substr($cleaned, 2);
         }
 
         // Validate against regex: ^\+[1-9]\d{1,14}$
@@ -75,8 +95,9 @@ class MyInvoisService
      */
     public function queueInvoice(Order $order)
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             Log::warning('MyInvois service is disabled or not configured.');
+
             return false;
         }
 
@@ -93,36 +114,38 @@ class MyInvoisService
             );
 
             Log::info('MyInvois invoice queued', ['order_id' => $order->id]);
+
             return true;
         } catch (\Exception $e) {
             Log::error('MyInvois Queue Exception', [
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
 
     /**
      * Submit invoice immediately (for manual push or 72+ hour old invoices)
-     * 
-     * @param Order $order
-     * @param bool $forceRefresh If true, regenerate payload from current order data instead of using queue
-     * @param array|null $customCustomerInfo Optional custom customer info to override order customer data
+     *
+     * @param  bool  $forceRefresh  If true, regenerate payload from current order data instead of using queue
+     * @param  array|null  $customCustomerInfo  Optional custom customer info to override order customer data
      */
     public function submitInvoice(Order $order, bool $forceRefresh = false, ?array $customCustomerInfo = null)
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             Log::warning('MyInvois service is disabled or not configured.');
+
             return false;
         }
 
         try {
             // Get payload from queue if exists and not forcing refresh, otherwise generate new
             $queueItem = $order->myInvoisQueue;
-            if ($forceRefresh || !$queueItem || $queueItem->status !== 'pending' || $customCustomerInfo) {
+            if ($forceRefresh || ! $queueItem || $queueItem->status !== 'pending' || $customCustomerInfo) {
                 $payload = $this->prepareInvoicePayload($order, $customCustomerInfo);
-                
+
                 // Update queue with fresh payload if queue exists
                 if ($queueItem && $queueItem->status === 'pending') {
                     $queueItem->update(['invoice_payload' => $payload]);
@@ -130,48 +153,49 @@ class MyInvoisService
             } else {
                 $payload = $queueItem->invoice_payload;
             }
-            
+
             // Log the request payload
             Log::info('MyInvois API Request', [
                 'order_id' => $order->id,
-                'payload' => $payload
+                'payload' => $payload,
             ]);
-            
+
             $response = Http::withoutVerifying() // Disable SSL verification for development
                 ->withHeaders([
                     'Accept' => 'application/json',
-                    'Content-Type' => 'application/json'
+                    'Content-Type' => 'application/json',
                 ])
-                ->post($this->baseUrl . '/documents/submit/invoice', $payload);
-            
+                ->post($this->baseUrl.'/documents/submit/invoice', $payload);
+
             // Log the response
             Log::info('MyInvois API Response', [
                 'order_id' => $order->id,
                 'status' => $response->status(),
-                'response' => $response->json()
+                'response' => $response->json(),
             ]);
-            
+
             if ($response->successful()) {
                 $responseData = $response->json();
-                
+
                 // Check if we have accepted documents
-                if (!isset($responseData['acceptedDocuments']) || empty($responseData['acceptedDocuments'])) {
+                if (! isset($responseData['acceptedDocuments']) || empty($responseData['acceptedDocuments'])) {
                     Log::error('MyInvois API Error - No accepted documents', [
                         'order_id' => $order->id,
-                        'response' => $responseData
+                        'response' => $responseData,
                     ]);
+
                     return false;
                 }
 
                 $acceptedDoc = $responseData['acceptedDocuments'][0];
-                
+
                 // Store the invoice information
                 $order->myInvoisInvoice()->create([
                     'submission_uid' => $responseData['submissionUid'] ?? null,
                     'uuid' => $acceptedDoc['uuid'] ?? null,
                     'invoice_code_number' => $acceptedDoc['invoiceCodeNumber'] ?? null,
                     'request_payload' => $payload,
-                    'response_payload' => $responseData
+                    'response_payload' => $responseData,
                 ]);
 
                 // Update queue status if exists
@@ -186,7 +210,7 @@ class MyInvoisService
                 Log::info('MyInvois Invoice Created', [
                     'order_id' => $order->id,
                     'submission_uid' => $responseData['submissionUid'] ?? null,
-                    'invoice_code_number' => $acceptedDoc['invoiceCodeNumber'] ?? null
+                    'invoice_code_number' => $acceptedDoc['invoiceCodeNumber'] ?? null,
                 ]);
 
                 return true;
@@ -195,7 +219,7 @@ class MyInvoisService
             Log::error('MyInvois API Error', [
                 'order_id' => $order->id,
                 'status' => $response->status(),
-                'response' => $response->json()
+                'response' => $response->json(),
             ]);
 
             return false;
@@ -203,7 +227,7 @@ class MyInvoisService
             Log::error('MyInvois API Exception', [
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return false;
@@ -215,31 +239,32 @@ class MyInvoisService
      */
     public function cancelInvoice(string $myinvoisId, string $reason)
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             Log::warning('MyInvois service is disabled or not configured.');
+
             return false;
         }
 
         try {
-            $url = $this->baseUrl . '/documents/' . $myinvoisId . '/cancel?reason=' . urlencode($reason);
+            $url = $this->baseUrl.'/documents/'.$myinvoisId.'/cancel?reason='.urlencode($reason);
 
             Log::info('MyInvois Cancel Request', [
                 'myinvois_id' => $myinvoisId,
                 'reason' => $reason,
-                'url' => $url
+                'url' => $url,
             ]);
 
             $response = Http::withoutVerifying()
                 ->withHeaders([
                     'Accept' => 'application/json',
-                    'Content-Type' => 'application/json'
+                    'Content-Type' => 'application/json',
                 ])
                 ->put($url);
 
             Log::info('MyInvois Cancel Response', [
                 'myinvois_id' => $myinvoisId,
                 'status' => $response->status(),
-                'response' => $response->body()
+                'response' => $response->body(),
             ]);
 
             return $response->successful();
@@ -248,8 +273,123 @@ class MyInvoisService
                 'myinvois_id' => $myinvoisId,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
+    }
+
+    /**
+     * Submit a Credit Note e-invoice reversing the order's active e-invoice.
+     * LHDN procedure once the 72h cancellation window has lapsed: credit note
+     * first, then reissue a corrected invoice. On success the original row is
+     * marked 'credited' and a MyInvoisCreditNote record is stored.
+     */
+    public function submitCreditNote(Order $order, string $reason)
+    {
+        if (! $this->isEnabled()) {
+            Log::warning('MyInvois service is disabled or not configured.');
+
+            return false;
+        }
+
+        $invoice = $order->myInvoisInvoice;
+        if (! $invoice) {
+            Log::warning('MyInvois credit note requested but no active invoice', ['order_id' => $order->id]);
+
+            return false;
+        }
+
+        try {
+            $payload = $this->prepareCreditNotePayload($order, $invoice);
+
+            Log::info('MyInvois Credit Note Request', [
+                'order_id' => $order->id,
+                'original_uuid' => $invoice->uuid,
+                'payload' => $payload,
+            ]);
+
+            $response = Http::withoutVerifying()
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($this->baseUrl.'/documents/submit/creditNote', $payload);
+
+            Log::info('MyInvois Credit Note Response', [
+                'order_id' => $order->id,
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
+
+            if (! $response->successful()) {
+                return false;
+            }
+
+            $responseData = $response->json();
+            if (empty($responseData['acceptedDocuments'])) {
+                Log::error('MyInvois Credit Note Error - No accepted documents', [
+                    'order_id' => $order->id,
+                    'response' => $responseData,
+                ]);
+
+                return false;
+            }
+
+            $acceptedDoc = $responseData['acceptedDocuments'][0];
+
+            DB::transaction(function () use ($order, $invoice, $responseData, $acceptedDoc, $reason, $payload) {
+                \App\Models\MyInvoisCreditNote::create([
+                    'order_id' => $order->id,
+                    'myinvois_invoice_id' => $invoice->id,
+                    'submission_uid' => $responseData['submissionUid'] ?? null,
+                    'uuid' => $acceptedDoc['uuid'] ?? null,
+                    'credit_note_code_number' => $acceptedDoc['invoiceCodeNumber'] ?? null,
+                    'reason' => $reason,
+                    'request_payload' => $payload,
+                    'response_payload' => $responseData,
+                ]);
+
+                $invoice->update(['status' => 'credited']);
+            });
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('MyInvois Credit Note Exception', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Credit note payload: same shape as the invoice document, issued now,
+     * with a billing reference back to the original validated e-invoice.
+     */
+    protected function prepareCreditNotePayload(Order $order, \App\Models\MyInvoisInvoice $invoice): array
+    {
+        $payload = $this->prepareInvoicePayload($order);
+        $document = $payload['documents'][0];
+
+        $originalInternalId = $invoice->request_payload['documents'][0]['id']
+            ?? $invoice->invoice_code_number;
+
+        $priorCreditNotes = \App\Models\MyInvoisCreditNote::where('order_id', $order->id)->count();
+        $suffix = $priorCreditNotes === 0 ? '' : '-'.($priorCreditNotes + 1);
+
+        $now = now()->setTimezone('UTC');
+        $document['id'] = 'CN'.$originalInternalId.$suffix;
+        $document['issueDate'] = $now->format('Y-m-d');
+        $document['issueTime'] = $now->format('H:i:s\Z');
+        $document['billingReferences'] = [
+            [
+                'uuid' => $invoice->uuid,
+                'internalId' => $originalInternalId,
+            ],
+        ];
+
+        return ['documents' => [$document]];
     }
 
     /**
@@ -257,18 +397,19 @@ class MyInvoisService
      */
     public function getDocumentDetails(string $uuid)
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             Log::warning('MyInvois service is disabled or not configured.');
+
             return null;
         }
 
         try {
-            $url = $this->baseUrl . '/documents/' . $uuid;
+            $url = $this->baseUrl.'/documents/'.$uuid;
 
             $response = Http::withoutVerifying()
                 ->withHeaders([
                     'Accept' => 'application/json',
-                    'Content-Type' => 'application/json'
+                    'Content-Type' => 'application/json',
                 ])
                 ->get($url);
 
@@ -279,7 +420,7 @@ class MyInvoisService
             Log::error('MyInvois Get Document Failed', [
                 'uuid' => $uuid,
                 'status' => $response->status(),
-                'response' => $response->body()
+                'response' => $response->body(),
             ]);
 
             return null;
@@ -288,6 +429,7 @@ class MyInvoisService
                 'uuid' => $uuid,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -296,7 +438,7 @@ class MyInvoisService
      * Generate QR code URL for MyInvois invoice
      */
     public function generateQrCodeUrl(string $uuid, string $longId): string
-    {        
+    {
         return "https://myinvois.hasil.gov.my/{$uuid}/share/{$longId}";
     }
 
@@ -304,21 +446,19 @@ class MyInvoisService
     {
         // Ensure order has an ID - use order_number as fallback if ID is missing
         $orderId = $order->id ?? $order->order_number ?? null;
-        if (!$orderId) {
+        if (! $orderId) {
             throw new \Exception('Order ID or order number is required for MyInvois submission');
         }
 
         // Use the order's created_at timestamp in UTC, or current time if not set
-        $issueDate = $order->created_at 
-            ? $order->created_at->setTimezone('UTC') 
+        $issueDate = $order->created_at
+            ? $order->created_at->setTimezone('UTC')
             : now()->setTimezone('UTC');
-        
-        $branch = config('services.myinvois.branch', '');
-        
+
         return [
             'documents' => [
                 [
-                    'id' => (string) $orderId . '-' . $branch,
+                    'id' => $this->documentId($order),
                     'issueDate' => $issueDate->format('Y-m-d'),
                     'issueTime' => $issueDate->format('H:i:s\Z'), // Match exact format: "05:25:00Z"
                     'documentCurrencyCode' => 'MYR',
@@ -332,29 +472,42 @@ class MyInvoisService
                         'industryClassificationName' => $this->settings->industry_classification_name ?? 'Growing of maize',
                         'address' => [
                             'addressLines' => [
-                                $this->settings->shop_address
+                                $this->settings->shop_address,
                             ],
                             'cityName' => 'Kuala Lumpur',
                             'postalZone' => '50480',
                             'countrySubentityCode' => '14',
-                            'countryCode' => 'MYS'
-                        ]
+                            'countryCode' => 'MYS',
+                        ],
                     ],
                     'customer' => $customCustomerInfo ? $this->prepareCustomCustomerInfo($customCustomerInfo) : $this->prepareCustomerInfo($order),
                     'invoiceLines' => $this->prepareInvoiceLines($order, $customCustomerInfo),
                     'taxTotal' => $this->prepareTaxTotal($order),
-                    'legalMonetaryTotal' => $this->prepareMonetaryTotal($order)
-                ]
-            ]
+                    'legalMonetaryTotal' => $this->prepareMonetaryTotal($order),
+                ],
+            ],
         ];
+    }
+
+    /**
+     * MyInvois rejects duplicate internal document IDs per supplier, so a
+     * reissue after cancellation/credit note needs a unique suffix.
+     */
+    protected function documentId(Order $order): string
+    {
+        $branch = config('services.myinvois.branch', '');
+        $base = (string) ($order->id ?? $order->order_number).'-'.$branch;
+        $priorSubmissions = \App\Models\MyInvoisInvoice::where('order_id', $order->id)->count();
+
+        return $priorSubmissions === 0 ? $base : $base.'-R'.$priorSubmissions;
     }
 
     protected function prepareCustomerInfo(Order $order)
     {
         $customer = $order->customer;
-        
+
         // Default values for walk-in customers
-        if (!$customer) {
+        if (! $customer) {
             return [
                 'TIN' => 'EI00000000010',
                 'legalName' => 'Walk-in Customer',
@@ -366,8 +519,8 @@ class MyInvoisService
                     'cityName' => 'Kuala Lumpur',
                     'postalZone' => '50480',
                     'countrySubentityCode' => '14',
-                    'countryCode' => 'MYS'
-                ]
+                    'countryCode' => 'MYS',
+                ],
             ];
         }
 
@@ -398,8 +551,8 @@ class MyInvoisService
                 'cityName' => $customer->city ?: 'Kuala Lumpur',
                 'postalZone' => $customer->postal_code ?: '50480',
                 'countrySubentityCode' => $customer->state_code ?: '14',
-                'countryCode' => $customer->country ?: 'MYS'
-            ]
+                'countryCode' => $customer->country ?: 'MYS',
+            ],
         ];
     }
 
@@ -412,10 +565,10 @@ class MyInvoisService
         $tin = $customerInfo['tin'] ?? 'EI00000000010';
 
         // Determine identification scheme: BRN takes priority, then NRIC
-        if (!empty($customerInfo['brn'])) {
+        if (! empty($customerInfo['brn'])) {
             $identificationScheme = 'BRN';
             $identificationNumber = $customerInfo['brn'];
-        } elseif (!empty($customerInfo['nric'])) {
+        } elseif (! empty($customerInfo['nric'])) {
             $identificationScheme = 'NRIC';
             $identificationNumber = $customerInfo['nric'];
         } else {
@@ -435,8 +588,8 @@ class MyInvoisService
                 'cityName' => $customerInfo['city'] ?? 'Kuala Lumpur',
                 'postalZone' => $customerInfo['postal_code'] ?? '50480',
                 'countrySubentityCode' => $customerInfo['state_code'] ?? '14',
-                'countryCode' => $customerInfo['country'] ?? 'MYS'
-            ]
+                'countryCode' => $customerInfo['country'] ?? 'MYS',
+            ],
         ];
     }
 
@@ -454,24 +607,24 @@ class MyInvoisService
                 $customerTin = 'EI00000000010';
             }
         }
-        
+
         // Set item code based on TIN: "004" for EI00000000010, otherwise "022"
         $itemCode = ($customerTin === 'EI00000000010') ? '004' : '022';
-        
+
         return $order->items->map(function ($item, $index) use ($itemCode) {
-            $taxAmount = (float)($item->price * $item->quantity) * ($this->settings->tax_percentage / 100);
-            $subtotal = (float)($item->price * $item->quantity);
-            
+            $taxAmount = (float) ($item->price * $item->quantity) * ($this->settings->tax_percentage / 100);
+            $subtotal = (float) ($item->price * $item->quantity);
+
             return [
                 'id' => (string) ($index + 1),
-                'quantity' => (int)$item->quantity,
-                'unitPrice' => (float)$item->price,
+                'quantity' => (int) $item->quantity,
+                'unitPrice' => (float) $item->price,
                 'unitCode' => 'XUN',
                 'subtotal' => $subtotal,
                 'itemDescription' => $item->product_name,
                 'itemCommodityClassification' => [
                     'code' => $itemCode,
-                    'listID' => 'CLASS'
+                    'listID' => 'CLASS',
                 ],
                 'lineTaxTotal' => [
                     'taxAmount' => $taxAmount,
@@ -480,10 +633,10 @@ class MyInvoisService
                             'taxableAmount' => $subtotal,
                             'taxAmount' => $taxAmount,
                             'taxCategoryCode' => '01',
-                            'percent' => (float)$this->settings->tax_percentage
-                        ]
-                    ]
-                ]
+                            'percent' => (float) $this->settings->tax_percentage,
+                        ],
+                    ],
+                ],
             ];
         })->toArray();
     }
@@ -491,25 +644,25 @@ class MyInvoisService
     protected function prepareTaxTotal(Order $order)
     {
         return [
-            'totalTaxAmount' => (float)$order->tax,
+            'totalTaxAmount' => (float) $order->tax,
             'taxSubtotals' => [
                 [
-                    'taxableAmount' => (float)$order->subtotal,
-                    'taxAmount' => (float)$order->tax,
+                    'taxableAmount' => (float) $order->subtotal,
+                    'taxAmount' => (float) $order->tax,
                     'taxCategoryCode' => '01',
-                    'percent' => (float)$this->settings->tax_percentage
-                ]
-            ]
+                    'percent' => (float) $this->settings->tax_percentage,
+                ],
+            ],
         ];
     }
 
     protected function prepareMonetaryTotal(Order $order)
     {
         return [
-            'lineExtensionAmount' => (float)$order->subtotal,
-            'taxExclusiveAmount' => (float)$order->subtotal,
-            'taxInclusiveAmount' => (float)$order->total,
-            'payableAmount' => (float)$order->total
+            'lineExtensionAmount' => (float) $order->subtotal,
+            'taxExclusiveAmount' => (float) $order->subtotal,
+            'taxInclusiveAmount' => (float) $order->total,
+            'payableAmount' => (float) $order->total,
         ];
     }
-} 
+}
