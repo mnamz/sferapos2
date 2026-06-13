@@ -12,6 +12,8 @@ class MyInvoisService
 {
     protected $baseUrl;
 
+    protected $apiKey;
+
     protected $settings;
 
     protected $enabled;
@@ -19,8 +21,27 @@ class MyInvoisService
     public function __construct()
     {
         $this->baseUrl = config('services.myinvois.base_url');
+        $this->apiKey = config('services.myinvois.api_key');
         $this->enabled = config('services.myinvois.enabled', false);
         $this->settings = ShopSettings::first();
+    }
+
+    /**
+     * Standard headers for middleware requests. The middleware authenticates
+     * via an X-API-Key header; it is only sent when MYINVOIS_API_KEY is set.
+     */
+    protected function requestHeaders(): array
+    {
+        $headers = [
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ];
+
+        if (filled($this->apiKey)) {
+            $headers['X-API-Key'] = $this->apiKey;
+        }
+
+        return $headers;
     }
 
     /**
@@ -161,10 +182,7 @@ class MyInvoisService
             ]);
 
             $response = Http::withoutVerifying() // Disable SSL verification for development
-                ->withHeaders([
-                    'Accept' => 'application/json',
-                    'Content-Type' => 'application/json',
-                ])
+                ->withHeaders($this->requestHeaders())
                 ->post($this->baseUrl.'/documents/submit/invoice', $payload);
 
             // Log the response
@@ -255,10 +273,7 @@ class MyInvoisService
             ]);
 
             $response = Http::withoutVerifying()
-                ->withHeaders([
-                    'Accept' => 'application/json',
-                    'Content-Type' => 'application/json',
-                ])
+                ->withHeaders($this->requestHeaders())
                 ->put($url);
 
             Log::info('MyInvois Cancel Response', [
@@ -309,11 +324,8 @@ class MyInvoisService
             ]);
 
             $response = Http::withoutVerifying()
-                ->withHeaders([
-                    'Accept' => 'application/json',
-                    'Content-Type' => 'application/json',
-                ])
-                ->post($this->baseUrl.'/documents/submit/creditNote', $payload);
+                ->withHeaders($this->requestHeaders())
+                ->post($this->baseUrl.'/documents/submit/credit-note', $payload);
 
             Log::info('MyInvois Credit Note Response', [
                 'order_id' => $order->id,
@@ -407,10 +419,7 @@ class MyInvoisService
             $url = $this->baseUrl.'/documents/'.$uuid;
 
             $response = Http::withoutVerifying()
-                ->withHeaders([
-                    'Accept' => 'application/json',
-                    'Content-Type' => 'application/json',
-                ])
+                ->withHeaders($this->requestHeaders())
                 ->get($url);
 
             if ($response->successful()) {

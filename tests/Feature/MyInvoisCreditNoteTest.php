@@ -20,7 +20,7 @@ beforeEach(function () {
 
 it('submits a credit note referencing the original e-invoice', function () {
     Http::fake([
-        'sandbox-middleware.test/documents/submit/creditNote' => Http::response([
+        'sandbox-middleware.test/documents/submit/credit-note' => Http::response([
             'submissionUid' => 'CN-SUB-1',
             'acceptedDocuments' => [
                 ['uuid' => 'CN-UUID-1', 'invoiceCodeNumber' => 'CN'.'1-TEST'],
@@ -38,7 +38,7 @@ it('submits a credit note referencing the original e-invoice', function () {
     Http::assertSent(function ($request) use ($invoice, $order) {
         $doc = $request->data()['documents'][0];
 
-        return str_contains($request->url(), '/documents/submit/creditNote')
+        return str_contains($request->url(), '/documents/submit/credit-note')
             && $doc['billingReferences'][0]['uuid'] === $invoice->uuid
             && $doc['billingReferences'][0]['internalId'] === $order->id.'-TEST'
             && str_starts_with($doc['id'], 'CN');
@@ -77,7 +77,7 @@ it('returns false when no active invoice exists', function () {
 
 it('suffixes the document id when a prior credit note exists for the order', function () {
     Http::fake([
-        'sandbox-middleware.test/documents/submit/creditNote' => Http::response([
+        'sandbox-middleware.test/documents/submit/credit-note' => Http::response([
             'submissionUid' => 'CN-SUB-2',
             'acceptedDocuments' => [['uuid' => 'CN-UUID-2', 'invoiceCodeNumber' => 'CN-2']],
         ], 200),
@@ -97,14 +97,14 @@ it('suffixes the document id when a prior credit note exists for the order', fun
     app(MyInvoisService::class)->submitCreditNote($order, 'second correction');
 
     Http::assertSent(function ($request) use ($order) {
-        return str_contains($request->url(), '/documents/submit/creditNote')
+        return str_contains($request->url(), '/documents/submit/credit-note')
             && $request->data()['documents'][0]['id'] === 'CN'.$order->id.'-TEST-2';
     });
 });
 
 it('issues a credit note via HTTP and frees the order for reissue', function () {
     Http::fake([
-        'sandbox-middleware.test/documents/submit/creditNote' => Http::response([
+        'sandbox-middleware.test/documents/submit/credit-note' => Http::response([
             'submissionUid' => 'CN-SUB-1',
             'acceptedDocuments' => [['uuid' => 'CN-UUID-1', 'invoiceCodeNumber' => 'CN1-TEST']],
         ], 200),
@@ -127,7 +127,7 @@ it('issues a credit note via HTTP and frees the order for reissue', function () 
 
 it('reissues a corrected invoice with a unique -R1 id after a credit note', function () {
     Http::fake([
-        'sandbox-middleware.test/documents/submit/creditNote' => Http::response([
+        'sandbox-middleware.test/documents/submit/credit-note' => Http::response([
             'submissionUid' => 'CN-SUB-1',
             'acceptedDocuments' => [['uuid' => 'CN-UUID-1', 'invoiceCodeNumber' => 'CN1-TEST']],
         ], 200),
@@ -160,4 +160,22 @@ it('reissues a corrected invoice with a unique -R1 id after a credit note', func
         ->and($reissued->status)->toBe('active')
         ->and($reissued->id)->not->toBe($original->id)
         ->and(\App\Models\MyInvoisInvoice::where('order_id', $order->id)->count())->toBe(2);
+});
+
+it('sends the configured X-API-Key header to the middleware', function () {
+    config(['services.myinvois.api_key' => 'SECRET-KEY']);
+
+    Http::fake([
+        'sandbox-middleware.test/documents/submit/credit-note' => Http::response([
+            'submissionUid' => 'CN-SUB-1',
+            'acceptedDocuments' => [['uuid' => 'CN-UUID-1', 'invoiceCodeNumber' => 'CN1-TEST']],
+        ], 200),
+    ]);
+
+    $order = makeOrder();
+    makeInvoice($order);
+
+    app(MyInvoisService::class)->submitCreditNote($order, 'reason');
+
+    Http::assertSent(fn ($request) => $request->hasHeader('X-API-Key', 'SECRET-KEY'));
 });
