@@ -872,6 +872,10 @@ class OrderController extends Controller
                 $message = 'Invoice pushed to MyInvois successfully';
 
                 if ($isReissue) {
+                    // The credit note had cancelled the order; a successful reissue
+                    // revives it with the new valid e-invoice.
+                    $order->update(['status' => 'completed']);
+
                     $emailSent = $this->sendEInvoiceEmail($order);
                     $message .= $emailSent
                         ? ' and the reissued e-invoice was emailed to the customer.'

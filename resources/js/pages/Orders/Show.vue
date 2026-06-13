@@ -294,6 +294,13 @@
                     Push to MyInvois
                 </button>
                 <button
+                    v-if="canEdit && !order.myinvois_invoice && hasEInvoice"
+                    @click="reissueToMyInvois"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                    Reissue to MyInvois
+                </button>
+                <button
                     v-if="canEdit && order.myinvois_queue_status === 'pending'"
                     @click="clearFromQueue"
                     class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
@@ -504,6 +511,25 @@ const sendInvoice = () => {
 
 const pushToMyInvois = () => {
     if (confirm(`Are you sure you want to push this invoice to MyInvois now? This will bypass the ${props.myinvoisQueueDelayHours}-hour delay.`)) {
+        router.post(
+            route('orders.pushMyInvois', props.order.id),
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    router.reload({ only: ['order'] });
+                },
+            }
+        );
+    }
+};
+
+const reissueToMyInvois = () => {
+    if (
+        confirm(
+            'Reissue a corrected e-invoice to MyInvois? A new invoice will be submitted to LHDN (replacing the credited one) and emailed to the customer.',
+        )
+    ) {
         router.post(
             route('orders.pushMyInvois', props.order.id),
             {},

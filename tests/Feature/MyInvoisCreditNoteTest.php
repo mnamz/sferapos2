@@ -205,6 +205,31 @@ it('emails the reissued e-invoice to the customer on a reissue push', function (
     Mail::assertSent(\App\Mail\EInvoiceEmail::class, fn ($mail) => $mail->hasTo('jane@test.local'));
 });
 
+it('reissue push revives a cancelled order and creates a new active e-invoice', function () {
+    Mail::fake();
+    Http::fake([
+        'sandbox-middleware.test/documents/submit/invoice' => Http::response([
+            'submissionUid' => 'RE-SUB-1',
+            'acceptedDocuments' => [['uuid' => 'RE-UUID-1', 'invoiceCodeNumber' => 'RE1-TEST']],
+        ], 200),
+        'sandbox-middleware.test/documents/*' => Http::response([], 200),
+    ]);
+
+    $order = makeOrder();
+    makeInvoice($order, ['status' => 'credited']);
+    // Post-credit-note state: order was cancelled, original credited, no active invoice.
+    $order->update(['status' => 'cancelled']);
+
+    $this->actingAs(User::first())
+        ->post(route('orders.pushMyInvois', $order))
+        ->assertSessionHas('success');
+
+    $order->refresh();
+    expect($order->status)->toBe('completed')
+        ->and($order->myInvoisInvoice)->not->toBeNull()
+        ->and($order->myInvoisInvoice->status)->toBe('active');
+});
+
 it('does not email on the first e-invoice submission', function () {
     Mail::fake();
     Http::fake([
