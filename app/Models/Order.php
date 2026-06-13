@@ -2,16 +2,16 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
-use Carbon\Carbon;
+use OwenIt\Auditing\Contracts\Auditable;
 
 class Order extends Model implements Auditable
 {
-    use HasFactory, SoftDeletes, AuditableTrait;
+    use AuditableTrait, HasFactory, SoftDeletes;
 
     protected $fillable = [
         'invoice_number',
@@ -72,7 +72,8 @@ class Order extends Model implements Auditable
     public function getFormattedInvoiceNumberAttribute()
     {
         $prefix = Carbon::parse($this->created_at)->format('ym-');
-        return $prefix . (empty($this->invoice_number) ? $this->id : $this->invoice_number);
+
+        return $prefix.(empty($this->invoice_number) ? $this->id : $this->invoice_number);
     }
 
     public function items()
@@ -116,4 +117,4 @@ class Order extends Model implements Auditable
     {
         return $this->total + $this->delivery_cost - $this->paid_amount;
     }
-} 
+}

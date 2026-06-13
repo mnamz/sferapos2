@@ -169,6 +169,7 @@ Configuration in `config/services.php`:
     'enabled' => env('MYINVOIS_ENABLED', false),
     'base_url' => env('MYINVOIS_BASE_URL'),
     'queue_delay_hours' => env('MYINVOIS_QUEUE_DELAY_HOURS', 72),
+    'cancellation_window_hours' => env('MYINVOIS_CANCELLATION_WINDOW_HOURS', 72),
     'einvoice_claim_url' => env('EINVOICE_CLAIM_URL'),
     'branch' => env('EINVOICE_BRANCH'),
 ]
@@ -239,6 +240,8 @@ pending → processing → completed
 4. Invoice submitted to MyInvois service
 5. `MyInvoisInvoice` record created
 6. E-invoice PDF emailed to customer
+7. Within 72h of validation: invoice can be cancelled (`orders.cancelMyInvois`); the row is kept and marked `cancelled` for audit
+8. After 72h: LHDN forbids cancellation — issue a Credit Note (`orders.creditNoteMyInvois`) which marks the original invoice `credited`, then edit the order and push a corrected invoice (its document ID gets a `-R{n}` suffix to avoid duplicate-ID rejection)
 
 ### Customer Lookup Logic
 When submitting MyInvois invoices:
@@ -269,6 +272,7 @@ CACHE_STORE=database
 MYINVOIS_ENABLED=true|false
 MYINVOIS_BASE_URL=https://myinvois.example.com
 MYINVOIS_QUEUE_DELAY_HOURS=72
+MYINVOIS_CANCELLATION_WINDOW_HOURS=72
 EINVOICE_CLAIM_URL=https://einvoice.example.com
 EINVOICE_BRANCH=branch_name
 

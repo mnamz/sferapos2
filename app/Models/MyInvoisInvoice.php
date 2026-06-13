@@ -18,12 +18,12 @@ class MyInvoisInvoice extends Model
         'invoice_code_number',
         'status',
         'request_payload',
-        'response_payload'
+        'response_payload',
     ];
 
     protected $casts = [
         'request_payload' => 'array',
-        'response_payload' => 'array'
+        'response_payload' => 'array',
     ];
 
     public function order()
@@ -35,4 +35,4 @@ class MyInvoisInvoice extends Model
     {
         return $this->hasMany(MyInvoisCreditNote::class, 'myinvois_invoice_id');
     }
-} 
+}
