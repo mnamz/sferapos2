@@ -73,3 +73,30 @@ it('returns false when no active invoice exists', function () {
 
     expect(app(MyInvoisService::class)->submitCreditNote($order, 'reason'))->toBeFalse();
 });
+
+it('suffixes the document id when a prior credit note exists for the order', function () {
+    Http::fake([
+        'sandbox-middleware.test/documents/submit/creditNote' => Http::response([
+            'submissionUid' => 'CN-SUB-2',
+            'acceptedDocuments' => [['uuid' => 'CN-UUID-2', 'invoiceCodeNumber' => 'CN-2']],
+        ], 200),
+    ]);
+
+    $order = makeOrder();
+    $invoice = makeInvoice($order);
+
+    // Simulate a prior credit-note cycle: one credit note already recorded for this order.
+    \App\Models\MyInvoisCreditNote::create([
+        'order_id' => $order->id,
+        'myinvois_invoice_id' => $invoice->id,
+        'reason' => 'previous cycle',
+        'request_payload' => ['documents' => [['id' => 'CN'.$order->id.'-TEST']]],
+    ]);
+
+    app(MyInvoisService::class)->submitCreditNote($order, 'second correction');
+
+    Http::assertSent(function ($request) use ($order) {
+        return str_contains($request->url(), '/documents/submit/creditNote')
+            && $request->data()['documents'][0]['id'] === 'CN'.$order->id.'-TEST-2';
+    });
+});

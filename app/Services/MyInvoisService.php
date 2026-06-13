@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\ShopSettings;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -336,18 +337,20 @@ class MyInvoisService
 
             $acceptedDoc = $responseData['acceptedDocuments'][0];
 
-            \App\Models\MyInvoisCreditNote::create([
-                'order_id' => $order->id,
-                'myinvois_invoice_id' => $invoice->id,
-                'submission_uid' => $responseData['submissionUid'] ?? null,
-                'uuid' => $acceptedDoc['uuid'] ?? null,
-                'credit_note_code_number' => $acceptedDoc['invoiceCodeNumber'] ?? null,
-                'reason' => $reason,
-                'request_payload' => $payload,
-                'response_payload' => $responseData,
-            ]);
+            DB::transaction(function () use ($order, $invoice, $responseData, $acceptedDoc, $reason, $payload) {
+                \App\Models\MyInvoisCreditNote::create([
+                    'order_id' => $order->id,
+                    'myinvois_invoice_id' => $invoice->id,
+                    'submission_uid' => $responseData['submissionUid'] ?? null,
+                    'uuid' => $acceptedDoc['uuid'] ?? null,
+                    'credit_note_code_number' => $acceptedDoc['invoiceCodeNumber'] ?? null,
+                    'reason' => $reason,
+                    'request_payload' => $payload,
+                    'response_payload' => $responseData,
+                ]);
 
-            $invoice->update(['status' => 'credited']);
+                $invoice->update(['status' => 'credited']);
+            });
 
             return true;
         } catch (\Exception $e) {
