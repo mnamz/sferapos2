@@ -190,7 +190,15 @@ class OrderController extends Controller
             'created_at' => $order->created_at->format('Y-m-d H:i:s'),
             'myinvois_queue_status' => $order->myInvoisQueue ? $order->myInvoisQueue->status : null,
             'myinvois_id' => $order->myInvoisQueue ? $order->myInvoisQueue->myinvois_id : null,
-            'myinvois_invoice' => $order->myInvoisInvoice ? true : false,
+            'myinvois_invoice' => $order->myInvoisInvoice ? [
+                'uuid' => $order->myInvoisInvoice->uuid,
+                'invoice_code_number' => $order->myInvoisInvoice->invoice_code_number,
+                'submitted_at' => $order->myInvoisInvoice->created_at->format('Y-m-d H:i:s'),
+                'within_cancellation_window' => app(\App\Services\MyInvoisService::class)->isWithinCancellationWindow($order->myInvoisInvoice),
+                'window_expires_at' => $order->myInvoisInvoice->created_at
+                    ->addHours((int) config('services.myinvois.cancellation_window_hours', 72))
+                    ->format('Y-m-d H:i'),
+            ] : null,
         ];
 
         return Inertia::render('Orders/Show', [
@@ -954,6 +962,43 @@ class OrderController extends Controller
             ]);
 
             return back()->with('error', 'Failed to cancel invoice: '.$e->getMessage());
+        }
+    }
+
+    public function creditNoteMyInvois(Request $request, Order $order)
+    {
+        try {
+            $validated = $request->validate([
+                'reason' => 'required|string|max:1000',
+            ]);
+
+            if (! $order->myInvoisInvoice) {
+                return back()->with('error', 'No active MyInvois invoice found for this order');
+            }
+
+            $myInvoisService = app(\App\Services\MyInvoisService::class);
+
+            if (! $myInvoisService->isEnabled()) {
+                return back()->with('error', 'MyInvois service is not enabled');
+            }
+
+            $result = $myInvoisService->submitCreditNote($order, $validated['reason']);
+
+            if ($result) {
+                $order->myInvoisQueue()->delete();
+                $order->update(['status' => 'cancelled']);
+
+                return back()->with('success', 'Credit note submitted to MyInvois. The original e-invoice has been reversed — you can now edit the order and push a corrected invoice to MyInvois.');
+            }
+
+            return back()->with('error', 'Failed to submit credit note to MyInvois. Check logs for details.');
+        } catch (\Exception $e) {
+            \Log::error('Credit note MyInvois failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('error', 'Failed to submit credit note: '.$e->getMessage());
         }
     }
 

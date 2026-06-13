@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\MyInvoisCreditNote;
+use App\Models\User;
 use App\Services\MyInvoisService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -99,4 +100,27 @@ it('suffixes the document id when a prior credit note exists for the order', fun
         return str_contains($request->url(), '/documents/submit/creditNote')
             && $request->data()['documents'][0]['id'] === 'CN'.$order->id.'-TEST-2';
     });
+});
+
+it('issues a credit note via HTTP and frees the order for reissue', function () {
+    Http::fake([
+        'sandbox-middleware.test/documents/submit/creditNote' => Http::response([
+            'submissionUid' => 'CN-SUB-1',
+            'acceptedDocuments' => [['uuid' => 'CN-UUID-1', 'invoiceCodeNumber' => 'CN1-TEST']],
+        ], 200),
+    ]);
+
+    $order = makeOrder();
+    $invoice = makeInvoice($order);
+    $invoice->created_at = now()->subHours(100);
+    $invoice->save();
+
+    $this->actingAs(User::first())
+        ->post(route('orders.creditNoteMyInvois', $order), ['reason' => 'wrong amount'])
+        ->assertSessionHas('success');
+
+    expect($invoice->fresh()->status)->toBe('credited')
+        ->and($order->fresh()->myInvoisInvoice)->toBeNull()
+        ->and($order->fresh()->status)->toBe('cancelled')
+        ->and(MyInvoisCreditNote::count())->toBe(1);
 });
