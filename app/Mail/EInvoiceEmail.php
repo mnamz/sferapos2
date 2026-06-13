@@ -13,6 +13,7 @@ class EInvoiceEmail extends Mailable
     use Queueable, SerializesModels;
 
     public $order;
+    public $pdf;
     public $settings;
     public $customerName;
 
