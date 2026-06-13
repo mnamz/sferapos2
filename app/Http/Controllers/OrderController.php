@@ -196,6 +196,7 @@ class OrderController extends Controller
                 'submitted_at' => $order->myInvoisInvoice->created_at->format('Y-m-d H:i:s'),
                 'within_cancellation_window' => app(\App\Services\MyInvoisService::class)->isWithinCancellationWindow($order->myInvoisInvoice),
                 'window_expires_at' => $order->myInvoisInvoice->created_at
+                    ->copy()
                     ->addHours((int) config('services.myinvois.cancellation_window_hours', 72))
                     ->format('Y-m-d H:i'),
             ] : null,
