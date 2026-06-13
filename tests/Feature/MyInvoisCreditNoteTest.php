@@ -5,6 +5,7 @@ use App\Models\User;
 use App\Services\MyInvoisService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 
 uses(RefreshDatabase::class);
 
@@ -178,4 +179,50 @@ it('sends the configured X-API-Key header to the middleware', function () {
     app(MyInvoisService::class)->submitCreditNote($order, 'reason');
 
     Http::assertSent(fn ($request) => $request->hasHeader('X-API-Key', 'SECRET-KEY'));
+});
+
+it('emails the reissued e-invoice to the customer on a reissue push', function () {
+    Mail::fake();
+    Http::fake([
+        'sandbox-middleware.test/documents/submit/invoice' => Http::response([
+            'submissionUid' => 'RE-SUB-1',
+            'acceptedDocuments' => [['uuid' => 'RE-UUID-1', 'invoiceCodeNumber' => 'RE1-TEST']],
+        ], 200),
+        'sandbox-middleware.test/documents/*' => Http::response([], 200),
+    ]);
+
+    $customer = \App\Models\Customer::create(['name' => 'Jane', 'email' => 'jane@test.local']);
+    $order = makeOrder();
+    $order->update(['customer_id' => $customer->id]);
+
+    // A prior credited submission means this push is a reissue (post-credit-note state).
+    makeInvoice($order, ['status' => 'credited']);
+
+    $this->actingAs(User::first())
+        ->post(route('orders.pushMyInvois', $order))
+        ->assertSessionHas('success');
+
+    Mail::assertSent(\App\Mail\EInvoiceEmail::class, fn ($mail) => $mail->hasTo('jane@test.local'));
+});
+
+it('does not email on the first e-invoice submission', function () {
+    Mail::fake();
+    Http::fake([
+        'sandbox-middleware.test/documents/submit/invoice' => Http::response([
+            'submissionUid' => 'SUB-1',
+            'acceptedDocuments' => [['uuid' => 'UUID-1', 'invoiceCodeNumber' => '1-TEST']],
+        ], 200),
+        'sandbox-middleware.test/documents/*' => Http::response([], 200),
+    ]);
+
+    $customer = \App\Models\Customer::create(['name' => 'Jane', 'email' => 'jane@test.local']);
+    $order = makeOrder();
+    $order->update(['customer_id' => $customer->id]);
+
+    // No prior invoice → first submission, not a reissue.
+    $this->actingAs(User::first())
+        ->post(route('orders.pushMyInvois', $order))
+        ->assertSessionHas('success');
+
+    Mail::assertNotSent(\App\Mail\EInvoiceEmail::class);
 });

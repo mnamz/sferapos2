@@ -822,11 +822,25 @@ class OrderController extends Controller
                 return back()->with('error', 'MyInvois service is not enabled');
             }
 
+            // A push is a reissue when the order already has prior e-invoice
+            // submissions (cancelled/credited rows kept for audit). Reissues
+            // auto-email the corrected e-invoice; the first push does not.
+            $isReissue = $order->myInvoisInvoices()->exists();
+
             // Force refresh to use latest order/customer data instead of old queue payload
             $result = $myInvoisService->submitInvoice($order, forceRefresh: true);
 
             if ($result) {
-                return back()->with('success', 'Invoice pushed to MyInvois successfully');
+                $message = 'Invoice pushed to MyInvois successfully';
+
+                if ($isReissue) {
+                    $emailSent = $this->sendEInvoiceEmail($order);
+                    $message .= $emailSent
+                        ? ' and the reissued e-invoice was emailed to the customer.'
+                        : ' (reissued e-invoice was not emailed — no customer email on file or send failed; check logs).';
+                }
+
+                return back()->with('success', $message);
             } else {
                 return back()->with('error', 'Failed to push invoice to MyInvois. Check logs for details.');
             }
@@ -1228,69 +1242,7 @@ class OrderController extends Controller
             // Send e-invoice PDF via email
             $emailSent = false;
             if (! empty($validated['email'])) {
-                try {
-                    $order->load(['customer', 'user', 'items.product', 'myInvoisInvoice']);
-
-                    $myInvoisInvoice = $order->myInvoisInvoice;
-                    $qrCodeUrl = null;
-                    $documentDetails = null;
-
-                    if ($myInvoisInvoice) {
-                        $documentDetails = $myInvoisService->getDocumentDetails($myInvoisInvoice->uuid);
-
-                        $longId = null;
-                        if ($documentDetails && isset($documentDetails['longId'])) {
-                            $longId = $documentDetails['longId'];
-                        } elseif ($myInvoisInvoice->response_payload && isset($myInvoisInvoice->response_payload['longId'])) {
-                            $longId = $myInvoisInvoice->response_payload['longId'];
-                        }
-
-                        if ($longId && $myInvoisInvoice->uuid) {
-                            $qrCodeUrl = $myInvoisService->generateQrCodeUrl(
-                                $myInvoisInvoice->uuid,
-                                $longId
-                            );
-                        }
-                    }
-
-                    $settings = ShopSettings::first();
-                    $orderData = $this->prepareOrderDataForPdf($order, $myInvoisInvoice, $qrCodeUrl);
-                    $shopSettings = $this->prepareShopSettingsForPdf($settings);
-
-                    // Generate QR code as base64 for PDF
-                    $qrCodeBase64 = null;
-                    if ($qrCodeUrl) {
-                        try {
-                            $qrCodeImageUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data='.urlencode($qrCodeUrl);
-                            $qrCodeImage = file_get_contents($qrCodeImageUrl);
-                            if ($qrCodeImage) {
-                                $qrCodeBase64 = 'data:image/png;base64,'.base64_encode($qrCodeImage);
-                            }
-                        } catch (\Exception $e) {
-                            \Log::warning('Failed to generate QR code for PDF', ['error' => $e->getMessage()]);
-                        }
-                    }
-                    $orderData['qr_code_base64'] = $qrCodeBase64;
-
-                    $pdf = Pdf::loadView('pdf.e-invoice', [
-                        'order' => $orderData,
-                        'shopSettings' => $shopSettings,
-                    ])->setPaper('a4', 'portrait');
-
-                    // Reload order with myInvoisInvoice relationship for email
-                    $order->load('myInvoisInvoice');
-
-                    \Illuminate\Support\Facades\Mail::to($validated['email'])
-                        ->send(new \App\Mail\EInvoiceEmail($order, $pdf->output(), $validated['name']));
-
-                    $emailSent = true;
-                } catch (\Exception $e) {
-                    \Log::error('Failed to send e-invoice email', [
-                        'order_id' => $order->id,
-                        'email' => $validated['email'],
-                        'error' => $e->getMessage(),
-                    ]);
-                }
+                $emailSent = $this->sendEInvoiceEmail($order, $validated['email'], $validated['name'] ?? null);
             }
 
             return response()->json([
@@ -1387,5 +1339,78 @@ class OrderController extends Controller
             'industry_classification_name' => $settings->industry_classification_name ?? '',
             'currency' => $settings->currency ?? 'RM',
         ];
+    }
+
+    /**
+     * Generate the e-invoice PDF for the order's active e-invoice and email it.
+     * Best-effort: returns false (and logs) on any failure or when no recipient
+     * email is available, without throwing.
+     */
+    protected function sendEInvoiceEmail(Order $order, ?string $email = null, ?string $name = null): bool
+    {
+        $email = $email ?? $order->customer?->email;
+
+        if (empty($email)) {
+            return false;
+        }
+
+        try {
+            $order->load(['customer', 'user', 'items.product', 'myInvoisInvoice']);
+
+            $myInvoisService = app(\App\Services\MyInvoisService::class);
+            $myInvoisInvoice = $order->myInvoisInvoice;
+            $qrCodeUrl = null;
+
+            if ($myInvoisInvoice) {
+                $documentDetails = $myInvoisService->getDocumentDetails($myInvoisInvoice->uuid);
+
+                $longId = null;
+                if ($documentDetails && isset($documentDetails['longId'])) {
+                    $longId = $documentDetails['longId'];
+                } elseif ($myInvoisInvoice->response_payload && isset($myInvoisInvoice->response_payload['longId'])) {
+                    $longId = $myInvoisInvoice->response_payload['longId'];
+                }
+
+                if ($longId && $myInvoisInvoice->uuid) {
+                    $qrCodeUrl = $myInvoisService->generateQrCodeUrl($myInvoisInvoice->uuid, $longId);
+                }
+            }
+
+            $settings = ShopSettings::first();
+            $orderData = $this->prepareOrderDataForPdf($order, $myInvoisInvoice, $qrCodeUrl);
+            $shopSettings = $this->prepareShopSettingsForPdf($settings);
+
+            $qrCodeBase64 = null;
+            if ($qrCodeUrl) {
+                try {
+                    $qrCodeImageUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data='.urlencode($qrCodeUrl);
+                    $qrCodeImage = file_get_contents($qrCodeImageUrl);
+                    if ($qrCodeImage) {
+                        $qrCodeBase64 = 'data:image/png;base64,'.base64_encode($qrCodeImage);
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to generate QR code for PDF', ['error' => $e->getMessage()]);
+                }
+            }
+            $orderData['qr_code_base64'] = $qrCodeBase64;
+
+            $pdf = Pdf::loadView('pdf.e-invoice', [
+                'order' => $orderData,
+                'shopSettings' => $shopSettings,
+            ])->setPaper('a4', 'portrait');
+
+            \Illuminate\Support\Facades\Mail::to($email)
+                ->send(new \App\Mail\EInvoiceEmail($order, $pdf->output(), $name));
+
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Failed to send e-invoice email', [
+                'order_id' => $order->id,
+                'email' => $email,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
     }
 }
