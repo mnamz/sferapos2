@@ -124,3 +124,40 @@ it('issues a credit note via HTTP and frees the order for reissue', function () 
         ->and($order->fresh()->status)->toBe('cancelled')
         ->and(MyInvoisCreditNote::count())->toBe(1);
 });
+
+it('reissues a corrected invoice with a unique -R1 id after a credit note', function () {
+    Http::fake([
+        'sandbox-middleware.test/documents/submit/creditNote' => Http::response([
+            'submissionUid' => 'CN-SUB-1',
+            'acceptedDocuments' => [['uuid' => 'CN-UUID-1', 'invoiceCodeNumber' => 'CN1-TEST']],
+        ], 200),
+        'sandbox-middleware.test/documents/submit/invoice' => Http::response([
+            'submissionUid' => 'RE-SUB-1',
+            'acceptedDocuments' => [['uuid' => 'RE-UUID-1', 'invoiceCodeNumber' => 'RE1-TEST']],
+        ], 200),
+    ]);
+
+    $order = makeOrder();
+    $original = makeInvoice($order);
+
+    $service = app(MyInvoisService::class);
+
+    expect($service->submitCreditNote($order, 'wrong amount'))->toBeTrue();
+    expect($order->fresh()->myInvoisInvoice)->toBeNull();
+
+    // Reissue a corrected invoice (the LHDN procedure after a credit note).
+    expect($service->submitInvoice($order->fresh(), true))->toBeTrue();
+
+    // The reissued invoice document id is uniquified to avoid LHDN duplicate-id rejection.
+    Http::assertSent(function ($request) use ($order) {
+        return str_contains($request->url(), '/documents/submit/invoice')
+            && $request->data()['documents'][0]['id'] === $order->id.'-TEST-R1';
+    });
+
+    // A new active invoice row exists and the active-scoped relation resolves to it.
+    $reissued = $order->fresh()->myInvoisInvoice;
+    expect($reissued)->not->toBeNull()
+        ->and($reissued->status)->toBe('active')
+        ->and($reissued->id)->not->toBe($original->id)
+        ->and(\App\Models\MyInvoisInvoice::where('order_id', $order->id)->count())->toBe(2);
+});
