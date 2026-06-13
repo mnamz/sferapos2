@@ -143,7 +143,7 @@ class OrderController extends Controller
 
     public function show(Order $order)
     {
-        $order->load(['customer', 'user', 'items.product', 'myInvoisQueue', 'myInvoisInvoice']);
+        $order->load(['customer', 'user', 'items.product', 'myInvoisQueue', 'myInvoisInvoice', 'myInvoisInvoices', 'myInvoisCreditNotes']);
 
         $orderData = [
             'id' => $order->id,
@@ -199,6 +199,32 @@ class OrderController extends Controller
                     ->addHours((int) config('services.myinvois.cancellation_window_hours', 72))
                     ->format('Y-m-d H:i'),
             ] : null,
+            // Full audit trail of every e-invoice + credit note for this order,
+            // mirroring what the LHDN portal shows. Kept rows (credited/cancelled)
+            // stay viewable here even though myinvois_invoice (active) hides them.
+            'einvoice_history' => $order->myInvoisInvoices
+                ->map(fn ($inv) => [
+                    'id' => $inv->id,
+                    'type' => 'Invoice',
+                    'code' => $inv->invoice_code_number,
+                    'uuid' => $inv->uuid,
+                    'status' => $inv->status,
+                    'submitted_at' => $inv->created_at?->format('Y-m-d H:i'),
+                    'view_url' => route('orders.eInvoice', $order->id).'?document='.$inv->id,
+                ])
+                ->concat($order->myInvoisCreditNotes->map(fn ($cn) => [
+                    'id' => $cn->id,
+                    'type' => 'Credit Note',
+                    'code' => $cn->credit_note_code_number,
+                    'uuid' => $cn->uuid,
+                    'status' => 'valid',
+                    'reason' => $cn->reason,
+                    'submitted_at' => $cn->created_at?->format('Y-m-d H:i'),
+                    'view_url' => null,
+                ]))
+                ->sortByDesc('submitted_at')
+                ->values()
+                ->all(),
         ];
 
         return Inertia::render('Orders/Show', [
@@ -211,7 +237,13 @@ class OrderController extends Controller
     {
         $order->load(['customer', 'user', 'items.product', 'myInvoisInvoice']);
 
-        $myInvoisInvoice = $order->myInvoisInvoice;
+        // View a specific document when requested (history panel), otherwise the
+        // active e-invoice, falling back to the latest of any status so a
+        // credited/cancelled e-invoice stays viewable.
+        $documentId = request('document');
+        $myInvoisInvoice = $documentId
+            ? $order->myInvoisInvoices()->whereKey($documentId)->first()
+            : ($order->myInvoisInvoice ?? $order->latestMyInvoisInvoice);
         $qrCodeUrl = null;
         $documentDetails = null;
 
@@ -305,7 +337,13 @@ class OrderController extends Controller
     {
         $order->load(['customer', 'user', 'items.product', 'myInvoisInvoice']);
 
-        $myInvoisInvoice = $order->myInvoisInvoice;
+        // View a specific document when requested (history panel), otherwise the
+        // active e-invoice, falling back to the latest of any status so a
+        // credited/cancelled e-invoice stays viewable.
+        $documentId = request('document');
+        $myInvoisInvoice = $documentId
+            ? $order->myInvoisInvoices()->whereKey($documentId)->first()
+            : ($order->myInvoisInvoice ?? $order->latestMyInvoisInvoice);
         $qrCodeUrl = null;
         $documentDetails = null;
 

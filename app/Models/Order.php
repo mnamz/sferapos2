@@ -102,6 +102,13 @@ class Order extends Model implements Auditable
         return $this->hasMany(MyInvoisInvoice::class);
     }
 
+    public function latestMyInvoisInvoice()
+    {
+        // Most recent e-invoice regardless of status (active/credited/cancelled);
+        // used for viewing the document even after it has been credited.
+        return $this->hasOne(MyInvoisInvoice::class)->latest('id');
+    }
+
     public function myInvoisCreditNotes()
     {
         return $this->hasMany(MyInvoisCreditNote::class);

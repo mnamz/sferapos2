@@ -172,6 +172,61 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- E-Invoice History -->
+                        <div
+                            v-if="order.einvoice_history && order.einvoice_history.length"
+                            class="mt-6 bg-gray-50 dark:bg-gray-700 p-4 rounded-lg"
+                        >
+                            <h3 class="text-lg font-semibold mb-4">E-Invoice History</h3>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                    <thead class="bg-gray-100 dark:bg-gray-800">
+                                        <tr>
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Type</th>
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Code / Number</th>
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Submitted</th>
+                                            <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                        <tr v-for="doc in order.einvoice_history" :key="doc.type + '-' + doc.id">
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ doc.type }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                                                {{ doc.code || '-' }}
+                                                <span
+                                                    v-if="doc.type === 'Credit Note' && doc.reason"
+                                                    class="block text-xs text-gray-500 dark:text-gray-400"
+                                                >
+                                                    {{ doc.reason }}
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm">
+                                                <span
+                                                    :class="statusBadgeClass(doc.status)"
+                                                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                                                >
+                                                    {{ statusLabel(doc.status) }}
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ doc.submitted_at || '-' }}</td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+                                                <a
+                                                    v-if="doc.view_url"
+                                                    :href="doc.view_url"
+                                                    target="_blank"
+                                                    class="text-indigo-600 dark:text-indigo-400 hover:underline"
+                                                >
+                                                    View
+                                                </a>
+                                                <span v-else class="text-gray-400">—</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -208,7 +263,7 @@
                     Print Invoice
                 </a>
                 <Link
-                    v-if="order.myinvois_invoice"
+                    v-if="hasEInvoice"
                     :href="route('orders.eInvoice', order.id)"
                     class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
                     target="_blank"
@@ -381,6 +436,27 @@ const canEdit = computed(() => {
     const roles = page.props.auth?.roles ?? [];
     return roles.includes('admin') || roles.includes('manager');
 });
+
+// An order has a viewable e-invoice whenever any Invoice document exists in its
+// history (active, credited, or cancelled) — not only when one is currently active.
+const hasEInvoice = computed(() =>
+    (props.order.einvoice_history || []).some((doc) => doc.type === 'Invoice'),
+);
+
+const statusLabel = (status) => {
+    const labels = { active: 'Active', credited: 'Credited', cancelled: 'Cancelled', valid: 'Valid' };
+    return labels[status] || status;
+};
+
+const statusBadgeClass = (status) => {
+    const classes = {
+        active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+        valid: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+        credited: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+        cancelled: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+    };
+    return classes[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+};
 
 const showStatusDropdown = ref(false);
 const sendingInvoice = ref(false);
