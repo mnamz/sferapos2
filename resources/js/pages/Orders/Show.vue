@@ -328,7 +328,7 @@
                     Cancel MyInvois Invoice
                 </button>
                 <button
-                    v-if="canEdit && order.myinvois_invoice && !order.myinvois_invoice.within_cancellation_window"
+                    v-if="isAdmin && order.myinvois_invoice && !order.myinvois_invoice.within_cancellation_window"
                     @click="showCreditNoteModal = true"
                     class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
                 >

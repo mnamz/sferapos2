@@ -125,7 +125,7 @@ it('issues a credit note via HTTP and frees the order for reissue', function () 
     $invoice->created_at = now()->subHours(100);
     $invoice->save();
 
-    $this->actingAs(User::first())
+    $this->actingAs(adminUser())
         ->post(route('orders.creditNoteMyInvois', $order), ['reason' => 'wrong amount'])
         ->assertSessionHas('success');
 
@@ -133,6 +133,23 @@ it('issues a credit note via HTTP and frees the order for reissue', function () 
         ->and($order->fresh()->myInvoisInvoice)->toBeNull()
         ->and($order->fresh()->status)->toBe('cancelled')
         ->and(MyInvoisCreditNote::count())->toBe(1);
+});
+
+it('forbids a non-admin from issuing a credit note', function () {
+    Http::fake(['sandbox-middleware.test/*' => Http::response([], 200)]);
+
+    $order = makeOrder();
+    $invoice = makeInvoice($order);
+    $invoice->created_at = now()->subHours(100);
+    $invoice->save();
+
+    // makeOrder()'s user has no admin role.
+    $this->actingAs(User::first())
+        ->post(route('orders.creditNoteMyInvois', $order), ['reason' => 'wrong amount'])
+        ->assertForbidden();
+
+    expect($invoice->fresh()->status)->toBe('active')
+        ->and(MyInvoisCreditNote::count())->toBe(0);
 });
 
 it('reissues a corrected invoice with a unique -R1 id after a credit note', function () {

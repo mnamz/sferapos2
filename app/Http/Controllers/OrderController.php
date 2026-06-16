@@ -1011,6 +1011,12 @@ class OrderController extends Controller
 
     public function creditNoteMyInvois(Request $request, Order $order)
     {
+        // Issuing a credit note is an admin-only action — enforced here (not just
+        // in the UI) so it holds for direct requests too.
+        if (! auth()->user()?->hasRole('admin')) {
+            abort(403, 'Only administrators can issue a credit note.');
+        }
+
         try {
             $validated = $request->validate([
                 'reason' => 'required|string|max:1000',
