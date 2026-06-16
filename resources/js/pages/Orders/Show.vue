@@ -294,7 +294,7 @@
                     Push to MyInvois
                 </button>
                 <button
-                    v-if="canEdit && !order.myinvois_invoice && hasEInvoice"
+                    v-if="isAdmin && !order.myinvois_invoice && hasEInvoice"
                     @click="reissueToMyInvois"
                     class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
@@ -443,6 +443,9 @@ const canEdit = computed(() => {
     const roles = page.props.auth?.roles ?? [];
     return roles.includes('admin') || roles.includes('manager');
 });
+
+// Reissuing a credited e-invoice is admin-only (enforced server-side too).
+const isAdmin = computed(() => (page.props.auth?.roles ?? []).includes('admin'));
 
 // An order has a viewable e-invoice whenever any Invoice document exists in its
 // history (active, credited, or cancelled) — not only when one is currently active.

@@ -853,6 +853,17 @@ class OrderController extends Controller
 
     public function pushToMyInvois(Order $order)
     {
+        // A push is a reissue when the order already has prior e-invoice
+        // submissions (cancelled/credited rows kept for audit). Reissuing a
+        // credited e-invoice is an admin-only action — enforced here (not just
+        // in the UI) so the gate holds even for direct requests. Checked before
+        // the try block so the 403 is not swallowed by the catch.
+        $isReissue = $order->myInvoisInvoices()->exists();
+
+        if ($isReissue && ! auth()->user()?->hasRole('admin')) {
+            abort(403, 'Only administrators can reissue an e-invoice.');
+        }
+
         try {
             $myInvoisService = app(\App\Services\MyInvoisService::class);
 
@@ -860,10 +871,7 @@ class OrderController extends Controller
                 return back()->with('error', 'MyInvois service is not enabled');
             }
 
-            // A push is a reissue when the order already has prior e-invoice
-            // submissions (cancelled/credited rows kept for audit). Reissues
-            // auto-email the corrected e-invoice; the first push does not.
-            $isReissue = $order->myInvoisInvoices()->exists();
+            // Reissues auto-email the corrected e-invoice; the first push does not.
 
             // Force refresh to use latest order/customer data instead of old queue payload
             $result = $myInvoisService->submitInvoice($order, forceRefresh: true);

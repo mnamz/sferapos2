@@ -19,6 +19,15 @@ beforeEach(function () {
     makeShopSettings();
 });
 
+function adminUser(): \App\Models\User
+{
+    $user = \App\Models\User::first() ?? \App\Models\User::factory()->create();
+    \Spatie\Permission\Models\Role::findOrCreate('admin');
+    $user->assignRole('admin');
+
+    return $user;
+}
+
 it('submits a credit note referencing the original e-invoice', function () {
     Http::fake([
         'sandbox-middleware.test/documents/submit/credit-note' => Http::response([
@@ -198,7 +207,7 @@ it('emails the reissued e-invoice to the customer on a reissue push', function (
     // A prior credited submission means this push is a reissue (post-credit-note state).
     makeInvoice($order, ['status' => 'credited']);
 
-    $this->actingAs(User::first())
+    $this->actingAs(adminUser())
         ->post(route('orders.pushMyInvois', $order))
         ->assertSessionHas('success');
 
@@ -220,7 +229,7 @@ it('reissue push revives a cancelled order and creates a new active e-invoice', 
     // Post-credit-note state: order was cancelled, original credited, no active invoice.
     $order->update(['status' => 'cancelled']);
 
-    $this->actingAs(User::first())
+    $this->actingAs(adminUser())
         ->post(route('orders.pushMyInvois', $order))
         ->assertSessionHas('success');
 
@@ -228,6 +237,22 @@ it('reissue push revives a cancelled order and creates a new active e-invoice', 
     expect($order->status)->toBe('completed')
         ->and($order->myInvoisInvoice)->not->toBeNull()
         ->and($order->myInvoisInvoice->status)->toBe('active');
+});
+
+it('forbids a non-admin from reissuing an e-invoice', function () {
+    Http::fake(['sandbox-middleware.test/*' => Http::response([], 200)]);
+
+    $order = makeOrder();
+    makeInvoice($order, ['status' => 'credited']); // prior invoice → reissue state
+    $order->update(['status' => 'cancelled']);
+
+    // makeOrder()'s user has no admin role.
+    $this->actingAs(User::first())
+        ->post(route('orders.pushMyInvois', $order))
+        ->assertForbidden();
+
+    expect($order->fresh()->myInvoisInvoices()->count())->toBe(1)
+        ->and($order->fresh()->status)->toBe('cancelled');
 });
 
 it('does not email on the first e-invoice submission', function () {
