@@ -51,4 +51,16 @@ return [
         'branch' => env('EINVOICE_BRANCH', ''),
     ],
 
+    'tangent' => [
+        'enabled' => filter_var(env('TANGENT_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
+        'base_url' => env('TANGENT_BASE_URL', 'https://staging.synthesis.bz/posmy/v1/api'),
+        'username' => env('TANGENT_USERNAME'),
+        'password' => env('TANGENT_PASSWORD'),
+        'machine_id' => env('TANGENT_MACHINE_ID'),
+        'batch_id' => env('TANGENT_BATCH_ID', '1'),
+        'gst_registered' => env('TANGENT_GST_REGISTERED'), // null => derive from shop settings
+        'lookback_days' => (int) env('TANGENT_LOOKBACK_DAYS', 7),
+        'timezone' => env('TANGENT_TIMEZONE', 'Asia/Kuala_Lumpur'),
+    ],
+
 ];
