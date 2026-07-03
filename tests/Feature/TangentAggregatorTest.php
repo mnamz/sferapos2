@@ -123,8 +123,13 @@ it('maps payment methods to tender fields and keeps sum(tenders) == gto', functi
 it('derives gstregistered from shop settings when config is null', function () {
     config(['services.tangent.gst_registered' => null]);
     ShopSettings::create([
-        'shop_name' => 'Test', 'currency' => 'MYR',
-        'tax_percentage' => 6, 'tax_number' => 'SST-123',
+        'shop_name' => 'Test',
+        'shop_address' => '1 Test Street',
+        'shop_phone' => '+60123456789',
+        'shop_email' => 'shop@test.local',
+        'currency' => 'MYR',
+        'tax_percentage' => 6,
+        'tax_number' => 'SST-123',
     ]);
 
     $rows = app(HourlySalesAggregator::class)
