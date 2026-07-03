@@ -127,6 +127,13 @@ php artisan myinvois:push-queue
 
 # Check daily sales (scheduled command)
 php artisan check:daily-sales
+
+# Push hourly sales to Tangent (scheduled hourly; idempotent, void-aware)
+php artisan tangent:push-sales
+
+# Preview a day's payload without sending, or test the connection
+php artisan tangent:push-sales --date=2026-07-04 --dry-run
+php artisan tangent:push-sales --test-connection
 ```
 
 ## Architecture & Key Concepts
@@ -243,6 +250,13 @@ pending → processing → completed
 7. Within 72h of validation: invoice can be cancelled (`orders.cancelMyInvois`); the row is kept and marked `cancelled` for audit
 8. After 72h: LHDN forbids cancellation — issue a Credit Note (`orders.creditNoteMyInvois`) which marks the original invoice `credited`, then edit the order and push a corrected invoice (its document ID gets a `-R{n}` suffix to avoid duplicate-ID rejection)
 
+### Tangent SalesHourly Flow (Malaysia mall reporting)
+1. Enabled only when `TANGENT_ENABLED=true` and credentials are set (base_url, username, password, machine_id).
+2. `tangent:push-sales` runs hourly. It recomputes 24 hourly aggregates/day for the last `TANGENT_LOOKBACK_DAYS` days from live orders (KL timezone), excluding cancelled/soft-deleted orders (net-of-void), and upserts them into `tangent_sales_hourly` with a per-hour content hash.
+3. A day is (re)sent — one request of exactly 24 records — only when its hash changed or a prior send failed; unchanged days are skipped. Tangent upserts by (machineid, date, hour), so re-sends and later voids self-correct.
+4. Amounts: `gto = Σ(subtotal − discount)` (ex-tax net, delivery excluded); `gst = Σ(tax)`. Tender mapping: cash→cash, card→visa, e-wallet→tng, transfers/unknown→othersamount.
+5. Test locally with `--dry-run`, `--date=YYYY-MM-DD`, `--test-connection`, `--force`.
+
 ### Customer Lookup Logic
 When submitting MyInvois invoices:
 1. Search by phone number (primary)
@@ -280,6 +294,17 @@ EINVOICE_BRANCH=branch_name
 TMS_ENDPOINT=https://tms.1utama.com.my/POS/POSService.svc/SendReceipts
 TMS_AUTHORIZATION_TOKEN=your_token
 TMS_IS_TEST=true|false
+
+# Tangent SalesHourly (Malaysia)
+TANGENT_ENABLED=true|false
+TANGENT_BASE_URL=https://staging.synthesis.bz/posmy/v1/api
+TANGENT_USERNAME=your_username
+TANGENT_PASSWORD=your_password
+TANGENT_MACHINE_ID=71000005
+TANGENT_BATCH_ID=1
+TANGENT_GST_REGISTERED=Y|N   # blank => derive from shop settings
+TANGENT_LOOKBACK_DAYS=7
+TANGENT_TIMEZONE=Asia/Kuala_Lumpur
 
 # Email
 MAIL_MAILER=smtp
