@@ -31,6 +31,12 @@ class TangentClient
      */
     public function token(): ?string
     {
+        if (! $this->isConfigured()) {
+            Log::warning('Tangent token requested while not configured.');
+
+            return null;
+        }
+
         $base = $this->baseUrl();
         $username = (string) config('services.tangent.username');
         $password = (string) config('services.tangent.password');
