@@ -137,3 +137,15 @@ it('test-connection fetches a token and sends no sales', function () {
 
     expect(salesRequestCount())->toBe(0);
 });
+
+it('force re-sends an unchanged day', function () {
+    fakeTangentSuccess();
+    pushOrderAt($this->user->id, '2026-07-04 10:00:00');
+
+    $this->artisan('tangent:push-sales', ['--date' => '2026-07-04'])->assertSuccessful();
+    expect(salesRequestCount())->toBe(1);
+
+    // No data changed, so without --force it would be skipped; --force resends.
+    $this->artisan('tangent:push-sales', ['--date' => '2026-07-04', '--force' => true])->assertSuccessful();
+    expect(salesRequestCount())->toBe(2);
+});
