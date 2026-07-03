@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 class TangentSalesHourly extends Model
 {
@@ -16,7 +17,9 @@ class TangentSalesHourly extends Model
     ];
 
     protected $casts = [
-        'sale_date' => 'date',
+        // sale_date is stored as a plain 'Y-m-d' string (no date cast) so that
+        // firstOrNew()/where() lookups keyed on the date string match exactly;
+        // a datetime cast would persist '... 00:00:00' and break string matches.
         'hour' => 'integer',
         'receipt_count' => 'integer',
         'no_of_pax' => 'integer',
@@ -45,7 +48,7 @@ class TangentSalesHourly extends Model
         return [
             'machineid' => (string) config('services.tangent.machine_id'),
             'batchid' => (string) config('services.tangent.batch_id', '1'),
-            'date' => $this->sale_date->format('Ymd'),
+            'date' => Carbon::parse($this->sale_date)->format('Ymd'),
             'hour' => str_pad((string) $this->hour, 2, '0', STR_PAD_LEFT),
             'receiptcount' => (string) (int) $this->receipt_count,
             'gto' => $this->money($this->gto),
