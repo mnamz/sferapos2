@@ -26,8 +26,10 @@ class TangentClient
     /**
      * Fetch (and cache) the Tangent bearer token.
      *
-     * The spec is self-contradictory (GET + form body); we implement it per the
-     * documented shape and log the exchange so it can be corrected if needed.
+     * OAuth2 password grant. The vendor PDF labels this "GET" with a form body,
+     * but the live endpoint only reads credentials from a POST
+     * application/x-www-form-urlencoded body (verified against production:
+     * GET/JSON return "unsupported_grant_type"; POST-form processes the grant).
      */
     public function token(): ?string
     {
@@ -48,14 +50,12 @@ class TangentClient
         }
 
         try {
-            $response = Http::withHeaders(['Content-Type' => 'application/x-www-form-urlencoded'])
+            $response = Http::asForm()
                 ->timeout(30)
-                ->send('GET', $base.'/token', [
-                    'body' => http_build_query([
-                        'grant_type' => 'password',
-                        'username' => $username,
-                        'password' => $password,
-                    ]),
+                ->post($base.'/token', [
+                    'grant_type' => 'password',
+                    'username' => $username,
+                    'password' => $password,
                 ]);
 
             Log::info('Tangent token response', ['status' => $response->status()]);
