@@ -6,7 +6,9 @@ use App\Models\Category;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ShopSettings;
 use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -360,6 +362,47 @@ class ReportController extends Controller
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Cache-Control' => 'max-age=0',
         ]);
+    }
+
+    private function salesRegisterMatchingOrders(Request $request)
+    {
+        $startDate = $request->input('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
+
+        return Order::query()
+            ->with(['items', 'customer', 'user'])
+            ->whereBetween('created_at', [$startDate.' 00:00:00', $endDate.' 23:59:59'])
+            ->where('status', '!=', 'cancelled')
+            ->when($request->input('user_id'), fn ($q, $id) => $q->where('user_id', $id))
+            ->when($request->input('customer_id'), fn ($q, $id) => $q->where('customer_id', $id))
+            ->when($request->input('payment_method'), fn ($q, $m) => $q->where('payment_method', $m))
+            ->when($request->input('delivery_method'), fn ($q, $m) => $q->where('delivery_method', $m))
+            ->when($request->input('category_id'), fn ($q, $id) => $q->whereHas('items.product', fn ($p) => $p->where('category_id', $id)))
+            ->when($request->input('brand'), function ($q, $brand) {
+                $q->whereHas('items', function ($i) use ($brand) {
+                    $i->where('product_name', 'like', $brand.' %')
+                        ->orWhere('product_name', $brand);
+                });
+            })
+            ->orderBy('created_at')
+            ->get();
+    }
+
+    public function salesRegisterInvoices(Request $request)
+    {
+        $orders = $this->salesRegisterMatchingOrders($request);
+
+        if ($orders->isEmpty()) {
+            return back()->with('error', 'No invoices found for the selected filters.');
+        }
+
+        $pdf = Pdf::loadView('pdf.invoices-bundle', [
+            'orders' => $orders,
+            'settings' => ShopSettings::first(),
+            'queueDelayHours' => config('services.myinvois.queue_delay_hours', 72),
+        ]);
+
+        return $pdf->stream('sales-register-invoices.pdf');
     }
 
     public function salesRegister(Request $request)

@@ -208,3 +208,30 @@ it('exports the sales register as an xlsx download', function () {
     $response->assertOk();
     expect($response->headers->get('content-disposition'))->toContain('.xlsx');
 });
+
+it('bundles matching orders into a single invoices PDF', function () {
+    makeShopSettings();
+    $user = User::factory()->create();
+    $cat = Category::create(['name' => 'DJI']);
+    $p = Product::factory()->create(['name' => 'DJI AIR 3', 'category_id' => $cat->id]);
+    makeRegisterOrder(['user_id' => $user->id], [
+        ['product_id' => $p->id, 'product_name' => 'DJI AIR 3', 'quantity' => 1, 'price' => 100, 'total' => 100],
+    ]);
+
+    $response = $this->actingAs($user)->get(route('reports.sales-register.invoices', [
+        'start_date' => '2026-06-01', 'end_date' => '2026-06-30',
+    ]));
+
+    $response->assertOk();
+    expect($response->headers->get('content-type'))->toContain('application/pdf');
+});
+
+it('redirects back when no orders match the invoices bundle', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('reports.sales-register.invoices', [
+            'start_date' => '2026-06-01', 'end_date' => '2026-06-30',
+        ]))
+        ->assertRedirect();
+});
