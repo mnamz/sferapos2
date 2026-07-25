@@ -72,6 +72,11 @@ const mainNavItems: NavItem[] = [
         icon: BarChart3,
     },
     {
+        title: 'Sales Register',
+        href: route('reports.sales-register'),
+        icon: BarChart3,
+    },
+    {
         title: 'Products',
         href: route('products.index'),
         icon: Package,
@@ -101,6 +106,9 @@ const mainNavItems: NavItem[] = [
 const filteredNavItems = computed(() => {
     return mainNavItems.filter(item => {
         if (item.title === 'Reports' && roles.includes('staff')) {
+            return false;
+        }
+        if (item.title === 'Sales Register' && roles.includes('staff')) {
             return false;
         }
         if (item.title === 'Suppliers' && roles.includes('staff')) {
