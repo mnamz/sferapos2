@@ -219,11 +219,78 @@ class ReportController extends Controller
         exit;
     }
 
+    private function salesRegisterBaseQuery(Request $request)
+    {
+        $startDate = $request->input('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
+
+        return DB::table('order_items')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+            ->whereNull('orders.deleted_at')
+            ->where('orders.status', '!=', 'cancelled')
+            ->whereBetween('orders.created_at', [$startDate.' 00:00:00', $endDate.' 23:59:59'])
+            ->when($request->input('brand'), function ($query, $brand) {
+                $query->where(function ($q) use ($brand) {
+                    $q->where('order_items.product_name', 'like', $brand.' %')
+                        ->orWhere('order_items.product_name', $brand);
+                });
+            })
+            ->when($request->input('category_id'), fn ($query, $id) => $query->where('products.category_id', $id))
+            ->when($request->input('user_id'), fn ($query, $id) => $query->where('orders.user_id', $id))
+            ->when($request->input('customer_id'), fn ($query, $id) => $query->where('orders.customer_id', $id))
+            ->when($request->input('payment_method'), fn ($query, $m) => $query->where('orders.payment_method', $m))
+            ->when($request->input('delivery_method'), fn ($query, $m) => $query->where('orders.delivery_method', $m));
+    }
+
     public function salesRegister(Request $request)
     {
+        $rows = $this->salesRegisterBaseQuery($request)
+            ->select(
+                DB::raw("COALESCE(categories.name, 'Uncategorized') as category"),
+                'order_items.product_name as product_name',
+                DB::raw('SUM(order_items.quantity) as quantity'),
+                DB::raw('SUM(order_items.total) as sales')
+            )
+            ->groupBy('category', 'order_items.product_name')
+            ->orderBy('category')
+            ->orderBy('order_items.product_name')
+            ->get();
+
+        $groups = [];
+        $grandQuantity = 0;
+        $grandSales = 0.0;
+
+        foreach ($rows as $row) {
+            $category = $row->category;
+            if (! isset($groups[$category])) {
+                $groups[$category] = [
+                    'category' => $category,
+                    'products' => [],
+                    'quantity_total' => 0,
+                    'sales_total' => 0.0,
+                ];
+            }
+
+            $quantity = (int) $row->quantity;
+            $sales = (float) $row->sales;
+
+            $groups[$category]['products'][] = [
+                'name' => $row->product_name,
+                'quantity' => $quantity,
+                'sales' => $sales,
+            ];
+            $groups[$category]['quantity_total'] += $quantity;
+            $groups[$category]['sales_total'] += $sales;
+
+            $grandQuantity += $quantity;
+            $grandSales += $sales;
+        }
+
         return Inertia::render('Reports/SalesRegister', [
-            'groups' => [],
-            'grandTotal' => ['quantity' => 0, 'sales' => 0],
+            'groups' => array_values($groups),
+            'grandTotal' => ['quantity' => $grandQuantity, 'sales' => $grandSales],
             'filterOptions' => [
                 'brands' => [],
                 'categories' => [],
