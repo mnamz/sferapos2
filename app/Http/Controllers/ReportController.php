@@ -268,6 +268,100 @@ class ReportController extends Controller
             ->when($request->input('delivery_method'), fn ($query, $m) => $query->where('orders.delivery_method', $m));
     }
 
+    public function salesRegisterExport(Request $request)
+    {
+        $startDate = $request->input('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
+
+        $rows = $this->salesRegisterBaseQuery($request)
+            ->select(
+                DB::raw("COALESCE(categories.name, 'Uncategorized') as category"),
+                'order_items.product_name as product_name',
+                DB::raw('SUM(order_items.quantity) as quantity'),
+                DB::raw('SUM(order_items.total) as sales')
+            )
+            ->groupBy('category', 'order_items.product_name')
+            ->orderBy('category')
+            ->orderBy('order_items.product_name')
+            ->get();
+
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $sheet->setCellValue('A1', 'Product');
+        $sheet->setCellValue('B1', 'Quantity');
+        $sheet->setCellValue('C1', 'Sales');
+        $sheet->getStyle('A1:C1')->getFont()->setBold(true);
+
+        $row = 2;
+        $currentCategory = null;
+        $catQty = 0;
+        $catSales = 0.0;
+        $grandQty = 0;
+        $grandSales = 0.0;
+
+        $writeCategoryTotal = function () use ($sheet, &$row, &$catQty, &$catSales) {
+            $sheet->setCellValue('A'.$row, 'Total');
+            $sheet->setCellValue('B'.$row, $catQty);
+            $sheet->setCellValue('C'.$row, $catSales);
+            $sheet->getStyle('A'.$row.':C'.$row)->getFont()->setBold(true);
+            $sheet->getStyle('C'.$row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
+            $row++;
+        };
+
+        foreach ($rows as $r) {
+            if ($currentCategory !== $r->category) {
+                if ($currentCategory !== null) {
+                    $writeCategoryTotal();
+                    $catQty = 0;
+                    $catSales = 0.0;
+                }
+                $currentCategory = $r->category;
+                $sheet->setCellValue('A'.$row, $r->category);
+                $sheet->getStyle('A'.$row)->getFont()->setBold(true);
+                $row++;
+            }
+
+            $qty = (int) $r->quantity;
+            $sales = (float) $r->sales;
+
+            $sheet->setCellValue('A'.$row, $r->product_name);
+            $sheet->setCellValue('B'.$row, $qty);
+            $sheet->setCellValue('C'.$row, $sales);
+            $sheet->getStyle('C'.$row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
+            $row++;
+
+            $catQty += $qty;
+            $catSales += $sales;
+            $grandQty += $qty;
+            $grandSales += $sales;
+        }
+
+        if ($currentCategory !== null) {
+            $writeCategoryTotal();
+        }
+
+        $sheet->setCellValue('A'.$row, 'Grand Total');
+        $sheet->setCellValue('B'.$row, $grandQty);
+        $sheet->setCellValue('C'.$row, $grandSales);
+        $sheet->getStyle('A'.$row.':C'.$row)->getFont()->setBold(true);
+        $sheet->getStyle('C'.$row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
+
+        foreach (range('A', 'C') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $fileName = 'sales-register-'.$startDate.'-to-'.$endDate.'.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+        }, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+
     public function salesRegister(Request $request)
     {
         $rows = $this->salesRegisterBaseQuery($request)

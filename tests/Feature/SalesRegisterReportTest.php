@@ -192,3 +192,19 @@ it('provides brand and category filter options', function () {
             ->where('filterOptions.customers', fn ($custs) => collect($custs)->pluck('name')->contains('Acme Corp'))
         );
 });
+
+it('exports the sales register as an xlsx download', function () {
+    $user = User::factory()->create();
+    $cat = Category::create(['name' => 'DJI']);
+    $p = Product::factory()->create(['name' => 'DJI AIR 3', 'category_id' => $cat->id]);
+    makeRegisterOrder(['user_id' => $user->id], [
+        ['product_id' => $p->id, 'product_name' => 'DJI AIR 3', 'quantity' => 2, 'total' => 200],
+    ]);
+
+    $response = $this->actingAs($user)->get(route('reports.sales-register.export', [
+        'start_date' => '2026-06-01', 'end_date' => '2026-06-30',
+    ]));
+
+    $response->assertOk();
+    expect($response->headers->get('content-disposition'))->toContain('.xlsx');
+});
