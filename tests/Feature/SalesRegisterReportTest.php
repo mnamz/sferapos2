@@ -190,6 +190,9 @@ it('provides brand and category filter options', function () {
             ->where('filterOptions.brands', fn ($brands) => collect($brands)->contains('DJI') && collect($brands)->contains('INSTA360'))
             ->where('filterOptions.categories', fn ($cats) => collect($cats)->pluck('name')->contains('DIGITAL CAMERA'))
             ->where('filterOptions.customers', fn ($custs) => collect($custs)->pluck('name')->contains('Acme Corp'))
+            ->where('filterOptions.paymentMethods', fn ($methods) => collect($methods)->contains('e-wallet') && collect($methods)->contains('online_transfer'))
+            ->where('filterOptions.deliveryMethods', fn ($methods) => collect($methods)->contains('walk-in'))
+            ->has('filterOptions.salespersons')
         );
 });
 
@@ -234,4 +237,41 @@ it('redirects back when no orders match the invoices bundle', function () {
             'start_date' => '2026-06-01', 'end_date' => '2026-06-30',
         ]))
         ->assertRedirect();
+});
+
+it('includes orders at the end_date upper boundary and excludes the next day', function () {
+    $user = User::factory()->create();
+    $cat = Category::create(['name' => 'DJI']);
+    $p = Product::factory()->create(['name' => 'DJI AIR 3', 'category_id' => $cat->id]);
+
+    makeRegisterOrder(['user_id' => $user->id, 'created_at' => '2026-06-30 23:59:59'], [
+        ['product_id' => $p->id, 'product_name' => 'DJI AIR 3', 'quantity' => 2, 'total' => 200],
+    ]);
+    makeRegisterOrder(['user_id' => $user->id, 'created_at' => '2026-07-01 00:00:00'], [
+        ['product_id' => $p->id, 'product_name' => 'DJI AIR 3', 'quantity' => 5, 'total' => 500],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('reports.sales-register', ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']))
+        ->assertInertia(fn ($page) => $page->where('grandTotal.quantity', 2));
+});
+
+it('exports multiple categories with per-category totals', function () {
+    $user = User::factory()->create();
+    $cameras = Category::create(['name' => 'DIGITAL CAMERA']);
+    $acc = Category::create(['name' => 'ACCESSORIES']);
+    $cam = Product::factory()->create(['name' => 'DJI NEO 2', 'category_id' => $cameras->id]);
+    $strap = Product::factory()->create(['name' => 'DJI STRAP', 'category_id' => $acc->id]);
+
+    makeRegisterOrder(['user_id' => $user->id], [
+        ['product_id' => $cam->id, 'product_name' => 'DJI NEO 2', 'quantity' => 3, 'total' => 300],
+        ['product_id' => $strap->id, 'product_name' => 'DJI STRAP', 'quantity' => 8, 'total' => 80],
+    ]);
+
+    $response = $this->actingAs($user)->get(route('reports.sales-register.export', [
+        'start_date' => '2026-06-01', 'end_date' => '2026-06-30',
+    ]));
+
+    $response->assertOk();
+    expect($response->headers->get('content-disposition'))->toContain('.xlsx');
 });

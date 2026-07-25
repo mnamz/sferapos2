@@ -240,7 +240,7 @@ class ReportController extends Controller
             'categories' => Category::orderBy('name')->get(['id', 'name']),
             'salespersons' => User::orderBy('name')->get(['id', 'name']),
             'customers' => Customer::orderBy('name')->get(['id', 'name']),
-            'paymentMethods' => ['cash', 'card', 'bank_transfer'],
+            'paymentMethods' => ['cash', 'card', 'e-wallet', 'online_transfer', 'bank_transfer'],
             'deliveryMethods' => ['walk-in', 'delivery', 'pickup', 'shopee', 'lazada', 'tiktok'],
         ];
     }
