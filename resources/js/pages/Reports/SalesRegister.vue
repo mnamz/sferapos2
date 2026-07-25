@@ -159,8 +159,8 @@ const breadcrumbs = [
 ];
 
 const queryParams = computed(() => ({
-    start_date: filters.value.start_date,
-    end_date: filters.value.end_date,
+    start_date: filters.value.start_date || undefined,
+    end_date: filters.value.end_date || undefined,
     brand: filters.value.brand || undefined,
     category_id: filters.value.category_id || undefined,
     user_id: filters.value.user_id || undefined,
