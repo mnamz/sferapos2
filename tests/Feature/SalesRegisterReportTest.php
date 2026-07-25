@@ -107,3 +107,71 @@ it('respects the date range boundaries', function () {
         ->get(route('reports.sales-register', ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']))
         ->assertInertia(fn ($page) => $page->where('grandTotal.quantity', 1));
 });
+
+it('filters by brand on the first word of the product name, case-insensitive', function () {
+    $user = User::factory()->create();
+    $cat = Category::create(['name' => 'DJI']);
+    $dji = Product::factory()->create(['name' => 'DJI MINI 4 PRO', 'category_id' => $cat->id]);
+    $insta = Product::factory()->create(['name' => 'INSTA360 X4', 'category_id' => $cat->id]);
+    $mini = Product::factory()->create(['name' => 'MINIATURE TRIPOD', 'category_id' => $cat->id]);
+
+    makeRegisterOrder(['user_id' => $user->id], [
+        ['product_id' => $dji->id, 'product_name' => 'DJI MINI 4 PRO', 'quantity' => 2, 'total' => 200],
+        ['product_id' => $insta->id, 'product_name' => 'INSTA360 X4', 'quantity' => 5, 'total' => 500],
+        ['product_id' => $mini->id, 'product_name' => 'MINIATURE TRIPOD', 'quantity' => 9, 'total' => 900],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('reports.sales-register', [
+            'start_date' => '2026-06-01', 'end_date' => '2026-06-30', 'brand' => 'dji',
+        ]))
+        ->assertInertia(fn ($page) => $page->where('grandTotal.quantity', 2));
+});
+
+it('filters by category', function () {
+    $user = User::factory()->create();
+    $cameras = Category::create(['name' => 'DIGITAL CAMERA']);
+    $acc = Category::create(['name' => 'ACCESSORIES']);
+    $cam = Product::factory()->create(['name' => 'DJI NEO 2', 'category_id' => $cameras->id]);
+    $strap = Product::factory()->create(['name' => 'DJI STRAP', 'category_id' => $acc->id]);
+
+    makeRegisterOrder(['user_id' => $user->id], [
+        ['product_id' => $cam->id, 'product_name' => 'DJI NEO 2', 'quantity' => 3, 'total' => 300],
+        ['product_id' => $strap->id, 'product_name' => 'DJI STRAP', 'quantity' => 8, 'total' => 80],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('reports.sales-register', [
+            'start_date' => '2026-06-01', 'end_date' => '2026-06-30', 'category_id' => $cameras->id,
+        ]))
+        ->assertInertia(fn ($page) => $page
+            ->where('grandTotal.quantity', 3)
+            ->where('groups.0.category', 'DIGITAL CAMERA')
+        );
+});
+
+it('filters by salesperson and by payment method', function () {
+    $alice = User::factory()->create();
+    $bob = User::factory()->create();
+    $cat = Category::create(['name' => 'DJI']);
+    $p = Product::factory()->create(['name' => 'DJI AIR 3', 'category_id' => $cat->id]);
+
+    makeRegisterOrder(['user_id' => $alice->id, 'payment_method' => 'cash'], [
+        ['product_id' => $p->id, 'product_name' => 'DJI AIR 3', 'quantity' => 1, 'total' => 100],
+    ]);
+    makeRegisterOrder(['user_id' => $bob->id, 'payment_method' => 'card'], [
+        ['product_id' => $p->id, 'product_name' => 'DJI AIR 3', 'quantity' => 6, 'total' => 600],
+    ]);
+
+    $this->actingAs($alice)
+        ->get(route('reports.sales-register', [
+            'start_date' => '2026-06-01', 'end_date' => '2026-06-30', 'user_id' => $alice->id,
+        ]))
+        ->assertInertia(fn ($page) => $page->where('grandTotal.quantity', 1));
+
+    $this->actingAs($alice)
+        ->get(route('reports.sales-register', [
+            'start_date' => '2026-06-01', 'end_date' => '2026-06-30', 'payment_method' => 'card',
+        ]))
+        ->assertInertia(fn ($page) => $page->where('grandTotal.quantity', 6));
+});
