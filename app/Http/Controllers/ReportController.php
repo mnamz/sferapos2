@@ -2,7 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
+use App\Models\Customer;
 use App\Models\Order;
+use App\Models\Product;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -219,6 +223,26 @@ class ReportController extends Controller
         exit;
     }
 
+    private function salesRegisterFilterOptions(): array
+    {
+        $brands = Product::pluck('name')
+            ->map(fn ($name) => strtok(trim((string) $name), ' '))
+            ->filter()
+            ->unique()
+            ->sort(SORT_NATURAL | SORT_FLAG_CASE)
+            ->values()
+            ->all();
+
+        return [
+            'brands' => $brands,
+            'categories' => Category::orderBy('name')->get(['id', 'name']),
+            'salespersons' => User::orderBy('name')->get(['id', 'name']),
+            'customers' => Customer::orderBy('name')->get(['id', 'name']),
+            'paymentMethods' => ['cash', 'card', 'bank_transfer'],
+            'deliveryMethods' => ['walk-in', 'delivery', 'pickup', 'shopee', 'lazada', 'tiktok'],
+        ];
+    }
+
     private function salesRegisterBaseQuery(Request $request)
     {
         $startDate = $request->input('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
@@ -291,14 +315,7 @@ class ReportController extends Controller
         return Inertia::render('Reports/SalesRegister', [
             'groups' => array_values($groups),
             'grandTotal' => ['quantity' => $grandQuantity, 'sales' => $grandSales],
-            'filterOptions' => [
-                'brands' => [],
-                'categories' => [],
-                'salespersons' => [],
-                'customers' => [],
-                'paymentMethods' => [],
-                'deliveryMethods' => [],
-            ],
+            'filterOptions' => $this->salesRegisterFilterOptions(),
             'filters' => [
                 'start_date' => $request->input('start_date', Carbon::now()->startOfMonth()->format('Y-m-d')),
                 'end_date' => $request->input('end_date', Carbon::now()->format('Y-m-d')),

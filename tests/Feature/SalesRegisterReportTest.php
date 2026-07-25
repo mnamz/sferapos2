@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Category;
+use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -174,4 +175,20 @@ it('filters by salesperson and by payment method', function () {
             'start_date' => '2026-06-01', 'end_date' => '2026-06-30', 'payment_method' => 'card',
         ]))
         ->assertInertia(fn ($page) => $page->where('grandTotal.quantity', 6));
+});
+
+it('provides brand and category filter options', function () {
+    $user = User::factory()->create();
+    $cat = Category::create(['name' => 'DIGITAL CAMERA']);
+    Product::factory()->create(['name' => 'DJI NEO 2', 'category_id' => $cat->id]);
+    Product::factory()->create(['name' => 'INSTA360 X4', 'category_id' => $cat->id]);
+    Customer::factory()->create(['name' => 'Acme Corp']);
+
+    $this->actingAs($user)
+        ->get(route('reports.sales-register'))
+        ->assertInertia(fn ($page) => $page
+            ->where('filterOptions.brands', fn ($brands) => collect($brands)->contains('DJI') && collect($brands)->contains('INSTA360'))
+            ->where('filterOptions.categories', fn ($cats) => collect($cats)->pluck('name')->contains('DIGITAL CAMERA'))
+            ->where('filterOptions.customers', fn ($custs) => collect($custs)->pluck('name')->contains('Acme Corp'))
+        );
 });
