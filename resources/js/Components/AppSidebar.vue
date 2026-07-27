@@ -108,7 +108,7 @@ const filteredNavItems = computed(() => {
         if (item.title === 'Reports' && roles.includes('staff')) {
             return false;
         }
-        if (item.title === 'Sales Register' && roles.includes('staff')) {
+        if (item.title === 'Sales Register' && !roles.includes('admin')) {
             return false;
         }
         if (item.title === 'Suppliers' && roles.includes('staff')) {

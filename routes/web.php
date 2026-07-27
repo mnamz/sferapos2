@@ -21,15 +21,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/export', [ReportController::class, 'export'])->name('reports.export');
-    Route::get('reports/sales-register', [ReportController::class, 'salesRegister'])->name('reports.sales-register');
-    Route::get('reports/sales-register/export', [ReportController::class, 'salesRegisterExport'])->name('reports.sales-register.export');
-    Route::get('reports/sales-register/invoices', [ReportController::class, 'salesRegisterInvoices'])->name('reports.sales-register.invoices');
     Route::resource('suppliers', SupplierController::class)->except(['edit', 'update']);
     Route::get('/api/suppliers/search', [SupplierController::class, 'search'])->name('api.suppliers.search');
     Route::resource('users', UserController::class)->except(['edit', 'update']);
 
     // Admin-only routes
     Route::middleware('role:admin')->group(function () {
+        Route::get('reports/sales-register', [ReportController::class, 'salesRegister'])->name('reports.sales-register');
+        Route::get('reports/sales-register/export', [ReportController::class, 'salesRegisterExport'])->name('reports.sales-register.export');
+        Route::get('reports/sales-register/invoices', [ReportController::class, 'salesRegisterInvoices'])->name('reports.sales-register.invoices');
         Route::get('activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index');
         Route::get('/shop-settings', [ShopSettingsController::class, 'index'])->name('settings.index');
         Route::post('/shop-settings', [ShopSettingsController::class, 'update'])->name('settings.update');

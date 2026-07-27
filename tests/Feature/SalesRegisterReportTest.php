@@ -7,6 +7,15 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
 
+function registerAdmin(): User
+{
+    \Spatie\Permission\Models\Role::findOrCreate('admin');
+    $user = User::factory()->create();
+    $user->assignRole('admin');
+
+    return $user;
+}
+
 function makeRegisterOrder(array $orderAttrs, array $items): Order
 {
     $createdAt = $orderAttrs['created_at'] ?? '2026-06-15 10:00:00';
@@ -30,7 +39,7 @@ function makeRegisterOrder(array $orderAttrs, array $items): Order
 }
 
 it('renders the sales register report page', function () {
-    $user = User::factory()->create();
+    $user = registerAdmin();
 
     $this->actingAs($user)
         ->get(route('reports.sales-register'))
@@ -45,7 +54,7 @@ it('renders the sales register report page', function () {
 });
 
 it('groups products by category with per-product qty and gross sales', function () {
-    $user = User::factory()->create();
+    $user = registerAdmin();
     $cameras = Category::create(['name' => 'DIGITAL CAMERA']);
     $drone = Product::factory()->create(['name' => 'DJI NEO 2', 'category_id' => $cameras->id]);
 
@@ -69,7 +78,7 @@ it('groups products by category with per-product qty and gross sales', function 
 });
 
 it('excludes cancelled and soft-deleted orders from figures', function () {
-    $user = User::factory()->create();
+    $user = registerAdmin();
     $cat = Category::create(['name' => 'DJI']);
     $p = Product::factory()->create(['name' => 'DJI MINI 4 PRO', 'category_id' => $cat->id]);
 
@@ -93,7 +102,7 @@ it('excludes cancelled and soft-deleted orders from figures', function () {
 });
 
 it('respects the date range boundaries', function () {
-    $user = User::factory()->create();
+    $user = registerAdmin();
     $cat = Category::create(['name' => 'DJI']);
     $p = Product::factory()->create(['name' => 'DJI AIR 3', 'category_id' => $cat->id]);
 
@@ -110,7 +119,7 @@ it('respects the date range boundaries', function () {
 });
 
 it('filters by brand on the first word of the product name, case-insensitive', function () {
-    $user = User::factory()->create();
+    $user = registerAdmin();
     $cat = Category::create(['name' => 'DJI']);
     $dji = Product::factory()->create(['name' => 'DJI MINI 4 PRO', 'category_id' => $cat->id]);
     $insta = Product::factory()->create(['name' => 'INSTA360 X4', 'category_id' => $cat->id]);
@@ -130,7 +139,7 @@ it('filters by brand on the first word of the product name, case-insensitive', f
 });
 
 it('filters by category', function () {
-    $user = User::factory()->create();
+    $user = registerAdmin();
     $cameras = Category::create(['name' => 'DIGITAL CAMERA']);
     $acc = Category::create(['name' => 'ACCESSORIES']);
     $cam = Product::factory()->create(['name' => 'DJI NEO 2', 'category_id' => $cameras->id]);
@@ -152,7 +161,7 @@ it('filters by category', function () {
 });
 
 it('filters by salesperson and by payment method', function () {
-    $alice = User::factory()->create();
+    $alice = registerAdmin();
     $bob = User::factory()->create();
     $cat = Category::create(['name' => 'DJI']);
     $p = Product::factory()->create(['name' => 'DJI AIR 3', 'category_id' => $cat->id]);
@@ -178,7 +187,7 @@ it('filters by salesperson and by payment method', function () {
 });
 
 it('provides brand and category filter options', function () {
-    $user = User::factory()->create();
+    $user = registerAdmin();
     $cat = Category::create(['name' => 'DIGITAL CAMERA']);
     Product::factory()->create(['name' => 'DJI NEO 2', 'category_id' => $cat->id]);
     Product::factory()->create(['name' => 'INSTA360 X4', 'category_id' => $cat->id]);
@@ -197,7 +206,7 @@ it('provides brand and category filter options', function () {
 });
 
 it('exports the sales register as an xlsx download', function () {
-    $user = User::factory()->create();
+    $user = registerAdmin();
     $cat = Category::create(['name' => 'DJI']);
     $p = Product::factory()->create(['name' => 'DJI AIR 3', 'category_id' => $cat->id]);
     makeRegisterOrder(['user_id' => $user->id], [
@@ -214,7 +223,7 @@ it('exports the sales register as an xlsx download', function () {
 
 it('bundles matching orders into a single invoices PDF', function () {
     makeShopSettings();
-    $user = User::factory()->create();
+    $user = registerAdmin();
     $cat = Category::create(['name' => 'DJI']);
     $p = Product::factory()->create(['name' => 'DJI AIR 3', 'category_id' => $cat->id]);
     makeRegisterOrder(['user_id' => $user->id], [
@@ -230,7 +239,7 @@ it('bundles matching orders into a single invoices PDF', function () {
 });
 
 it('redirects back when no orders match the invoices bundle', function () {
-    $user = User::factory()->create();
+    $user = registerAdmin();
 
     $this->actingAs($user)
         ->get(route('reports.sales-register.invoices', [
@@ -240,7 +249,7 @@ it('redirects back when no orders match the invoices bundle', function () {
 });
 
 it('includes orders at the end_date upper boundary and excludes the next day', function () {
-    $user = User::factory()->create();
+    $user = registerAdmin();
     $cat = Category::create(['name' => 'DJI']);
     $p = Product::factory()->create(['name' => 'DJI AIR 3', 'category_id' => $cat->id]);
 
@@ -257,7 +266,7 @@ it('includes orders at the end_date upper boundary and excludes the next day', f
 });
 
 it('exports multiple categories with per-category totals', function () {
-    $user = User::factory()->create();
+    $user = registerAdmin();
     $cameras = Category::create(['name' => 'DIGITAL CAMERA']);
     $acc = Category::create(['name' => 'ACCESSORIES']);
     $cam = Product::factory()->create(['name' => 'DJI NEO 2', 'category_id' => $cameras->id]);
@@ -274,4 +283,20 @@ it('exports multiple categories with per-category totals', function () {
 
     $response->assertOk();
     expect($response->headers->get('content-disposition'))->toContain('.xlsx');
+});
+
+it('forbids non-admin users from all sales register routes', function () {
+    \Spatie\Permission\Models\Role::findOrCreate('manager');
+    \Spatie\Permission\Models\Role::findOrCreate('staff');
+
+    foreach (['manager', 'staff'] as $roleName) {
+        $user = User::factory()->create();
+        $user->assignRole($roleName);
+
+        foreach (['reports.sales-register', 'reports.sales-register.export', 'reports.sales-register.invoices'] as $routeName) {
+            $this->actingAs($user)
+                ->get(route($routeName, ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']))
+                ->assertForbidden();
+        }
+    }
 });
