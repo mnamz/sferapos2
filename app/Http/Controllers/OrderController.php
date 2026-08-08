@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ShopSettings;
+use App\Services\ProductSerialService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -457,6 +458,8 @@ class OrderController extends Controller
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.remark' => 'nullable|string',
             'items.*.price' => 'required|numeric|min:0',
+            'items.*.serials' => 'nullable|array',
+            'items.*.serials.*' => 'string',
             'customer_id' => 'nullable|exists:customers,id',
             'subtotal' => 'required|numeric|min:0',
             'tax' => 'required|numeric|min:0',
@@ -491,7 +494,7 @@ class OrderController extends Controller
 
             // Create the order
             $order = Order::create([
-                'customer_id' => $validated['customer_id'],
+                'customer_id' => $validated['customer_id'] ?? null,
                 'user_id' => auth()->id(),
                 'subtotal' => $validated['subtotal'],
                 'tax' => $validated['tax'],
@@ -502,22 +505,48 @@ class OrderController extends Controller
                 'change_amount' => $validated['change_amount'],
                 'payment_method' => $validated['payment_method'],
                 'delivery_method' => $validated['delivery_method'],
-                'remarks' => $validated['remarks'],
+                'remarks' => $validated['remarks'] ?? null,
                 'discount' => $validated['discount'],
                 'status' => 'pending',
                 'profit' => $totalProfit,
             ]);
 
             // Create order items and update product stock
+            $service = app(ProductSerialService::class);
+
             foreach ($validated['items'] as $item) {
                 $product = Product::find($item['id']);
 
-                // Check if enough stock is available
+                if ($product->serial_tracked) {
+                    $serials = array_values(array_unique(array_map('trim', $item['serials'] ?? [])));
+                    $quantity = count($serials);
+
+                    if ($quantity < 1) {
+                        throw new \Exception("No serial numbers selected for product: {$product->name}");
+                    }
+
+                    $orderItem = OrderItem::create([
+                        'order_id' => $order->id,
+                        'product_id' => $item['id'],
+                        'product_name' => $product->name,
+                        'quantity' => $quantity,
+                        'price' => $item['price'],
+                        'cost_price' => $product->cost_price,
+                        'total' => $item['price'] * $quantity,
+                        'profit' => ($item['price'] - $product->cost_price) * $quantity,
+                        'remark' => $item['remark'] ?? null,
+                    ]);
+
+                    $service->allocate($orderItem, $product, $serials);
+
+                    continue;
+                }
+
+                // Untracked product — existing aggregate-stock path
                 if ($product->stock < $item['quantity']) {
                     throw new \Exception("Insufficient stock for product: {$product->name}");
                 }
 
-                // Create order item
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $item['id'],
@@ -530,7 +559,6 @@ class OrderController extends Controller
                     'remark' => $item['remark'] ?? null,
                 ]);
 
-                // Update product stock
                 $product->decrement('stock', $item['quantity']);
             }
 

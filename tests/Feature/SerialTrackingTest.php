@@ -215,3 +215,68 @@ it('blocks enabling serial tracking on a product that still has stock', function
 
     expect($product->fresh()->serial_tracked)->toBeFalse();
 });
+
+it('creates an order for a tracked product with quantity derived from serials', function () {
+    makeShopSettings();
+    $user = serialAdmin();
+    $product = Product::factory()->create(['serial_tracked' => true, 'price' => 100, 'cost_price' => 40]);
+    app(ProductSerialService::class)->addSerials($product, ['SN-1', 'SN-2', 'SN-3']);
+
+    $this->actingAs($user)->postJson(route('orders.store'), [
+        'items' => [[
+            'id' => $product->id, 'quantity' => 999, 'price' => 100,
+            'serials' => ['SN-1', 'SN-2'],
+        ]],
+        'subtotal' => 200, 'tax' => 0, 'delivery_cost' => 0, 'total' => 200,
+        'paid_amount' => 200, 'due_amount' => 0, 'change_amount' => 0, 'discount' => 0,
+        'payment_method' => 'cash', 'delivery_method' => 'pickup',
+    ])->assertJson(['success' => true]);
+
+    $product->refresh();
+    expect($product->stock)->toBe(1);
+    expect($product->serials()->where('status', 'sold')->count())->toBe(2);
+
+    $item = \App\Models\OrderItem::where('product_id', $product->id)->first();
+    expect($item->quantity)->toBe(2); // derived from serials, not the client's 999
+});
+
+it('rolls back an order when a requested serial is unavailable', function () {
+    makeShopSettings();
+    $user = serialAdmin();
+    $product = Product::factory()->create(['serial_tracked' => true, 'price' => 100]);
+    app(ProductSerialService::class)->addSerials($product, ['SN-1']);
+
+    $this->actingAs($user)->postJson(route('orders.store'), [
+        'items' => [[
+            'id' => $product->id, 'quantity' => 2, 'price' => 100,
+            'serials' => ['SN-1', 'SN-GHOST'],
+        ]],
+        'subtotal' => 200, 'tax' => 0, 'delivery_cost' => 0, 'total' => 200,
+        'paid_amount' => 200, 'due_amount' => 0, 'change_amount' => 0, 'discount' => 0,
+        'payment_method' => 'cash', 'delivery_method' => 'pickup',
+    ])->assertStatus(422);
+
+    expect($product->fresh()->stock)->toBe(1); // unchanged, no partial write
+    expect(\App\Models\Order::count())->toBe(0);
+});
+
+it('handles a mixed order with tracked and untracked products', function () {
+    makeShopSettings();
+    $user = serialAdmin();
+    $tracked = Product::factory()->create(['serial_tracked' => true, 'price' => 100]);
+    $untracked = Product::factory()->create(['serial_tracked' => false, 'stock' => 10, 'price' => 20]);
+    app(ProductSerialService::class)->addSerials($tracked, ['SN-1', 'SN-2']);
+
+    $this->actingAs($user)->postJson(route('orders.store'), [
+        'items' => [
+            ['id' => $tracked->id, 'quantity' => 1, 'price' => 100, 'serials' => ['SN-1']],
+            ['id' => $untracked->id, 'quantity' => 3, 'price' => 20],
+        ],
+        'subtotal' => 160, 'tax' => 0, 'delivery_cost' => 0, 'total' => 160,
+        'paid_amount' => 160, 'due_amount' => 0, 'change_amount' => 0, 'discount' => 0,
+        'payment_method' => 'cash', 'delivery_method' => 'pickup',
+    ])->assertJson(['success' => true]);
+
+    expect($tracked->fresh()->stock)->toBe(1);
+    expect($untracked->fresh()->stock)->toBe(7);
+});
