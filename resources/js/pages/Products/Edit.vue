@@ -239,7 +239,7 @@ const form = useForm({
     barcode: props.product.barcode,
     category_id: props.product.category_id,
     supplier_id: props.product.supplier_id,
-    status: props.product.status,
+    status: props.product.status === 'inactive' ? 'inactive' : 'active',
     image: null,
     serial_tracked: props.product.serial_tracked ?? false,
     _method: 'PUT',

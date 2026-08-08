@@ -90,6 +90,13 @@
                                         {{ product.serials?.length ?? 0 }} serial{{ (product.serials?.length ?? 0) === 1 ? '' : 's' }} available
                                     </p>
 
+                                    <p
+                                        v-if="(product.pending_serial_count ?? 0) > 0"
+                                        class="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200"
+                                    >
+                                        {{ product.pending_serial_count }} unit{{ product.pending_serial_count === 1 ? '' : 's' }} awaiting serial entry — key in {{ product.pending_serial_count === 1 ? 'its serial' : 'their serials' }} below to make {{ product.pending_serial_count === 1 ? 'it' : 'them' }} sellable.
+                                    </p>
+
                                     <!-- Add Serials Form -->
                                     <form @submit.prevent="addSerials" class="space-y-3">
                                         <div>

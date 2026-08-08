@@ -216,7 +216,32 @@ it('enabling serial tracking on a product with stock succeeds and resets stock t
 
     $product->refresh();
     expect($product->serial_tracked)->toBeTrue();
-    expect($product->stock)->toBe(0); // anonymous stock discarded; re-added as serials
+    expect($product->stock)->toBe(0); // not sellable until serials are added
+    expect($product->pending_serial_count)->toBe(5); // original stock kept as a reminder
+});
+
+it('ticks down the pending serial reminder as serials are added', function () {
+    $admin = serialAdmin();
+    $category = \App\Models\Category::factory()->create();
+    $product = Product::factory()->create(['serial_tracked' => false, 'stock' => 5, 'category_id' => $category->id]);
+
+    // Convert: 5 units become pending
+    $this->actingAs($admin)->put(route('products.update', $product), [
+        'name' => $product->name, 'price' => 100, 'cost_price' => 50,
+        'stock' => 5, 'category_id' => $category->id, 'status' => 'active',
+        'serial_tracked' => true,
+    ]);
+    expect($product->fresh()->pending_serial_count)->toBe(5);
+
+    // Add 3 serials → pending drops to 2, stock rises to 3
+    app(ProductSerialService::class)->addSerials($product->fresh(), ['SN-1', 'SN-2', 'SN-3']);
+    $product->refresh();
+    expect($product->pending_serial_count)->toBe(2);
+    expect($product->stock)->toBe(3);
+
+    // Add 5 more (over the original target) → pending floors at 0
+    app(ProductSerialService::class)->addSerials($product->fresh(), ['SN-4', 'SN-5', 'SN-6', 'SN-7', 'SN-8']);
+    expect($product->fresh()->pending_serial_count)->toBe(0);
 });
 
 it('creates an order for a tracked product with quantity derived from serials', function () {

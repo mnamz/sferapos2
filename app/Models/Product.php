@@ -21,6 +21,7 @@ class Product extends Model implements Auditable
         'cost_price',
         'stock',
         'serial_tracked',
+        'pending_serial_count',
         'category_id',
         'image',
         'status',
@@ -34,6 +35,7 @@ class Product extends Model implements Auditable
         'stock' => 'integer',
         'status' => 'boolean',
         'serial_tracked' => 'boolean',
+        'pending_serial_count' => 'integer',
     ];
 
     protected $appends = ['image_url'];

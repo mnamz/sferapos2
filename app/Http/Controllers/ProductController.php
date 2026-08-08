@@ -107,11 +107,17 @@ class ProductController extends Controller
 
         // Enabling serial tracking is always allowed. A serial-tracked product's
         // stock is defined by its serials, so we reset stock to the current
-        // available-serial count (0 when newly enabled) — the old anonymous
-        // quantity is discarded and the user re-adds units as serials on the
-        // product page.
+        // available-serial count (0 when newly enabled). When converting a product
+        // that had anonymous stock, remember that quantity as a "pending serial
+        // entry" reminder so staff know how many units still need serials.
         if ($request->boolean('serial_tracked')) {
+            if (! $product->serial_tracked && $product->stock > 0) {
+                $validated['pending_serial_count'] = $product->stock;
+            }
             $validated['stock'] = $product->serials()->where('status', 'available')->count();
+        } else {
+            // Turning tracking off clears any pending reminder.
+            $validated['pending_serial_count'] = 0;
         }
 
         if ($request->hasFile('image')) {

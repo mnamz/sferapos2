@@ -24,6 +24,12 @@ class ProductSerialService
             ]);
         }
 
+        // Each keyed-in serial covers one unit that was awaiting assignment;
+        // tick the pending reminder down (never below zero).
+        if ($product->pending_serial_count > 0) {
+            $product->pending_serial_count = max(0, $product->pending_serial_count - count($serialNumbers));
+        }
+
         $this->syncStock($product);
     }
 
