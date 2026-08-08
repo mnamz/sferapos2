@@ -104,7 +104,13 @@
                                         <div class="text-sm text-gray-900 dark:text-white">RM {{ product.cost_price }}</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-900 dark:text-white">{{ product.stock }}</div>
+                                        <div class="text-sm text-gray-900 dark:text-white">
+                                            {{ product.stock }}
+                                            <span v-if="product.serial_tracked" class="ml-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200" title="Tracked by serial number">S/N</span>
+                                        </div>
+                                        <div v-if="product.serial_tracked && (product.pending_serial_count ?? 0) > 0" class="text-xs text-amber-600 dark:text-amber-400">
+                                            {{ product.pending_serial_count }} pending
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <span :class="[
@@ -163,7 +169,9 @@
                                         <p class="text-sm text-gray-500 dark:text-gray-300">Category: {{ product.category?.name }}</p>
                                         <div class="flex items-center justify-between mt-2">
                                             <span class="text-sm font-medium text-gray-900 dark:text-white">${{ product.price }}</span>
-                                            <span class="text-sm text-gray-500 dark:text-gray-300">Stock: {{ product.stock }}</span>
+                                            <span class="text-sm text-gray-500 dark:text-gray-300">
+                                                Stock: {{ product.stock }}<template v-if="product.serial_tracked"> · S/N<template v-if="(product.pending_serial_count ?? 0) > 0">, {{ product.pending_serial_count }} pending</template></template>
+                                            </span>
                                         </div>
                                     </div>
                                     <span :class="[
