@@ -193,12 +193,35 @@
                                     <tr v-if="item.serial_tracked">
                                         <td colspan="8" class="px-4 pt-1 pb-3">
                                             <div class="space-y-1">
-                                                <input
-                                                    v-model="item.serialScan"
-                                                    placeholder="Scan or type serial number, press Enter"
-                                                    class="w-full rounded border border-gray-300 px-2 py-1 font-mono text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                                                    @keydown.enter.prevent="addSerialToItem(item)"
-                                                />
+                                                <div class="relative">
+                                                    <input
+                                                        v-model="item.serialScan"
+                                                        placeholder="Search, scan or type serial number"
+                                                        class="w-full rounded border border-gray-300 px-2 py-1 font-mono text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                                        @focus="item.serialOpen = true"
+                                                        @blur="item.serialOpen = false"
+                                                        @keydown.enter.prevent="addSerialToItem(item)"
+                                                    />
+                                                    <ul
+                                                        v-if="item.serialOpen && serialSuggestions(item).length"
+                                                        class="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded border border-gray-200 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-700"
+                                                    >
+                                                        <li
+                                                            v-for="sn in serialSuggestions(item)"
+                                                            :key="sn"
+                                                            class="cursor-pointer px-2 py-1 font-mono text-sm hover:bg-blue-50 dark:text-gray-100 dark:hover:bg-gray-600"
+                                                            @mousedown.prevent="addSerialToItem(item, sn)"
+                                                        >
+                                                            {{ sn }}
+                                                        </li>
+                                                    </ul>
+                                                    <div
+                                                        v-else-if="item.serialOpen && item.availableSerials.length === 0"
+                                                        class="absolute z-20 mt-1 w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-400 shadow-lg dark:border-gray-600 dark:bg-gray-700"
+                                                    >
+                                                        No available serials for this product
+                                                    </div>
+                                                </div>
                                                 <div class="flex flex-wrap gap-1">
                                                     <span
                                                         v-for="sn in item.serials"
@@ -387,6 +410,8 @@ const items = ref([
         serial_tracked: false,
         serials: [],
         serialScan: '',
+        availableSerials: [],
+        serialOpen: false,
     },
 ]);
 const products = ref([]);
@@ -450,6 +475,8 @@ const addItem = () => {
         serial_tracked: false,
         serials: [],
         serialScan: '',
+        availableSerials: [],
+        serialOpen: false,
     });
 };
 const removeItem = (idx) => {
@@ -470,9 +497,12 @@ const selectProduct = (idx, product) => {
     items.value[idx].serial_tracked = !!product.serial_tracked;
     items.value[idx].serials = [];
     items.value[idx].serialScan = '';
+    items.value[idx].availableSerials = [];
+    items.value[idx].serialOpen = false;
     if (product.serial_tracked) {
         items.value[idx].quantity = 0;
         items.value[idx].total = 0;
+        loadAvailableSerials(items.value[idx]);
     } else {
         items.value[idx].quantity = 1;
         items.value[idx].total = product.price;
@@ -536,28 +566,44 @@ onMounted(async () => {
     products.value = res.data.products;
 });
 
-const addSerialToItem = async (item) => {
-    const sn = (item.serialScan || '').trim();
+// Fetch the product's available serials once so the picker can offer them as
+// a searchable list (and validate scans without a round-trip each time).
+const loadAvailableSerials = async (item) => {
+    if (!item.product) return;
+    try {
+        const { data } = await axios.get(route('products.serials.index', item.product.id));
+        item.availableSerials = data.serials.map((s) => s.serial_number);
+    } catch {
+        item.availableSerials = [];
+    }
+};
+
+// Serials matching the current search text, excluding ones already chosen.
+const serialSuggestions = (item) => {
+    const chosen = new Set(item.serials);
+    const q = (item.serialScan || '').trim().toLowerCase();
+    return item.availableSerials.filter((sn) => !chosen.has(sn) && (q === '' || sn.toLowerCase().includes(q))).slice(0, 8);
+};
+
+const addSerialToItem = async (item, explicit = null) => {
+    const sn = (explicit ?? item.serialScan ?? '').trim();
     if (!sn) return;
     if (item.serials.includes(sn)) {
         item.serialScan = '';
         return;
     }
-    try {
-        const { data } = await axios.get(route('products.serials.index', item.product.id));
-        const available = data.serials.map((s) => s.serial_number);
-        if (!available.includes(sn)) {
-            toast.error(`Serial "${sn}" is not available for this product.`);
-            item.serialScan = '';
-            return;
-        }
-    } catch {
-        toast.error('Could not verify serial number. Please try again.');
+    // Validate against the cached available list; fall back to a fetch if empty.
+    if (!item.availableSerials.length) {
+        await loadAvailableSerials(item);
+    }
+    if (!item.availableSerials.includes(sn)) {
+        toast.error(`Serial "${sn}" is not available for this product.`);
         item.serialScan = '';
         return;
     }
     item.serials.push(sn);
     item.serialScan = '';
+    item.serialOpen = false;
     item.quantity = item.serials.length;
     const idx = items.value.indexOf(item);
     updateTotal(idx);
