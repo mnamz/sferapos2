@@ -2,41 +2,40 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\InvoiceEmail;
 use App\Models\Order;
-use Illuminate\Http\Request;
+use App\Models\ShopSettings;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\InvoiceEmail;
-use App\Models\ShopSettings;
 
 class InvoiceController extends Controller
 {
     public function generate(Order $order)
     {
-        $order->load('myInvoisQueue');
+        $order->load('myInvoisQueue', 'items.serials');
         $settings = ShopSettings::first();
-        
+
         // Check if order is queued for pushing
         $qrCodeBase64 = null;
         $isQueued = $order->myInvoisQueue && $order->myInvoisQueue->status === 'pending';
-        
+
         if ($isQueued) {
             $claimUrl = config('services.myinvois.einvoice_claim_url', 'https://einvoice.myrccornertrading.com');
             $branch = config('services.myinvois.branch', '');
-            $qrCodeUrl = $claimUrl . '?order_id=' . $order->id . ($branch ? '&branch=' . urlencode($branch) : '');
-            
+            $qrCodeUrl = $claimUrl.'?order_id='.$order->id.($branch ? '&branch='.urlencode($branch) : '');
+
             // Generate QR code as base64 for PDF
             try {
-                $qrCodeImageUrl = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" . urlencode($qrCodeUrl);
+                $qrCodeImageUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data='.urlencode($qrCodeUrl);
                 $qrCodeImage = file_get_contents($qrCodeImageUrl);
                 if ($qrCodeImage) {
-                    $qrCodeBase64 = 'data:image/png;base64,' . base64_encode($qrCodeImage);
+                    $qrCodeBase64 = 'data:image/png;base64,'.base64_encode($qrCodeImage);
                 }
             } catch (\Exception $e) {
                 \Log::warning('Failed to generate QR code for invoice PDF', ['error' => $e->getMessage()]);
             }
         }
-        
+
         $pdf = PDF::loadView('pdf.invoice', [
             'order' => $order,
             'settings' => $settings,
@@ -50,35 +49,35 @@ class InvoiceController extends Controller
 
     public function send(Order $order)
     {
-        if (!$order->customer || !$order->customer->email) {
+        if (! $order->customer || ! $order->customer->email) {
             return back()->with('error', 'Customer email not found.');
         }
 
-        $order->load(['customer', 'user', 'items.product', 'myInvoisInvoice', 'myInvoisQueue']);
+        $order->load(['customer', 'user', 'items.product', 'items.serials', 'myInvoisInvoice', 'myInvoisQueue']);
 
         $settings = ShopSettings::first();
-        
+
         // Check if order is queued for pushing
         $qrCodeBase64 = null;
         $isQueued = $order->myInvoisQueue && $order->myInvoisQueue->status === 'pending';
-        
+
         if ($isQueued) {
             $claimUrl = config('services.myinvois.einvoice_claim_url', 'https://einvoice.myrccornertrading.com');
             $branch = config('services.myinvois.branch', '');
-            $qrCodeUrl = $claimUrl . '?order_id=' . $order->id . ($branch ? '&branch=' . urlencode($branch) : '');
-            
+            $qrCodeUrl = $claimUrl.'?order_id='.$order->id.($branch ? '&branch='.urlencode($branch) : '');
+
             // Generate QR code as base64 for PDF
             try {
-                $qrCodeImageUrl = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" . urlencode($qrCodeUrl);
+                $qrCodeImageUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data='.urlencode($qrCodeUrl);
                 $qrCodeImage = file_get_contents($qrCodeImageUrl);
                 if ($qrCodeImage) {
-                    $qrCodeBase64 = 'data:image/png;base64,' . base64_encode($qrCodeImage);
+                    $qrCodeBase64 = 'data:image/png;base64,'.base64_encode($qrCodeImage);
                 }
             } catch (\Exception $e) {
                 \Log::warning('Failed to generate QR code for invoice PDF', ['error' => $e->getMessage()]);
             }
         }
-        
+
         $pdf = PDF::loadView('pdf.invoice', [
             'order' => $order,
             'settings' => $settings,
@@ -97,14 +96,14 @@ class InvoiceController extends Controller
                 $documentDetails = null;
 
                 $documentDetails = $myInvoisService->getDocumentDetails($myInvoisInvoice->uuid);
-                
+
                 $longId = null;
                 if ($documentDetails && isset($documentDetails['longId'])) {
                     $longId = $documentDetails['longId'];
                 } elseif ($myInvoisInvoice->response_payload && isset($myInvoisInvoice->response_payload['longId'])) {
                     $longId = $myInvoisInvoice->response_payload['longId'];
                 }
-                
+
                 if ($longId && $myInvoisInvoice->uuid) {
                     $qrCodeUrl = $myInvoisService->generateQrCodeUrl(
                         $myInvoisInvoice->uuid,
@@ -160,10 +159,10 @@ class InvoiceController extends Controller
                 // Generate QR code as base64 for PDF
                 if ($qrCodeUrl) {
                     try {
-                        $qrCodeImageUrl = "https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=" . urlencode($qrCodeUrl);
+                        $qrCodeImageUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data='.urlencode($qrCodeUrl);
                         $qrCodeImage = file_get_contents($qrCodeImageUrl);
                         if ($qrCodeImage) {
-                            $orderData['qr_code_base64'] = 'data:image/png;base64,' . base64_encode($qrCodeImage);
+                            $orderData['qr_code_base64'] = 'data:image/png;base64,'.base64_encode($qrCodeImage);
                         }
                     } catch (\Exception $e) {
                         \Log::warning('Failed to generate QR code for PDF', ['error' => $e->getMessage()]);
@@ -190,17 +189,17 @@ class InvoiceController extends Controller
             } catch (\Exception $e) {
                 \Log::error('Failed to generate e-invoice PDF for email', [
                     'order_id' => $order->id,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ]);
             }
         }
 
         // Reload order with myInvoisInvoice relationship for email
         $order->load('myInvoisInvoice');
-        
+
         Mail::to($order->customer->email)
             ->send(new InvoiceEmail($order, $pdf->output(), $eInvoicePdf));
 
-        return back()->with('success', 'Invoice sent successfully' . ($eInvoicePdf ? ' with e-invoice attached' : '') . '.');
+        return back()->with('success', 'Invoice sent successfully'.($eInvoicePdf ? ' with e-invoice attached' : '').'.');
     }
-} 
+}

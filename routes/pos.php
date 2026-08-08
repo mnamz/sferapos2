@@ -1,9 +1,9 @@
 <?php
 
-use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ShopSettingsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -18,6 +18,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('products', ProductController::class)->except(['edit', 'update']);
     Route::get('/pos-products', [ProductController::class, 'getPosProducts'])->name('pos.products');
     Route::get('products/low-stock', [ProductController::class, 'lowStock'])->name('products.low-stock');
+    Route::get('products/{product}/serials', [ProductController::class, 'getSerials'])->name('products.serials.index');
 
     // Categories Routes
     Route::resource('categories', CategoryController::class)->except(['edit', 'update']);
@@ -40,5 +41,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('categories', CategoryController::class)->only(['edit', 'update']);
         Route::resource('customers', CustomerController::class)->only(['edit', 'update']);
         Route::resource('orders', OrderController::class)->only(['edit', 'update']);
+        Route::post('products/{product}/serials', [ProductController::class, 'addSerials'])->name('products.serials.store');
+        Route::delete('products/{product}/serials/{serial}', [ProductController::class, 'removeSerial'])->name('products.serials.destroy');
     });
-}); 
+});

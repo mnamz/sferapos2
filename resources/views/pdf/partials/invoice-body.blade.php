@@ -102,7 +102,12 @@
             <tbody>
                 @foreach($order->items as $item)
                 <tr style="border-bottom: 1px solid #ccc;">
-                    <td style="padding: 6px 4px; border: none; text-align: left;">{{ $item->product_name }} {{ $item->remark ? '('.$item->remark.')' : '' }}</td>
+                    <td style="padding: 6px 4px; border: none; text-align: left;">
+                        {{ $item->product_name }} {{ $item->remark ? '('.$item->remark.')' : '' }}
+                        @if($item->serials->isNotEmpty())
+                            <br><span style="font-size: 11px; color: #555;">S/N: {{ $item->serials->pluck('serial_number')->implode(', ') }}</span>
+                        @endif
+                    </td>
                     <td style="padding: 6px 4px; border: none; text-align: center;">{{ $item->quantity }}</td>
                     <td style="padding: 6px 4px; border: none; text-align: center;">{{ number_format($item->price, 2) }}</td>
                     <td style="padding: 6px 4px; border: none; text-align: center;">{{ number_format($item->total, 2) }}</td>

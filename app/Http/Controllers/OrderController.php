@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ShopSettings;
+use App\Services\ProductSerialService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -143,7 +144,7 @@ class OrderController extends Controller
 
     public function show(Order $order)
     {
-        $order->load(['customer', 'user', 'items.product', 'myInvoisQueue', 'myInvoisInvoice', 'myInvoisInvoices', 'myInvoisCreditNotes']);
+        $order->load(['customer', 'user', 'items.product', 'items.serials', 'myInvoisQueue', 'myInvoisInvoice', 'myInvoisInvoices', 'myInvoisCreditNotes']);
 
         $orderData = [
             'id' => $order->id,
@@ -169,6 +170,7 @@ class OrderController extends Controller
                     'total' => number_format($item->total, 2),
                     'profit' => number_format($item->profit, 2),
                     'remark' => $item->remark,
+                    'serials' => $item->serials->pluck('serial_number')->values(),
                 ];
             }),
             'subtotal' => number_format($order->subtotal, 2),
@@ -457,6 +459,8 @@ class OrderController extends Controller
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.remark' => 'nullable|string',
             'items.*.price' => 'required|numeric|min:0',
+            'items.*.serials' => 'nullable|array',
+            'items.*.serials.*' => 'string',
             'customer_id' => 'nullable|exists:customers,id',
             'subtotal' => 'required|numeric|min:0',
             'tax' => 'required|numeric|min:0',
@@ -479,9 +483,12 @@ class OrderController extends Controller
             $subtotal = 0;
             foreach ($validated['items'] as $item) {
                 $product = Product::find($item['id']);
-                $itemProfit = ($item['price'] - $product->cost_price) * $item['quantity'];
+                $quantity = $product->serial_tracked
+                    ? count(array_unique(array_map('trim', $item['serials'] ?? [])))
+                    : $item['quantity'];
+                $itemProfit = ($item['price'] - $product->cost_price) * $quantity;
                 $totalProfit += $itemProfit;
-                $subtotal += $item['price'] * $item['quantity'];
+                $subtotal += $item['price'] * $quantity;
             }
 
             // Adjust profit based on discount
@@ -491,7 +498,7 @@ class OrderController extends Controller
 
             // Create the order
             $order = Order::create([
-                'customer_id' => $validated['customer_id'],
+                'customer_id' => $validated['customer_id'] ?? null,
                 'user_id' => auth()->id(),
                 'subtotal' => $validated['subtotal'],
                 'tax' => $validated['tax'],
@@ -502,22 +509,48 @@ class OrderController extends Controller
                 'change_amount' => $validated['change_amount'],
                 'payment_method' => $validated['payment_method'],
                 'delivery_method' => $validated['delivery_method'],
-                'remarks' => $validated['remarks'],
+                'remarks' => $validated['remarks'] ?? null,
                 'discount' => $validated['discount'],
                 'status' => 'pending',
                 'profit' => $totalProfit,
             ]);
 
             // Create order items and update product stock
+            $service = app(ProductSerialService::class);
+
             foreach ($validated['items'] as $item) {
                 $product = Product::find($item['id']);
 
-                // Check if enough stock is available
+                if ($product->serial_tracked) {
+                    $serials = array_values(array_unique(array_map('trim', $item['serials'] ?? [])));
+                    $quantity = count($serials);
+
+                    if ($quantity < 1) {
+                        throw new \Exception("No serial numbers selected for product: {$product->name}");
+                    }
+
+                    $orderItem = OrderItem::create([
+                        'order_id' => $order->id,
+                        'product_id' => $item['id'],
+                        'product_name' => $product->name,
+                        'quantity' => $quantity,
+                        'price' => $item['price'],
+                        'cost_price' => $product->cost_price,
+                        'total' => $item['price'] * $quantity,
+                        'profit' => ($item['price'] - $product->cost_price) * $quantity,
+                        'remark' => $item['remark'] ?? null,
+                    ]);
+
+                    $service->allocate($orderItem, $product, $serials);
+
+                    continue;
+                }
+
+                // Untracked product — existing aggregate-stock path
                 if ($product->stock < $item['quantity']) {
                     throw new \Exception("Insufficient stock for product: {$product->name}");
                 }
 
-                // Create order item
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $item['id'],
@@ -530,7 +563,6 @@ class OrderController extends Controller
                     'remark' => $item['remark'] ?? null,
                 ]);
 
-                // Update product stock
                 $product->decrement('stock', $item['quantity']);
             }
 
@@ -564,7 +596,7 @@ class OrderController extends Controller
 
     public function edit(Order $order)
     {
-        $order->load(['customer', 'user', 'items.product']);
+        $order->load(['customer', 'user', 'items.product', 'items.serials']);
 
         return Inertia::render('Orders/Edit', [
             'order' => [
@@ -582,10 +614,16 @@ class OrderController extends Controller
                     'name' => $order->user->name,
                 ],
                 'items' => $order->items->map(function ($item) {
+                    $serialTracked = $item->product && $item->product->serial_tracked;
+
                     return [
                         'id' => $item->id,
                         'product_id' => $item->product_id,
                         'product_name' => $item->product_name,
+                        'serial_tracked' => $serialTracked,
+                        'serials' => $serialTracked
+                            ? $item->serials->pluck('serial_number')->values()->all()
+                            : [],
                         'quantity' => $item->quantity,
                         'price' => number_format($item->price, 2),
                         'total' => number_format($item->total, 2),
@@ -609,8 +647,9 @@ class OrderController extends Controller
                 'created_at' => $order->created_at->format('Y-m-d H:i:s'),
             ],
             'customers' => \App\Models\Customer::select('id', 'name', 'email', 'phone', 'address')->get(),
-            'products' => \App\Models\Product::select('id', 'name', 'price', 'stock')
+            'products' => \App\Models\Product::select('id', 'name', 'price', 'stock', 'serial_tracked')
                 ->where('stock', '>', 0)
+                ->orWhereHas('serials', fn ($q) => $q->where('status', 'sold')->whereHas('order', fn ($o) => $o->where('id', $order->id)))
                 ->get(),
         ]);
     }
@@ -626,6 +665,8 @@ class OrderController extends Controller
             'items.*.price' => 'required|numeric|min:0',
             'items.*.total' => 'required|numeric|min:0',
             'items.*.remark' => 'nullable|string',
+            'items.*.serials' => 'nullable|array',
+            'items.*.serials.*' => 'string',
             'payment_method' => 'required|in:cash,card,e-wallet,online_transfer',
             'delivery_method' => 'required|in:pickup,delivery,walk-in,shopee,tiktok,lazada',
             'delivery_cost' => 'required|numeric|min:0',
@@ -644,7 +685,10 @@ class OrderController extends Controller
             foreach ($validated['items'] as $item) {
                 $product = Product::find($item['product_id']);
                 if ($product) {
-                    $itemProfit = ($item['price'] - $product->cost_price) * $item['quantity'];
+                    $quantity = $product->serial_tracked
+                        ? count(array_unique(array_map('trim', $item['serials'] ?? [])))
+                        : $item['quantity'];
+                    $itemProfit = ($item['price'] - $product->cost_price) * $quantity;
                     $totalProfit += $itemProfit;
                 }
             }
@@ -661,14 +705,14 @@ class OrderController extends Controller
 
             // Update order details
             $order->update([
-                'customer_id' => $validated['customer_id'],
+                'customer_id' => $validated['customer_id'] ?? null,
                 'payment_method' => $validated['payment_method'],
                 'delivery_method' => $validated['delivery_method'],
                 'delivery_cost' => $validated['delivery_cost'],
                 'paid_amount' => $validated['paid_amount'],
                 'due_amount' => $validated['due_amount'],
                 'change_amount' => $validated['change_amount'],
-                'remarks' => $validated['remarks'],
+                'remarks' => $validated['remarks'] ?? null,
                 'discount' => $validated['discount'],
                 'subtotal' => collect($validated['items'])->sum('total'),
                 'tax' => collect($validated['items'])->sum('total') * (settings('tax_percentage', 0) / 100),
@@ -715,16 +759,45 @@ class OrderController extends Controller
             }
 
             // Update order items
-            // Restore stock for all existing order items before deleting
+            // Release this order's serials back to the pool, and restore
+            // aggregate stock for untracked items, before deleting items.
+            $service = app(ProductSerialService::class);
+            $service->release($order->id);
             foreach ($order->items as $oldItem) {
-                if ($oldItem->product) {
+                if ($oldItem->product && ! $oldItem->product->serial_tracked) {
                     $oldItem->product->increment('stock', $oldItem->quantity);
                 }
             }
             $order->items()->delete(); // Remove existing items
+
             foreach ($validated['items'] as $item) {
-                $product = Product::find($item['product_id']);
+                $product = $item['product_id'] ? Product::find($item['product_id']) : null;
                 $costPrice = $product ? $product->cost_price : 0;
+
+                if ($product && $product->serial_tracked) {
+                    $serials = array_values(array_unique(array_map('trim', $item['serials'] ?? [])));
+                    $quantity = count($serials);
+
+                    if ($quantity < 1) {
+                        throw new \Exception("No serial numbers selected for product: {$product->name}");
+                    }
+
+                    $orderItem = OrderItem::create([
+                        'order_id' => $order->id,
+                        'product_id' => $item['product_id'],
+                        'product_name' => $item['product_name'],
+                        'quantity' => $quantity,
+                        'price' => $item['price'],
+                        'cost_price' => $costPrice,
+                        'total' => $item['price'] * $quantity,
+                        'profit' => ($item['price'] - $costPrice) * $quantity,
+                        'remark' => $item['remark'] ?? null,
+                    ]);
+
+                    $service->allocate($orderItem, $product, $serials);
+
+                    continue;
+                }
 
                 OrderItem::create([
                     'order_id' => $order->id,
@@ -738,13 +811,8 @@ class OrderController extends Controller
                     'remark' => $item['remark'] ?? null,
                 ]);
 
-                // Update product stock if product still exists
-                if ($item['product_id']) {
-                    $product = Product::find($item['product_id']);
-                    if ($product) {
-                        // Then deduct the new quantity
-                        $product->decrement('stock', $item['quantity']);
-                    }
+                if ($product) {
+                    $product->decrement('stock', $item['quantity']);
                 }
             }
 
@@ -774,6 +842,15 @@ class OrderController extends Controller
         $validated = $request->validate([
             'status' => 'required|in:pending,processing,completed,cancelled',
         ]);
+
+        if ($validated['status'] === 'cancelled' && $order->status !== 'cancelled') {
+            app(ProductSerialService::class)->release($order->id);
+            foreach ($order->items as $item) {
+                if ($item->product && ! $item->product->serial_tracked) {
+                    $item->product->increment('stock', $item->quantity);
+                }
+            }
+        }
 
         $order->update(['status' => $validated['status'], 'payment_status' => $validated['status']]);
 
@@ -811,6 +888,13 @@ class OrderController extends Controller
                         'deletion_reason' => $validated['deletion_reason'],
                     ]);
 
+                    app(ProductSerialService::class)->release($order->id);
+                    foreach ($order->items as $item) {
+                        if ($item->product && ! $item->product->serial_tracked) {
+                            $item->product->increment('stock', $item->quantity);
+                        }
+                    }
+
                     \Log::info('Order cancelled on MyInvois', [
                         'order_id' => $order->id,
                         'myinvois_id' => $queueItem->myinvois_id,
@@ -830,9 +914,10 @@ class OrderController extends Controller
                     'deletion_reason' => $validated['deletion_reason'],
                 ]);
 
-                // Restore product stock
+                // Restore product stock (untracked) and release serials (tracked)
+                app(ProductSerialService::class)->release($order->id);
                 foreach ($order->items as $item) {
-                    if ($item->product) {
+                    if ($item->product && ! $item->product->serial_tracked) {
                         $item->product->increment('stock', $item->quantity);
                     }
                 }

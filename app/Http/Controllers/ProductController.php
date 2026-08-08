@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Product;
 use App\Models\Category;
+use App\Models\Product;
+use App\Models\ProductSerial;
 use App\Models\Supplier;
+use App\Services\ProductSerialService;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Inertia\Inertia;
 
 class ProductController extends Controller
 {
@@ -17,21 +19,21 @@ class ProductController extends Controller
         return Inertia::render('Products/Index', [
             'products' => Product::query()
                 ->with(['category:id,name', 'supplier:id,name'])
-                ->when($request->input('search'), function($query, $search) {
+                ->when($request->input('search'), function ($query, $search) {
                     $lower = strtolower($search);
-                    $query->where(function($q) use ($lower) {
+                    $query->where(function ($q) use ($lower) {
                         $q->whereNameMatchesNormalized($lower)
-                          ->orWhereRaw('LOWER(description) LIKE ?', ["%{$lower}%"])
-                          ->orWhereRaw('LOWER(barcode) LIKE ?', ["%{$lower}%"]) 
-                          ->orWhereHas('category', function($cq) use ($lower) {
-                              $cq->whereRaw('LOWER(name) LIKE ?', ["%{$lower}%"]);
-                          })
-                          ->orWhereHas('supplier', function($sq) use ($lower) {
-                              $sq->whereRaw('LOWER(name) LIKE ?', ["%{$lower}%"]);
-                          });
+                            ->orWhereRaw('LOWER(description) LIKE ?', ["%{$lower}%"])
+                            ->orWhereRaw('LOWER(barcode) LIKE ?', ["%{$lower}%"])
+                            ->orWhereHas('category', function ($cq) use ($lower) {
+                                $cq->whereRaw('LOWER(name) LIKE ?', ["%{$lower}%"]);
+                            })
+                            ->orWhereHas('supplier', function ($sq) use ($lower) {
+                                $sq->whereRaw('LOWER(name) LIKE ?', ["%{$lower}%"]);
+                            });
                     });
                 })
-                ->when($request->input('filter') === 'low-stock', function($query) {
+                ->when($request->input('filter') === 'low-stock', function ($query) {
                     $query->where('stock', '<=', 10);
                 })
                 ->latest()
@@ -45,7 +47,7 @@ class ProductController extends Controller
     {
         return Inertia::render('Products/Create', [
             'categories' => Category::where('status', 'active')->get(),
-            'suppliers' => Supplier::where('status', 'active')->get()
+            'suppliers' => Supplier::where('status', 'active')->get(),
         ]);
     }
 
@@ -62,10 +64,15 @@ class ProductController extends Controller
             'barcode' => 'nullable|string|unique:products',
             'image' => 'nullable|image|max:1024', // max 1MB
             'status' => 'required|in:active,inactive',
+            'serial_tracked' => 'boolean',
         ]);
 
         if ($request->hasFile('image')) {
             $validated['image'] = $request->file('image')->store('products', 'public');
+        }
+
+        if ($request->boolean('serial_tracked')) {
+            $validated['stock'] = 0;
         }
 
         Product::create($validated);
@@ -78,7 +85,7 @@ class ProductController extends Controller
         return Inertia::render('Products/Edit', [
             'product' => $product->load('supplier'),
             'categories' => Category::where('status', 'active')->get(),
-            'suppliers' => Supplier::where('status', 'active')->get()
+            'suppliers' => Supplier::where('status', 'active')->get(),
         ]);
     }
 
@@ -95,7 +102,23 @@ class ProductController extends Controller
             'barcode' => ['nullable', 'string', Rule::unique('products')->ignore($product->id)],
             'image' => 'nullable|image|max:1024',
             'status' => 'required|in:active,inactive',
+            'serial_tracked' => 'boolean',
         ]);
+
+        // Enabling serial tracking is always allowed. A serial-tracked product's
+        // stock is defined by its serials, so we reset stock to the current
+        // available-serial count (0 when newly enabled). When converting a product
+        // that had anonymous stock, remember that quantity as a "pending serial
+        // entry" reminder so staff know how many units still need serials.
+        if ($request->boolean('serial_tracked')) {
+            if (! $product->serial_tracked && $product->stock > 0) {
+                $validated['pending_serial_count'] = $product->stock;
+            }
+            $validated['stock'] = $product->serials()->where('status', 'available')->count();
+        } else {
+            // Turning tracking off clears any pending reminder.
+            $validated['pending_serial_count'] = 0;
+        }
 
         if ($request->hasFile('image')) {
             // Delete old image if exists
@@ -116,7 +139,7 @@ class ProductController extends Controller
         if ($product->image) {
             Storage::disk('public')->delete($product->image);
         }
-        
+
         $product->delete();
 
         return redirect()->route('products.index')->with('success', 'Product deleted successfully');
@@ -127,7 +150,7 @@ class ProductController extends Controller
         $products = Product::with('category')
             ->where('status', 'active')
             ->where('stock', '>', 0)
-            ->select('id', 'name', 'price', 'stock', 'barcode', 'category_id', 'image')
+            ->select('id', 'name', 'price', 'stock', 'barcode', 'category_id', 'image', 'serial_tracked')
             ->get();
 
         $categories = Category::where('status', 'active')
@@ -136,14 +159,14 @@ class ProductController extends Controller
 
         return response()->json([
             'products' => $products,
-            'categories' => $categories
+            'categories' => $categories,
         ]);
     }
 
     public function show(Product $product)
     {
         return Inertia::render('Products/Show', [
-            'product' => $product->load(['category', 'supplier'])
+            'product' => $product->load(['category', 'supplier', 'serials' => fn ($q) => $q->where('status', 'available')->orderBy('serial_number')]),
         ]);
     }
 
@@ -154,15 +177,15 @@ class ProductController extends Controller
                 ->with(['category:id,name', 'supplier:id,name'])
                 ->where('stock', '<=', 10)
                 ->where('status', 'active')
-                ->when($request->input('search'), function($query, $search) {
+                ->when($request->input('search'), function ($query, $search) {
                     $lower = strtolower($search);
-                    $query->where(function($q) use ($lower) {
+                    $query->where(function ($q) use ($lower) {
                         $q->whereNameMatchesNormalized($lower)
-                          ->orWhereRaw('LOWER(description) LIKE ?', ["%{$lower}%"])
-                          ->orWhereRaw('LOWER(barcode) LIKE ?', ["%{$lower}%"]) 
-                          ->orWhereHas('category', function($cq) use ($lower) {
-                              $cq->whereRaw('LOWER(name) LIKE ?', ["%{$lower}%"]);
-                          });
+                            ->orWhereRaw('LOWER(description) LIKE ?', ["%{$lower}%"])
+                            ->orWhereRaw('LOWER(barcode) LIKE ?', ["%{$lower}%"])
+                            ->orWhereHas('category', function ($cq) use ($lower) {
+                                $cq->whereRaw('LOWER(name) LIKE ?', ["%{$lower}%"]);
+                            });
                     });
                 })
                 ->orderBy('stock')
@@ -174,10 +197,14 @@ class ProductController extends Controller
 
     public function adjustStock(Request $request, Product $product)
     {
+        if ($product->serial_tracked) {
+            return back()->with('error', 'Use serial management for this product.');
+        }
+
         $request->validate([
             'quantity' => 'required|integer',
             'type' => 'required|in:restock,withdraw',
-            'notes' => 'nullable|string|max:255'
+            'notes' => 'nullable|string|max:255',
         ]);
 
         $quantity = $request->quantity;
@@ -187,7 +214,7 @@ class ProductController extends Controller
 
         $oldStock = $product->stock;
         $product->stock += $quantity;
-        
+
         if ($product->stock < 0) {
             return back()->with('error', 'Insufficient stock for withdrawal.');
         }
@@ -199,7 +226,7 @@ class ProductController extends Controller
                 'stock' => $product->stock,
                 'adjustment' => $quantity,
                 'adjustment_type' => $request->type,
-                'adjustment_notes' => $request->notes
+                'adjustment_notes' => $request->notes,
             ],
             'event' => 'updated',
             'auditable_type' => get_class($product),
@@ -207,15 +234,60 @@ class ProductController extends Controller
             'user_id' => auth()->id(),
             'url' => request()->fullUrl(),
             'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent()
+            'user_agent' => request()->userAgent(),
         ];
 
         $product->save();
-        
+
         // Create the audit record
         $product->audits()->create($auditData);
 
         return back()->with('success', 'Stock updated successfully.');
+    }
+
+    public function getSerials(Product $product)
+    {
+        return response()->json([
+            'serials' => $product->serials()
+                ->where('status', 'available')
+                ->orderBy('serial_number')
+                ->get(['id', 'serial_number', 'status']),
+        ]);
+    }
+
+    public function addSerials(Request $request, Product $product, ProductSerialService $service)
+    {
+        if (! $product->serial_tracked) {
+            return back()->with('error', 'This product is not serial-tracked.');
+        }
+
+        $validated = $request->validate([
+            'serials' => ['required', 'array', 'min:1'],
+            'serials.*' => [
+                'required', 'string', 'max:255', 'distinct',
+                \Illuminate\Validation\Rule::unique('product_serials', 'serial_number')->whereNull('deleted_at'),
+            ],
+        ]);
+
+        $serials = array_map('trim', $validated['serials']);
+        $service->addSerials($product, $serials);
+
+        return back()->with('success', 'Serials added successfully.');
+    }
+
+    public function removeSerial(Product $product, ProductSerial $serial, ProductSerialService $service)
+    {
+        if ($serial->product_id !== $product->id) {
+            abort(404);
+        }
+
+        if ($serial->status !== 'available') {
+            return back()->with('error', 'Only available serials can be removed.');
+        }
+
+        $service->removeSerial($serial);
+
+        return back()->with('success', 'Serial removed successfully.');
     }
 
     public function inventoryCost(Request $request)
@@ -223,18 +295,18 @@ class ProductController extends Controller
         $products = Product::query()
             ->with(['category:id,name'])
             ->select('id', 'name', 'cost_price', 'stock', 'category_id')
-            ->when($request->input('search'), function($query, $search) {
+            ->when($request->input('search'), function ($query, $search) {
                 $lower = strtolower($search);
-                $query->where(function($q) use ($lower) {
+                $query->where(function ($q) use ($lower) {
                     $q->whereNameMatchesNormalized($lower)
-                      ->orWhereHas('category', function($cq) use ($lower) {
-                          $cq->whereRaw('LOWER(name) LIKE ?', ["%{$lower}%"]);
-                      });
+                        ->orWhereHas('category', function ($cq) use ($lower) {
+                            $cq->whereRaw('LOWER(name) LIKE ?', ["%{$lower}%"]);
+                        });
                 });
             })
-            ->when($request->input('sort'), function($query, $sort) use ($request) {
+            ->when($request->input('sort'), function ($query, $sort) use ($request) {
                 $direction = $request->input('direction', 'asc');
-                switch($sort) {
+                switch ($sort) {
                     case 'name':
                         $query->orderBy('name', $direction);
                         break;
@@ -245,12 +317,12 @@ class ProductController extends Controller
                         $query->orderBy('stock', $direction);
                         break;
                     case 'total_cost':
-                        $query->orderByRaw('cost_price * stock ' . $direction);
+                        $query->orderByRaw('cost_price * stock '.$direction);
                         break;
                     default:
                         $query->orderBy('name', 'asc');
                 }
-            }, function($query) {
+            }, function ($query) {
                 $query->orderBy('name', 'asc');
             })
             ->paginate(10)
@@ -261,7 +333,7 @@ class ProductController extends Controller
         return Inertia::render('Products/InventoryCost', [
             'products' => $products,
             'totalInventoryCost' => $totalInventoryCost,
-            'filters' => $request->only(['search', 'sort', 'direction'])
+            'filters' => $request->only(['search', 'sort', 'direction']),
         ]);
     }
 
@@ -270,11 +342,11 @@ class ProductController extends Controller
         $products = Product::query()
             ->select('name', 'cost_price', 'stock', 'category_id')
             ->with('category:id,name')
-            ->when($request->input('search'), function($query, $search) {
+            ->when($request->input('search'), function ($query, $search) {
                 $lower = strtolower($search);
                 $query->whereNameMatchesNormalized($lower);
             })
-            ->when($request->input('sort'), function($query, $sort) use ($request) {
+            ->when($request->input('sort'), function ($query, $sort) use ($request) {
                 $direction = $request->input('direction', 'asc');
                 if ($sort === 'total_cost') {
                     $query->orderByRaw("cost_price * stock {$direction}");
@@ -289,12 +361,12 @@ class ProductController extends Controller
             'Content-Disposition' => 'attachment; filename="inventory-cost.csv"',
         ];
 
-        $callback = function() use ($products) {
+        $callback = function () use ($products) {
             $file = fopen('php://output', 'w');
-            
+
             // Add headers
             fputcsv($file, ['Product Name', 'Category', 'Cost Price', 'Stock', 'Total Cost']);
-            
+
             // Add data
             foreach ($products as $product) {
                 fputcsv($file, [
@@ -302,10 +374,10 @@ class ProductController extends Controller
                     $product->category->name,
                     number_format($product->cost_price, 2),
                     $product->stock,
-                    number_format($product->cost_price * $product->stock, 2)
+                    number_format($product->cost_price * $product->stock, 2),
                 ]);
             }
-            
+
             fclose($file);
         };
 
@@ -340,13 +412,13 @@ class ProductController extends Controller
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
             ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
-            ->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->whereBetween('orders.created_at', [$startDate.' 00:00:00', $endDate.' 23:59:59'])
             ->where('orders.status', '!=', 'cancelled')
-            ->when($request->input('search'), function($query, $search) {
+            ->when($request->input('search'), function ($query, $search) {
                 $lower = strtolower($search);
-                $query->where(function($q) use ($lower) {
+                $query->where(function ($q) use ($lower) {
                     $q->whereRaw('LOWER(order_items.product_name) LIKE ?', ["%{$lower}%"])
-                      ->orWhereRaw('LOWER(categories.name) LIKE ?', ["%{$lower}%"]);
+                        ->orWhereRaw('LOWER(categories.name) LIKE ?', ["%{$lower}%"]);
                 });
             })
             ->select(
@@ -372,7 +444,7 @@ class ProductController extends Controller
         // Calculate summary statistics
         $summary = \DB::table('order_items')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->whereBetween('orders.created_at', [$startDate.' 00:00:00', $endDate.' 23:59:59'])
             ->where('orders.status', '!=', 'cancelled')
             ->select(
                 \DB::raw('COUNT(DISTINCT order_items.product_id) as total_products'),
@@ -405,13 +477,13 @@ class ProductController extends Controller
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
             ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
-            ->whereBetween('orders.created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+            ->whereBetween('orders.created_at', [$startDate.' 00:00:00', $endDate.' 23:59:59'])
             ->where('orders.status', '!=', 'cancelled')
-            ->when($request->input('search'), function($query, $search) {
+            ->when($request->input('search'), function ($query, $search) {
                 $lower = strtolower($search);
-                $query->where(function($q) use ($lower) {
+                $query->where(function ($q) use ($lower) {
                     $q->whereRaw('LOWER(order_items.product_name) LIKE ?', ["%{$lower}%"])
-                      ->orWhereRaw('LOWER(categories.name) LIKE ?', ["%{$lower}%"]);
+                        ->orWhereRaw('LOWER(categories.name) LIKE ?', ["%{$lower}%"]);
                 });
             })
             ->select(
@@ -430,12 +502,12 @@ class ProductController extends Controller
 
         $headers = [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="product-report-' . $startDate . '-to-' . $endDate . '.csv"',
+            'Content-Disposition' => 'attachment; filename="product-report-'.$startDate.'-to-'.$endDate.'.csv"',
         ];
 
-        $callback = function() use ($products) {
+        $callback = function () use ($products) {
             $file = fopen('php://output', 'w');
-            
+
             // Add headers
             fputcsv($file, [
                 'Product Name',
@@ -445,9 +517,9 @@ class ProductController extends Controller
                 'Average Cost Price',
                 'Total Revenue',
                 'Total Cost',
-                'Total Profit'
+                'Total Profit',
             ]);
-            
+
             // Add data
             foreach ($products as $product) {
                 fputcsv($file, [
@@ -458,13 +530,13 @@ class ProductController extends Controller
                     number_format($product->avg_cost_price, 2),
                     number_format($product->total_revenue, 2),
                     number_format($product->total_cost, 2),
-                    number_format($product->total_profit, 2)
+                    number_format($product->total_profit, 2),
                 ]);
             }
-            
+
             fclose($file);
         };
 
         return response()->stream($callback, 200, $headers);
     }
-} 
+}
