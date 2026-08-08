@@ -7,12 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
-use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 
 class Product extends Model implements Auditable
 {
-    use HasFactory, SoftDeletes, AuditableTrait;
+    use AuditableTrait, HasFactory, SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -20,6 +20,7 @@ class Product extends Model implements Auditable
         'price',
         'cost_price',
         'stock',
+        'serial_tracked',
         'category_id',
         'image',
         'status',
@@ -32,6 +33,7 @@ class Product extends Model implements Auditable
         'cost_price' => 'decimal:2',
         'stock' => 'integer',
         'status' => 'boolean',
+        'serial_tracked' => 'boolean',
     ];
 
     protected $appends = ['image_url'];
@@ -46,11 +48,17 @@ class Product extends Model implements Auditable
         return $this->belongsTo(Supplier::class);
     }
 
+    public function serials(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ProductSerial::class);
+    }
+
     public function getImageUrlAttribute()
     {
-        if (!$this->image) {
+        if (! $this->image) {
             return null;
         }
+
         return Storage::disk('public')->url($this->image);
     }
 
@@ -67,4 +75,4 @@ class Product extends Model implements Auditable
 
         return $query->whereRaw($raw, ["%{$normalizedTerm}%"]);
     }
-} 
+}
