@@ -881,6 +881,11 @@ class OrderController extends Controller
                     ]);
 
                     app(ProductSerialService::class)->release($order->id);
+                    foreach ($order->items as $item) {
+                        if ($item->product && ! $item->product->serial_tracked) {
+                            $item->product->increment('stock', $item->quantity);
+                        }
+                    }
 
                     \Log::info('Order cancelled on MyInvois', [
                         'order_id' => $order->id,

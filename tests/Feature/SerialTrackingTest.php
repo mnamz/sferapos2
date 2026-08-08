@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\MyInvoisQueue;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductSerial;
@@ -324,6 +325,8 @@ it('returns serials to the pool when an order is cancelled via status update', f
         ->assertRedirect();
 
     expect($product->fresh()->stock)->toBe(1);
+    expect($product->serials()->where('status', 'available')->count())->toBe(1);
+    expect($product->serials()->where('status', 'sold')->count())->toBe(0);
 });
 
 it('releases old serials and allocates new ones when an order is edited', function () {
@@ -357,4 +360,59 @@ it('releases old serials and allocates new ones when an order is edited', functi
     expect($product->stock)->toBe(2); // SN-1, SN-2 back to available
     expect($product->serials()->where('serial_number', 'SN-3')->first()->status)->toBe('sold');
     expect($product->serials()->where('status', 'sold')->count())->toBe(1);
+});
+
+it('restores serials and untracked stock on post-72h MyInvois-cancel branch', function () {
+    makeShopSettings();
+    $user = serialAdmin();
+
+    $tracked = Product::factory()->create(['serial_tracked' => true, 'price' => 100]);
+    app(ProductSerialService::class)->addSerials($tracked, ['SN-1']);
+
+    $untracked = Product::factory()->create(['serial_tracked' => false, 'stock' => 10, 'price' => 20]);
+
+    // Create the order via the endpoint
+    $this->actingAs($user)->postJson(route('orders.store'), [
+        'items' => [
+            ['id' => $tracked->id, 'quantity' => 1, 'price' => 100, 'serials' => ['SN-1']],
+            ['id' => $untracked->id, 'quantity' => 2, 'price' => 20],
+        ],
+        'subtotal' => 140, 'tax' => 0, 'delivery_cost' => 0, 'total' => 140,
+        'paid_amount' => 140, 'due_amount' => 0, 'change_amount' => 0, 'discount' => 0,
+        'payment_method' => 'cash', 'delivery_method' => 'pickup',
+    ])->assertJson(['success' => true]);
+
+    $order = \App\Models\Order::latest('id')->first();
+
+    // Backdate so orderAge >= 72h (branch A condition)
+    $order->update(['created_at' => now()->subHours(80)]);
+
+    // Attach a pushed MyInvoisQueue row so branch (A) is taken
+    MyInvoisQueue::create([
+        'order_id' => $order->id,
+        'status' => 'pushed',
+        'myinvois_id' => 'FAKE-UUID-001',
+        'invoice_payload' => [],
+        'pushed_at' => now()->subHours(79),
+    ]);
+
+    // Branch (A): MyInvois is disabled in tests so cancelInvoice is skipped,
+    // but the order is still marked cancelled and our release + restore run.
+    $this->actingAs($user)->delete(route('orders.destroy', $order), [
+        'deletion_reason' => 'post-72h cancel test',
+    ])->assertRedirect();
+
+    // Order must still exist (not soft-deleted) with status = cancelled
+    $order->refresh();
+    expect($order->status)->toBe('cancelled');
+    expect(\App\Models\Order::withTrashed()->find($order->id)->deleted_at)->toBeNull();
+
+    // Tracked product: serial released, stock back to 1
+    $tracked->refresh();
+    expect($tracked->stock)->toBe(1);
+    expect($tracked->serials()->where('status', 'available')->count())->toBe(1);
+    expect($tracked->serials()->where('status', 'sold')->count())->toBe(0);
+
+    // Untracked product: stock restored to 10
+    expect($untracked->fresh()->stock)->toBe(10);
 });
