@@ -482,9 +482,12 @@ class OrderController extends Controller
             $subtotal = 0;
             foreach ($validated['items'] as $item) {
                 $product = Product::find($item['id']);
-                $itemProfit = ($item['price'] - $product->cost_price) * $item['quantity'];
+                $quantity = $product->serial_tracked
+                    ? count(array_unique(array_map('trim', $item['serials'] ?? [])))
+                    : $item['quantity'];
+                $itemProfit = ($item['price'] - $product->cost_price) * $quantity;
                 $totalProfit += $itemProfit;
-                $subtotal += $item['price'] * $item['quantity'];
+                $subtotal += $item['price'] * $quantity;
             }
 
             // Adjust profit based on discount

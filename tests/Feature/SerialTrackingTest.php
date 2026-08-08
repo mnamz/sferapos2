@@ -238,6 +238,9 @@ it('creates an order for a tracked product with quantity derived from serials', 
 
     $item = \App\Models\OrderItem::where('product_id', $product->id)->first();
     expect($item->quantity)->toBe(2); // derived from serials, not the client's 999
+
+    $order = \App\Models\Order::latest('id')->first();
+    expect((float) $order->profit)->toBe(120.0); // (100-40)*2, not inflated by client quantity 999
 });
 
 it('rolls back an order when a requested serial is unavailable', function () {
