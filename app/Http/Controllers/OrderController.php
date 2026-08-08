@@ -657,6 +657,8 @@ class OrderController extends Controller
             'items.*.price' => 'required|numeric|min:0',
             'items.*.total' => 'required|numeric|min:0',
             'items.*.remark' => 'nullable|string',
+            'items.*.serials' => 'nullable|array',
+            'items.*.serials.*' => 'string',
             'payment_method' => 'required|in:cash,card,e-wallet,online_transfer',
             'delivery_method' => 'required|in:pickup,delivery,walk-in,shopee,tiktok,lazada',
             'delivery_cost' => 'required|numeric|min:0',
@@ -675,7 +677,10 @@ class OrderController extends Controller
             foreach ($validated['items'] as $item) {
                 $product = Product::find($item['product_id']);
                 if ($product) {
-                    $itemProfit = ($item['price'] - $product->cost_price) * $item['quantity'];
+                    $quantity = $product->serial_tracked
+                        ? count(array_unique(array_map('trim', $item['serials'] ?? [])))
+                        : $item['quantity'];
+                    $itemProfit = ($item['price'] - $product->cost_price) * $quantity;
                     $totalProfit += $itemProfit;
                 }
             }
@@ -692,14 +697,14 @@ class OrderController extends Controller
 
             // Update order details
             $order->update([
-                'customer_id' => $validated['customer_id'],
+                'customer_id' => $validated['customer_id'] ?? null,
                 'payment_method' => $validated['payment_method'],
                 'delivery_method' => $validated['delivery_method'],
                 'delivery_cost' => $validated['delivery_cost'],
                 'paid_amount' => $validated['paid_amount'],
                 'due_amount' => $validated['due_amount'],
                 'change_amount' => $validated['change_amount'],
-                'remarks' => $validated['remarks'],
+                'remarks' => $validated['remarks'] ?? null,
                 'discount' => $validated['discount'],
                 'subtotal' => collect($validated['items'])->sum('total'),
                 'tax' => collect($validated['items'])->sum('total') * (settings('tax_percentage', 0) / 100),
@@ -746,16 +751,45 @@ class OrderController extends Controller
             }
 
             // Update order items
-            // Restore stock for all existing order items before deleting
+            // Release this order's serials back to the pool, and restore
+            // aggregate stock for untracked items, before deleting items.
+            $service = app(ProductSerialService::class);
+            $service->release($order->id);
             foreach ($order->items as $oldItem) {
-                if ($oldItem->product) {
+                if ($oldItem->product && ! $oldItem->product->serial_tracked) {
                     $oldItem->product->increment('stock', $oldItem->quantity);
                 }
             }
             $order->items()->delete(); // Remove existing items
+
             foreach ($validated['items'] as $item) {
-                $product = Product::find($item['product_id']);
+                $product = $item['product_id'] ? Product::find($item['product_id']) : null;
                 $costPrice = $product ? $product->cost_price : 0;
+
+                if ($product && $product->serial_tracked) {
+                    $serials = array_values(array_unique(array_map('trim', $item['serials'] ?? [])));
+                    $quantity = count($serials);
+
+                    if ($quantity < 1) {
+                        throw new \Exception("No serial numbers selected for product: {$product->name}");
+                    }
+
+                    $orderItem = OrderItem::create([
+                        'order_id' => $order->id,
+                        'product_id' => $item['product_id'],
+                        'product_name' => $item['product_name'],
+                        'quantity' => $quantity,
+                        'price' => $item['price'],
+                        'cost_price' => $costPrice,
+                        'total' => $item['price'] * $quantity,
+                        'profit' => ($item['price'] - $costPrice) * $quantity,
+                        'remark' => $item['remark'] ?? null,
+                    ]);
+
+                    $service->allocate($orderItem, $product, $serials);
+
+                    continue;
+                }
 
                 OrderItem::create([
                     'order_id' => $order->id,
@@ -769,13 +803,8 @@ class OrderController extends Controller
                     'remark' => $item['remark'] ?? null,
                 ]);
 
-                // Update product stock if product still exists
-                if ($item['product_id']) {
-                    $product = Product::find($item['product_id']);
-                    if ($product) {
-                        // Then deduct the new quantity
-                        $product->decrement('stock', $item['quantity']);
-                    }
+                if ($product) {
+                    $product->decrement('stock', $item['quantity']);
                 }
             }
 

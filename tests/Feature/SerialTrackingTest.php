@@ -283,3 +283,36 @@ it('handles a mixed order with tracked and untracked products', function () {
     expect($tracked->fresh()->stock)->toBe(1);
     expect($untracked->fresh()->stock)->toBe(7);
 });
+
+it('releases old serials and allocates new ones when an order is edited', function () {
+    makeShopSettings();
+    $user = serialAdmin();
+    $product = Product::factory()->create(['serial_tracked' => true, 'price' => 100, 'cost_price' => 0]);
+    app(ProductSerialService::class)->addSerials($product, ['SN-1', 'SN-2', 'SN-3']);
+
+    // Create with SN-1, SN-2
+    $this->actingAs($user)->postJson(route('orders.store'), [
+        'items' => [['id' => $product->id, 'quantity' => 2, 'price' => 100, 'serials' => ['SN-1', 'SN-2']]],
+        'subtotal' => 200, 'tax' => 0, 'delivery_cost' => 0, 'total' => 200,
+        'paid_amount' => 200, 'due_amount' => 0, 'change_amount' => 0, 'discount' => 0,
+        'payment_method' => 'cash', 'delivery_method' => 'pickup',
+    ])->assertJson(['success' => true]);
+
+    $order = \App\Models\Order::latest('id')->first();
+
+    // Edit to SN-3 only
+    $this->actingAs($user)->put(route('orders.update', $order), [
+        'items' => [[
+            'product_id' => $product->id, 'product_name' => $product->name,
+            'quantity' => 1, 'price' => 100, 'total' => 100, 'serials' => ['SN-3'],
+        ]],
+        'payment_method' => 'cash', 'delivery_method' => 'pickup',
+        'delivery_cost' => 0, 'paid_amount' => 100, 'due_amount' => 0,
+        'change_amount' => 0, 'discount' => 0,
+    ])->assertRedirect();
+
+    $product->refresh();
+    expect($product->stock)->toBe(2); // SN-1, SN-2 back to available
+    expect($product->serials()->where('serial_number', 'SN-3')->first()->status)->toBe('sold');
+    expect($product->serials()->where('status', 'sold')->count())->toBe(1);
+});
