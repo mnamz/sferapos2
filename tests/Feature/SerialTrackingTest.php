@@ -203,7 +203,7 @@ it('refuses to remove a serial that is already sold', function () {
     expect($product->serials()->where('status', 'sold')->count())->toBe(1); // still sold
 });
 
-it('blocks enabling serial tracking on a product that still has stock', function () {
+it('enabling serial tracking on a product with stock succeeds and resets stock to the serial count', function () {
     $admin = serialAdmin();
     $category = \App\Models\Category::factory()->create();
     $product = Product::factory()->create(['serial_tracked' => false, 'stock' => 5, 'category_id' => $category->id]);
@@ -212,9 +212,11 @@ it('blocks enabling serial tracking on a product that still has stock', function
         'name' => $product->name, 'price' => 100, 'cost_price' => 50,
         'stock' => 5, 'category_id' => $category->id, 'status' => 'active',
         'serial_tracked' => true,
-    ])->assertSessionHas('error');
+    ])->assertRedirect(route('products.index'));
 
-    expect($product->fresh()->serial_tracked)->toBeFalse();
+    $product->refresh();
+    expect($product->serial_tracked)->toBeTrue();
+    expect($product->stock)->toBe(0); // anonymous stock discarded; re-added as serials
 });
 
 it('creates an order for a tracked product with quantity derived from serials', function () {

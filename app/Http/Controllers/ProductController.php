@@ -105,10 +105,11 @@ class ProductController extends Controller
             'serial_tracked' => 'boolean',
         ]);
 
-        if ($request->boolean('serial_tracked') && ! $product->serial_tracked && $product->stock > 0) {
-            return back()->with('error', 'Reduce stock to zero before enabling serial tracking.');
-        }
-
+        // Enabling serial tracking is always allowed. A serial-tracked product's
+        // stock is defined by its serials, so we reset stock to the current
+        // available-serial count (0 when newly enabled) — the old anonymous
+        // quantity is discarded and the user re-adds units as serials on the
+        // product page.
         if ($request->boolean('serial_tracked')) {
             $validated['stock'] = $product->serials()->where('status', 'available')->count();
         }

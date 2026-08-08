@@ -82,7 +82,7 @@
                                             required
                                         />
                                         <p v-if="form.serial_tracked" class="text-muted-foreground mt-1 text-xs">
-                                            Stock is derived from serial numbers. Manage serials on the product page.
+                                            Stock is derived from serial numbers. Saving resets the count to 0 — add serials on the product page to build stock back up.
                                         </p>
                                         <InputError :message="form.errors.stock" class="mt-2" />
                                     </div>
