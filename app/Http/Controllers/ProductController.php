@@ -109,6 +109,10 @@ class ProductController extends Controller
             return back()->with('error', 'Reduce stock to zero before enabling serial tracking.');
         }
 
+        if ($request->boolean('serial_tracked')) {
+            $validated['stock'] = $product->serials()->where('status', 'available')->count();
+        }
+
         if ($request->hasFile('image')) {
             // Delete old image if exists
             if ($product->image) {

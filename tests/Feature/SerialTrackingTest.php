@@ -168,3 +168,50 @@ it('forces stock to zero when creating a serial-tracked product', function () {
 
     expect(Product::where('name', 'Tracked Device')->first()->stock)->toBe(0);
 });
+
+it('returns 404 when removing a serial that belongs to a different product', function () {
+    $admin = serialAdmin();
+    $p1 = Product::factory()->create(['serial_tracked' => true]);
+    $p2 = Product::factory()->create(['serial_tracked' => true]);
+    app(ProductSerialService::class)->addSerials($p1, ['SN-1']);
+    $serial = $p1->serials()->first();
+
+    $this->actingAs($admin)
+        ->delete(route('products.serials.destroy', [$p2, $serial]))
+        ->assertNotFound();
+
+    expect($p1->fresh()->stock)->toBe(1); // untouched
+});
+
+it('refuses to remove a serial that is already sold', function () {
+    $admin = serialAdmin();
+    $product = Product::factory()->create(['serial_tracked' => true]);
+    $order = makeOrder();
+    app(ProductSerialService::class)->addSerials($product, ['SN-1']);
+    $item = \App\Models\OrderItem::create([
+        'order_id' => $order->id, 'product_id' => $product->id, 'product_name' => $product->name,
+        'quantity' => 1, 'price' => 10, 'cost_price' => 0, 'total' => 10, 'profit' => 10,
+    ]);
+    app(ProductSerialService::class)->allocate($item, $product, ['SN-1']);
+    $serial = $product->serials()->where('status', 'sold')->first();
+
+    $this->actingAs($admin)
+        ->delete(route('products.serials.destroy', [$product, $serial]))
+        ->assertSessionHas('error');
+
+    expect($product->serials()->where('status', 'sold')->count())->toBe(1); // still sold
+});
+
+it('blocks enabling serial tracking on a product that still has stock', function () {
+    $admin = serialAdmin();
+    $category = \App\Models\Category::factory()->create();
+    $product = Product::factory()->create(['serial_tracked' => false, 'stock' => 5, 'category_id' => $category->id]);
+
+    $this->actingAs($admin)->put(route('products.update', $product), [
+        'name' => $product->name, 'price' => 100, 'cost_price' => 50,
+        'stock' => 5, 'category_id' => $category->id, 'status' => 'active',
+        'serial_tracked' => true,
+    ])->assertSessionHas('error');
+
+    expect($product->fresh()->serial_tracked)->toBeFalse();
+});
