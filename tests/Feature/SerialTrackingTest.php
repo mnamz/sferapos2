@@ -3,7 +3,17 @@
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductSerial;
+use App\Models\User;
 use App\Services\ProductSerialService;
+
+function serialAdmin(): User
+{
+    \Spatie\Permission\Models\Role::findOrCreate('admin');
+    $user = User::factory()->create();
+    $user->assignRole('admin');
+
+    return $user;
+}
 
 it('relates serials to a product and scopes available ones', function () {
     $product = Product::factory()->create(['serial_tracked' => true]);
@@ -87,4 +97,74 @@ it('releases serials for an order back to the available pool', function () {
     expect($product->fresh()->stock)->toBe(2);
     expect($product->serials()->available()->count())->toBe(2);
     expect(ProductSerial::where('order_id', $order->id)->count())->toBe(0);
+});
+
+it('bulk-adds serials via the endpoint and syncs stock', function () {
+    $admin = serialAdmin();
+    $product = Product::factory()->create(['serial_tracked' => true, 'stock' => 0]);
+
+    $this->actingAs($admin)
+        ->post(route('products.serials.store', $product), ['serials' => ['SN-1', 'SN-2', 'SN-3']])
+        ->assertRedirect();
+
+    expect($product->fresh()->stock)->toBe(3);
+});
+
+it('rejects a globally-duplicate serial on add', function () {
+    $admin = serialAdmin();
+    $p1 = Product::factory()->create(['serial_tracked' => true]);
+    $p2 = Product::factory()->create(['serial_tracked' => true]);
+    ProductSerial::create(['product_id' => $p1->id, 'serial_number' => 'DUP', 'status' => 'available']);
+
+    $this->actingAs($admin)
+        ->post(route('products.serials.store', $p2), ['serials' => ['DUP']])
+        ->assertSessionHasErrors('serials.0');
+
+    expect($p2->fresh()->stock)->toBe(0);
+});
+
+it('rejects duplicate serials within the same request', function () {
+    $admin = serialAdmin();
+    $product = Product::factory()->create(['serial_tracked' => true]);
+
+    $this->actingAs($admin)
+        ->post(route('products.serials.store', $product), ['serials' => ['SAME', 'SAME']])
+        ->assertSessionHasErrors();
+
+    expect($product->fresh()->stock)->toBe(0);
+});
+
+it('removes an available serial via the endpoint', function () {
+    $admin = serialAdmin();
+    $product = Product::factory()->create(['serial_tracked' => true]);
+    app(ProductSerialService::class)->addSerials($product, ['SN-1', 'SN-2']);
+    $serial = $product->serials()->where('serial_number', 'SN-1')->first();
+
+    $this->actingAs($admin)
+        ->delete(route('products.serials.destroy', [$product, $serial]))
+        ->assertRedirect();
+
+    expect($product->fresh()->stock)->toBe(1);
+});
+
+it('rejects integer stock adjustment for a serial-tracked product', function () {
+    $admin = serialAdmin();
+    $product = Product::factory()->create(['serial_tracked' => true]);
+
+    $this->actingAs($admin)
+        ->post(route('products.adjust-stock', $product), ['quantity' => 5, 'type' => 'restock'])
+        ->assertSessionHas('error');
+});
+
+it('forces stock to zero when creating a serial-tracked product', function () {
+    $admin = serialAdmin();
+    $category = \App\Models\Category::factory()->create();
+
+    $this->actingAs($admin)->post(route('products.store'), [
+        'name' => 'Tracked Device', 'price' => 100, 'cost_price' => 50,
+        'stock' => 99, 'category_id' => $category->id, 'status' => 'active',
+        'serial_tracked' => true,
+    ])->assertRedirect();
+
+    expect(Product::where('name', 'Tracked Device')->first()->stock)->toBe(0);
 });
