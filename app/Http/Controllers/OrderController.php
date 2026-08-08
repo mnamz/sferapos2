@@ -595,7 +595,7 @@ class OrderController extends Controller
 
     public function edit(Order $order)
     {
-        $order->load(['customer', 'user', 'items.product']);
+        $order->load(['customer', 'user', 'items.product', 'items.serials']);
 
         return Inertia::render('Orders/Edit', [
             'order' => [
@@ -613,10 +613,16 @@ class OrderController extends Controller
                     'name' => $order->user->name,
                 ],
                 'items' => $order->items->map(function ($item) {
+                    $serialTracked = $item->product && $item->product->serial_tracked;
+
                     return [
                         'id' => $item->id,
                         'product_id' => $item->product_id,
                         'product_name' => $item->product_name,
+                        'serial_tracked' => $serialTracked,
+                        'serials' => $serialTracked
+                            ? $item->serials->pluck('serial_number')->values()->all()
+                            : [],
                         'quantity' => $item->quantity,
                         'price' => number_format($item->price, 2),
                         'total' => number_format($item->total, 2),
@@ -640,8 +646,9 @@ class OrderController extends Controller
                 'created_at' => $order->created_at->format('Y-m-d H:i:s'),
             ],
             'customers' => \App\Models\Customer::select('id', 'name', 'email', 'phone', 'address')->get(),
-            'products' => \App\Models\Product::select('id', 'name', 'price', 'stock')
+            'products' => \App\Models\Product::select('id', 'name', 'price', 'stock', 'serial_tracked')
                 ->where('stock', '>', 0)
+                ->orWhereHas('serials', fn ($q) => $q->where('status', 'sold')->whereHas('order', fn ($o) => $o->where('id', $order->id)))
                 ->get(),
         ]);
     }

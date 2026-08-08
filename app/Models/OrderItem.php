@@ -18,7 +18,7 @@ class OrderItem extends Model
         'cost_price',
         'total',
         'profit',
-        'remark'
+        'remark',
     ];
 
     public function order()
@@ -30,4 +30,9 @@ class OrderItem extends Model
     {
         return $this->belongsTo(Product::class);
     }
-} 
+
+    public function serials()
+    {
+        return $this->hasMany(ProductSerial::class);
+    }
+}
