@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductSerial;
+use Illuminate\Support\Facades\DB;
 
 class ProductSerialService
 {
@@ -41,27 +42,29 @@ class ProductSerialService
     {
         $serialNumbers = array_values(array_unique($serialNumbers));
 
-        $serials = $product->serials()
-            ->where('status', 'available')
-            ->whereIn('serial_number', $serialNumbers)
-            ->lockForUpdate()
-            ->get();
+        return DB::transaction(function () use ($orderItem, $product, $serialNumbers) {
+            $serials = $product->serials()
+                ->where('status', 'available')
+                ->whereIn('serial_number', $serialNumbers)
+                ->lockForUpdate()
+                ->get();
 
-        if ($serials->count() !== count($serialNumbers)) {
-            throw new \RuntimeException("Some serial numbers are not available for product: {$product->name}");
-        }
+            if ($serials->count() !== count($serialNumbers)) {
+                throw new \RuntimeException("Some serial numbers are not available for product: {$product->name}");
+            }
 
-        foreach ($serials as $serial) {
-            $serial->update([
-                'status' => 'sold',
-                'order_id' => $orderItem->order_id,
-                'order_item_id' => $orderItem->id,
-            ]);
-        }
+            foreach ($serials as $serial) {
+                $serial->update([
+                    'status' => 'sold',
+                    'order_id' => $orderItem->order_id,
+                    'order_item_id' => $orderItem->id,
+                ]);
+            }
 
-        $this->syncStock($product);
+            $this->syncStock($product);
 
-        return $serials->count();
+            return $serials->count();
+        });
     }
 
     public function release(int $orderId): void
