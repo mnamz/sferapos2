@@ -835,6 +835,15 @@ class OrderController extends Controller
             'status' => 'required|in:pending,processing,completed,cancelled',
         ]);
 
+        if ($validated['status'] === 'cancelled' && $order->status !== 'cancelled') {
+            app(ProductSerialService::class)->release($order->id);
+            foreach ($order->items as $item) {
+                if ($item->product && ! $item->product->serial_tracked) {
+                    $item->product->increment('stock', $item->quantity);
+                }
+            }
+        }
+
         $order->update(['status' => $validated['status'], 'payment_status' => $validated['status']]);
 
         return back()->with('success', 'Order status updated successfully');
@@ -871,6 +880,8 @@ class OrderController extends Controller
                         'deletion_reason' => $validated['deletion_reason'],
                     ]);
 
+                    app(ProductSerialService::class)->release($order->id);
+
                     \Log::info('Order cancelled on MyInvois', [
                         'order_id' => $order->id,
                         'myinvois_id' => $queueItem->myinvois_id,
@@ -890,9 +901,10 @@ class OrderController extends Controller
                     'deletion_reason' => $validated['deletion_reason'],
                 ]);
 
-                // Restore product stock
+                // Restore product stock (untracked) and release serials (tracked)
+                app(ProductSerialService::class)->release($order->id);
                 foreach ($order->items as $item) {
-                    if ($item->product) {
+                    if ($item->product && ! $item->product->serial_tracked) {
                         $item->product->increment('stock', $item->quantity);
                     }
                 }

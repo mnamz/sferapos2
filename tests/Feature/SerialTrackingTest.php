@@ -284,6 +284,48 @@ it('handles a mixed order with tracked and untracked products', function () {
     expect($untracked->fresh()->stock)->toBe(7);
 });
 
+it('returns serials to the pool when an order is deleted', function () {
+    makeShopSettings();
+    $user = serialAdmin();
+    $product = Product::factory()->create(['serial_tracked' => true, 'price' => 100]);
+    app(ProductSerialService::class)->addSerials($product, ['SN-1', 'SN-2']);
+
+    $this->actingAs($user)->postJson(route('orders.store'), [
+        'items' => [['id' => $product->id, 'quantity' => 2, 'price' => 100, 'serials' => ['SN-1', 'SN-2']]],
+        'subtotal' => 200, 'tax' => 0, 'delivery_cost' => 0, 'total' => 200,
+        'paid_amount' => 200, 'due_amount' => 0, 'change_amount' => 0, 'discount' => 0,
+        'payment_method' => 'cash', 'delivery_method' => 'pickup',
+    ])->assertJson(['success' => true]);
+    $order = \App\Models\Order::latest('id')->first();
+
+    $this->actingAs($user)->delete(route('orders.destroy', $order), [
+        'deletion_reason' => 'Customer changed mind',
+    ])->assertRedirect();
+
+    expect($product->fresh()->stock)->toBe(2);
+    expect($product->serials()->where('status', 'sold')->count())->toBe(0);
+});
+
+it('returns serials to the pool when an order is cancelled via status update', function () {
+    makeShopSettings();
+    $user = serialAdmin();
+    $product = Product::factory()->create(['serial_tracked' => true, 'price' => 100]);
+    app(ProductSerialService::class)->addSerials($product, ['SN-1']);
+
+    $this->actingAs($user)->postJson(route('orders.store'), [
+        'items' => [['id' => $product->id, 'quantity' => 1, 'price' => 100, 'serials' => ['SN-1']]],
+        'subtotal' => 100, 'tax' => 0, 'delivery_cost' => 0, 'total' => 100,
+        'paid_amount' => 100, 'due_amount' => 0, 'change_amount' => 0, 'discount' => 0,
+        'payment_method' => 'cash', 'delivery_method' => 'pickup',
+    ])->assertJson(['success' => true]);
+    $order = \App\Models\Order::latest('id')->first();
+
+    $this->actingAs($user)->put(route('orders.updateStatus', $order), ['status' => 'cancelled'])
+        ->assertRedirect();
+
+    expect($product->fresh()->stock)->toBe(1);
+});
+
 it('releases old serials and allocates new ones when an order is edited', function () {
     makeShopSettings();
     $user = serialAdmin();
