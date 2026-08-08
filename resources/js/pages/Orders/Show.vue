@@ -118,7 +118,19 @@
                                     </thead>
                                     <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
                                         <tr v-for="item in order.items" :key="item.id">
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ item.product_name }}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                                                {{ item.product_name }}
+                                                <div v-if="item.serials && item.serials.length" class="mt-1 flex flex-wrap gap-1">
+                                                    <span
+                                                        v-for="sn in item.serials"
+                                                        :key="sn"
+                                                        class="rounded bg-blue-50 px-1.5 py-0.5 font-mono text-xs text-blue-700 dark:bg-blue-900/40 dark:text-blue-200"
+                                                        title="Serial number"
+                                                    >
+                                                        {{ sn }}
+                                                    </span>
+                                                </div>
+                                            </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ currency }}{{ item.price }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ item.quantity }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ currency }}{{ item.total }}</td>

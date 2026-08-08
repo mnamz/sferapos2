@@ -144,7 +144,7 @@ class OrderController extends Controller
 
     public function show(Order $order)
     {
-        $order->load(['customer', 'user', 'items.product', 'myInvoisQueue', 'myInvoisInvoice', 'myInvoisInvoices', 'myInvoisCreditNotes']);
+        $order->load(['customer', 'user', 'items.product', 'items.serials', 'myInvoisQueue', 'myInvoisInvoice', 'myInvoisInvoices', 'myInvoisCreditNotes']);
 
         $orderData = [
             'id' => $order->id,
@@ -170,6 +170,7 @@ class OrderController extends Controller
                     'total' => number_format($item->total, 2),
                     'profit' => number_format($item->profit, 2),
                     'remark' => $item->remark,
+                    'serials' => $item->serials->pluck('serial_number')->values(),
                 ];
             }),
             'subtotal' => number_format($order->subtotal, 2),
