@@ -21,14 +21,35 @@ return new class extends Migration
             $table->index(['product_id', 'status']);
         });
 
-        // Global uniqueness among LIVE rows only (SQLite partial unique index):
-        // soft-deleted serial numbers may be re-added.
-        DB::statement('CREATE UNIQUE INDEX product_serials_serial_number_unique ON product_serials (serial_number) WHERE deleted_at IS NULL');
+        // Enforce global uniqueness among LIVE (non-soft-deleted) rows only, so a
+        // soft-deleted serial number can later be re-added. The technique differs
+        // by driver because neither engine's plain unique index does this directly:
+        //  - SQLite: a partial unique index (WHERE deleted_at IS NULL).
+        //  - MySQL/MariaDB: no partial indexes, so use a STORED generated column that
+        //    holds the serial number only while the row is live (NULL once deleted),
+        //    with a unique index on it — the engine allows many NULLs, so deleted
+        //    rows never collide.
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            DB::statement('CREATE UNIQUE INDEX product_serials_serial_number_unique ON product_serials (serial_number) WHERE deleted_at IS NULL');
+        } else {
+            DB::statement('ALTER TABLE product_serials ADD COLUMN serial_active VARCHAR(255) GENERATED ALWAYS AS (CASE WHEN deleted_at IS NULL THEN serial_number ELSE NULL END) STORED');
+            DB::statement('CREATE UNIQUE INDEX product_serials_serial_number_unique ON product_serials (serial_active)');
+        }
     }
 
     public function down(): void
     {
-        DB::statement('DROP INDEX IF EXISTS product_serials_serial_number_unique');
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            DB::statement('DROP INDEX IF EXISTS product_serials_serial_number_unique');
+        } else {
+            DB::statement('DROP INDEX product_serials_serial_number_unique ON product_serials');
+            DB::statement('ALTER TABLE product_serials DROP COLUMN serial_active');
+        }
+
         Schema::dropIfExists('product_serials');
     }
 };

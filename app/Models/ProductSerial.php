@@ -21,6 +21,12 @@ class ProductSerial extends Model implements Auditable
         'order_id',
     ];
 
+    // `serial_active` is a DB-only generated helper column (MySQL/MariaDB) used to
+    // enforce live-row serial uniqueness; never expose it in JSON payloads.
+    protected $hidden = [
+        'serial_active',
+    ];
+
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
