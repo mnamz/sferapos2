@@ -16,6 +16,53 @@ function serialAdmin(): User
     return $user;
 }
 
+function serialManager(): User
+{
+    \Spatie\Permission\Models\Role::findOrCreate('manager');
+    $user = User::factory()->create();
+    $user->assignRole('manager');
+
+    return $user;
+}
+
+it('forbids a manager from adding serials (admin-only inventory setup)', function () {
+    $manager = serialManager();
+    $product = Product::factory()->create(['serial_tracked' => true]);
+
+    $this->actingAs($manager)
+        ->post(route('products.serials.store', $product), ['serials' => ['SN-1']])
+        ->assertForbidden();
+
+    expect($product->fresh()->stock)->toBe(0);
+});
+
+it('forbids a manager from removing serials', function () {
+    $manager = serialManager();
+    $product = Product::factory()->create(['serial_tracked' => true]);
+    app(ProductSerialService::class)->addSerials($product, ['SN-1']);
+    $serial = $product->serials()->first();
+
+    $this->actingAs($manager)
+        ->delete(route('products.serials.destroy', [$product, $serial]))
+        ->assertForbidden();
+
+    expect($product->fresh()->stock)->toBe(1);
+});
+
+it('does not let a manager enable serial tracking via product update', function () {
+    $manager = serialManager();
+    $category = \App\Models\Category::factory()->create();
+    $product = Product::factory()->create(['serial_tracked' => false, 'stock' => 5, 'category_id' => $category->id]);
+
+    $this->actingAs($manager)->put(route('products.update', $product), [
+        'name' => $product->name, 'price' => 100, 'cost_price' => 50,
+        'stock' => 5, 'category_id' => $category->id, 'status' => 'active',
+        'serial_tracked' => true,
+    ]);
+
+    expect($product->fresh()->serial_tracked)->toBeFalse(); // flag ignored for non-admins
+});
+
 it('relates serials to a product and scopes available ones', function () {
     $product = Product::factory()->create(['serial_tracked' => true]);
 

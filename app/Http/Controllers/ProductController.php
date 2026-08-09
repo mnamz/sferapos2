@@ -71,7 +71,10 @@ class ProductController extends Controller
             $validated['image'] = $request->file('image')->store('products', 'public');
         }
 
-        if ($request->boolean('serial_tracked')) {
+        // Serial tracking is admin-only inventory setup.
+        $validated['serial_tracked'] = $request->boolean('serial_tracked') && auth()->user()?->hasRole('admin');
+
+        if ($validated['serial_tracked']) {
             $validated['stock'] = 0;
         }
 
@@ -105,12 +108,19 @@ class ProductController extends Controller
             'serial_tracked' => 'boolean',
         ]);
 
-        // Enabling serial tracking is always allowed. A serial-tracked product's
-        // stock is defined by its serials, so we reset stock to the current
-        // available-serial count (0 when newly enabled). When converting a product
-        // that had anonymous stock, remember that quantity as a "pending serial
-        // entry" reminder so staff know how many units still need serials.
-        if ($request->boolean('serial_tracked')) {
+        // Serial tracking is admin-only inventory setup: non-admins (e.g. managers)
+        // can edit products but cannot change the serial-tracked flag — it keeps
+        // whatever value it already had.
+        $serialTracked = auth()->user()?->hasRole('admin')
+            ? $request->boolean('serial_tracked')
+            : (bool) $product->serial_tracked;
+        $validated['serial_tracked'] = $serialTracked;
+
+        // A serial-tracked product's stock is defined by its serials, so we reset
+        // stock to the current available-serial count (0 when newly enabled). When
+        // converting a product that had anonymous stock, remember that quantity as a
+        // "pending serial entry" reminder so staff know how many units need serials.
+        if ($serialTracked) {
             if (! $product->serial_tracked && $product->stock > 0) {
                 $validated['pending_serial_count'] = $product->stock;
             }

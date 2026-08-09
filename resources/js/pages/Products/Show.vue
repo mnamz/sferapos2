@@ -97,8 +97,12 @@
                                         {{ product.pending_serial_count }} unit{{ product.pending_serial_count === 1 ? '' : 's' }} awaiting serial entry — key in {{ product.pending_serial_count === 1 ? 'its serial' : 'their serials' }} below to make {{ product.pending_serial_count === 1 ? 'it' : 'them' }} sellable.
                                     </p>
 
-                                    <!-- Add Serials Form -->
-                                    <form @submit.prevent="addSerials" class="space-y-3">
+                                    <p v-if="!isAdmin" class="mb-4 text-sm text-gray-500 italic dark:text-gray-400">
+                                        Serial numbers are managed by administrators.
+                                    </p>
+
+                                    <!-- Add Serials Form (admin only) -->
+                                    <form v-if="isAdmin" @submit.prevent="addSerials" class="space-y-3">
                                         <div>
                                             <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                                                 Add Serial Numbers (one per line — paste or scan)
@@ -135,6 +139,7 @@
                                             >
                                                 <span>{{ s.serial_number }}</span>
                                                 <button
+                                                    v-if="isAdmin"
                                                     type="button"
                                                     class="ml-4 text-red-500 transition hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                                                     title="Remove serial"
@@ -220,6 +225,7 @@ import { ref } from 'vue';
 
 const page = usePage();
 const roles = page.props.auth?.roles || [];
+const isAdmin = roles.includes('admin');
 
 const props = defineProps({
     product: {
