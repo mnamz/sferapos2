@@ -166,7 +166,7 @@ class ProductController extends Controller
     public function show(Product $product)
     {
         return Inertia::render('Products/Show', [
-            'product' => $product->load(['category', 'supplier', 'serials' => fn ($q) => $q->where('status', 'available')->orderBy('serial_number')]),
+            'product' => $product->load(['category', 'supplier', 'serials' => fn ($q) => $q->where('status', 'available')->with('deletionRequester:id,name')->orderBy('serial_number')]),
         ]);
     }
 
@@ -285,9 +285,42 @@ class ProductController extends Controller
             return back()->with('error', 'Only available serials can be removed.');
         }
 
-        $service->removeSerial($serial);
+        // Admins delete immediately; managers file a request for admin approval.
+        if (auth()->user()?->hasRole('admin')) {
+            $service->removeSerial($serial);
 
-        return back()->with('success', 'Serial removed successfully.');
+            return back()->with('success', 'Serial removed successfully.');
+        }
+
+        $service->requestDeletion($serial, auth()->id());
+
+        return back()->with('success', 'Deletion requested — awaiting admin approval.');
+    }
+
+    public function approveSerialDeletion(Product $product, ProductSerial $serial, ProductSerialService $service)
+    {
+        if ($serial->product_id !== $product->id) {
+            abort(404);
+        }
+
+        try {
+            $service->approveDeletion($serial);
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Serial deletion approved and removed.');
+    }
+
+    public function rejectSerialDeletion(Product $product, ProductSerial $serial, ProductSerialService $service)
+    {
+        if ($serial->product_id !== $product->id) {
+            abort(404);
+        }
+
+        $service->rejectDeletion($serial);
+
+        return back()->with('success', 'Deletion request rejected.');
     }
 
     public function inventoryCost(Request $request)

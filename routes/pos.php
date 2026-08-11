@@ -33,6 +33,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('role:admin')->group(function () {
         Route::get('/shop-settings', [ShopSettingsController::class, 'index'])->name('pos.settings');
         Route::post('/shop-settings', [ShopSettingsController::class, 'update'])->name('pos.settings.update');
+
+        // Approving/rejecting a manager's serial-deletion request is admin-only.
+        Route::post('products/{product}/serials/{serial}/approve-deletion', [ProductController::class, 'approveSerialDeletion'])->name('products.serials.approve-deletion');
+        Route::post('products/{product}/serials/{serial}/reject-deletion', [ProductController::class, 'rejectSerialDeletion'])->name('products.serials.reject-deletion');
     });
 
     // Edit/update routes restricted to admin and manager

@@ -19,6 +19,12 @@ class ProductSerial extends Model implements Auditable
         'status',
         'order_item_id',
         'order_id',
+        'deletion_requested_at',
+        'deletion_requested_by',
+    ];
+
+    protected $casts = [
+        'deletion_requested_at' => 'datetime',
     ];
 
     // `serial_active` is a DB-only generated helper column (MySQL/MariaDB) used to
@@ -42,8 +48,18 @@ class ProductSerial extends Model implements Auditable
         return $this->belongsTo(Order::class);
     }
 
+    public function deletionRequester(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deletion_requested_by');
+    }
+
     public function scopeAvailable($query)
     {
         return $query->where('status', 'available');
+    }
+
+    public function scopePendingDeletion($query)
+    {
+        return $query->whereNotNull('deletion_requested_at');
     }
 }

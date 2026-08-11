@@ -44,6 +44,41 @@ class ProductSerialService
         $this->syncStock($product);
     }
 
+    // Manager-initiated deletion: flag the serial for admin approval instead of
+    // removing it. The serial stays available/sellable until an admin approves.
+    public function requestDeletion(ProductSerial $serial, int $userId): void
+    {
+        if ($serial->status !== 'available') {
+            throw new \RuntimeException('Only available serials can be deleted.');
+        }
+
+        $serial->update([
+            'deletion_requested_at' => now(),
+            'deletion_requested_by' => $userId,
+        ]);
+    }
+
+    // Admin approves a pending request → the serial is actually removed.
+    public function approveDeletion(ProductSerial $serial): void
+    {
+        if ($serial->status !== 'available') {
+            // It was sold before approval — void the stale request instead.
+            $this->rejectDeletion($serial);
+            throw new \RuntimeException('Serial is no longer available to delete.');
+        }
+
+        $this->removeSerial($serial);
+    }
+
+    // Admin rejects a pending request → clear the request, keep the serial.
+    public function rejectDeletion(ProductSerial $serial): void
+    {
+        $serial->update([
+            'deletion_requested_at' => null,
+            'deletion_requested_by' => null,
+        ]);
+    }
+
     public function allocate(OrderItem $orderItem, Product $product, array $serialNumbers): int
     {
         $serialNumbers = array_values(array_unique($serialNumbers));

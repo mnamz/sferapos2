@@ -16,10 +16,17 @@ function serialAdmin(): User
     return $user;
 }
 
-it('allows a manager to add serials (admin+manager inventory setup)', function () {
+function serialManager(): User
+{
     \Spatie\Permission\Models\Role::findOrCreate('manager');
-    $manager = User::factory()->create();
-    $manager->assignRole('manager');
+    $user = User::factory()->create();
+    $user->assignRole('manager');
+
+    return $user;
+}
+
+it('allows a manager to add serials (admin+manager inventory setup)', function () {
+    $manager = serialManager();
     $product = Product::factory()->create(['serial_tracked' => true, 'stock' => 0]);
 
     $this->actingAs($manager)
@@ -27,6 +34,88 @@ it('allows a manager to add serials (admin+manager inventory setup)', function (
         ->assertRedirect();
 
     expect($product->fresh()->stock)->toBe(2);
+});
+
+it('a manager deleting a serial files a pending request instead of removing it', function () {
+    $manager = serialManager();
+    $product = Product::factory()->create(['serial_tracked' => true]);
+    app(ProductSerialService::class)->addSerials($product, ['SN-1']);
+    $serial = $product->serials()->first();
+
+    $this->actingAs($manager)
+        ->delete(route('products.serials.destroy', [$product, $serial]))
+        ->assertRedirect();
+
+    $serial->refresh();
+    expect($serial->trashed())->toBeFalse();               // not removed
+    expect($serial->deletion_requested_at)->not->toBeNull(); // request recorded
+    expect($serial->deletion_requested_by)->toBe($manager->id);
+    expect($product->fresh()->stock)->toBe(1);             // still counted / sellable
+});
+
+it('an admin deleting a serial removes it immediately', function () {
+    $admin = serialAdmin();
+    $product = Product::factory()->create(['serial_tracked' => true]);
+    app(ProductSerialService::class)->addSerials($product, ['SN-1']);
+    $serial = $product->serials()->first();
+
+    $this->actingAs($admin)
+        ->delete(route('products.serials.destroy', [$product, $serial]))
+        ->assertRedirect();
+
+    expect($product->fresh()->stock)->toBe(0);
+    expect(ProductSerial::withTrashed()->find($serial->id)->trashed())->toBeTrue();
+});
+
+it('an admin approving a request removes the serial and recounts stock', function () {
+    $admin = serialAdmin();
+    $manager = serialManager();
+    $product = Product::factory()->create(['serial_tracked' => true]);
+    app(ProductSerialService::class)->addSerials($product, ['SN-1', 'SN-2']);
+    $serial = $product->serials()->where('serial_number', 'SN-1')->first();
+    app(ProductSerialService::class)->requestDeletion($serial, $manager->id);
+
+    $this->actingAs($admin)
+        ->post(route('products.serials.approve-deletion', [$product, $serial]))
+        ->assertRedirect();
+
+    expect($product->fresh()->stock)->toBe(1);
+    expect(ProductSerial::withTrashed()->find($serial->id)->trashed())->toBeTrue();
+});
+
+it('an admin rejecting a request keeps the serial and clears the request', function () {
+    $admin = serialAdmin();
+    $manager = serialManager();
+    $product = Product::factory()->create(['serial_tracked' => true]);
+    app(ProductSerialService::class)->addSerials($product, ['SN-1']);
+    $serial = $product->serials()->first();
+    app(ProductSerialService::class)->requestDeletion($serial, $manager->id);
+
+    $this->actingAs($admin)
+        ->post(route('products.serials.reject-deletion', [$product, $serial]))
+        ->assertRedirect();
+
+    $serial->refresh();
+    expect($serial->trashed())->toBeFalse();
+    expect($serial->deletion_requested_at)->toBeNull();
+    expect($product->fresh()->stock)->toBe(1);
+});
+
+it('forbids a manager from approving or rejecting a deletion request', function () {
+    $manager = serialManager();
+    $product = Product::factory()->create(['serial_tracked' => true]);
+    app(ProductSerialService::class)->addSerials($product, ['SN-1']);
+    $serial = $product->serials()->first();
+    app(ProductSerialService::class)->requestDeletion($serial, $manager->id);
+
+    $this->actingAs($manager)
+        ->post(route('products.serials.approve-deletion', [$product, $serial]))
+        ->assertForbidden();
+    $this->actingAs($manager)
+        ->post(route('products.serials.reject-deletion', [$product, $serial]))
+        ->assertForbidden();
+
+    expect($product->fresh()->stock)->toBe(1); // untouched
 });
 
 it('relates serials to a product and scopes available ones', function () {

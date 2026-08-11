@@ -134,10 +134,36 @@
                                                 class="flex items-center justify-between px-4 py-2 font-mono text-sm text-gray-900 dark:text-white"
                                             >
                                                 <span>{{ s.serial_number }}</span>
+
+                                                <!-- Pending deletion request -->
+                                                <span v-if="s.deletion_requested_at" class="flex items-center gap-3">
+                                                    <span class="font-sans text-xs text-amber-600 dark:text-amber-400">
+                                                        deletion requested<template v-if="s.deletion_requester"> by {{ s.deletion_requester.name }}</template>
+                                                    </span>
+                                                    <template v-if="isAdmin">
+                                                        <button
+                                                            type="button"
+                                                            class="font-sans text-xs font-medium text-green-600 transition hover:text-green-700 dark:text-green-400"
+                                                            @click="approveDeletion(s)"
+                                                        >
+                                                            Approve
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            class="font-sans text-xs font-medium text-gray-500 transition hover:text-gray-700 dark:text-gray-400"
+                                                            @click="rejectDeletion(s)"
+                                                        >
+                                                            Reject
+                                                        </button>
+                                                    </template>
+                                                </span>
+
+                                                <!-- No request: delete (admin = immediate, manager = request approval) -->
                                                 <button
+                                                    v-else
                                                     type="button"
                                                     class="ml-4 text-red-500 transition hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                                                    title="Remove serial"
+                                                    :title="isAdmin ? 'Remove serial' : 'Request deletion (needs admin approval)'"
                                                     @click="removeSerial(s)"
                                                 >
                                                     ×
@@ -220,6 +246,7 @@ import { ref } from 'vue';
 
 const page = usePage();
 const roles = page.props.auth?.roles || [];
+const isAdmin = roles.includes('admin');
 
 const props = defineProps({
     product: {
@@ -279,6 +306,18 @@ function addSerials() {
 
 function removeSerial(serial) {
     router.delete(route('products.serials.destroy', [props.product.id, serial.id]), {
+        preserveScroll: true,
+    });
+}
+
+function approveDeletion(serial) {
+    router.post(route('products.serials.approve-deletion', [props.product.id, serial.id]), {}, {
+        preserveScroll: true,
+    });
+}
+
+function rejectDeletion(serial) {
+    router.post(route('products.serials.reject-deletion', [props.product.id, serial.id]), {}, {
         preserveScroll: true,
     });
 }
