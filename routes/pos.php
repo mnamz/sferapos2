@@ -29,15 +29,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Orders Routes
     Route::resource('orders', OrderController::class)->except(['edit', 'update']);
 
-    // Admin-only routes
+    // Shop Settings Routes (admin only)
     Route::middleware('role:admin')->group(function () {
         Route::get('/shop-settings', [ShopSettingsController::class, 'index'])->name('pos.settings');
         Route::post('/shop-settings', [ShopSettingsController::class, 'update'])->name('pos.settings.update');
-
-        // Serial inventory setup is admin-only (managers can edit products and
-        // sell serialized items, but cannot mint or delete serial stock).
-        Route::post('products/{product}/serials', [ProductController::class, 'addSerials'])->name('products.serials.store');
-        Route::delete('products/{product}/serials/{serial}', [ProductController::class, 'removeSerial'])->name('products.serials.destroy');
     });
 
     // Edit/update routes restricted to admin and manager
@@ -46,5 +41,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('categories', CategoryController::class)->only(['edit', 'update']);
         Route::resource('customers', CustomerController::class)->only(['edit', 'update']);
         Route::resource('orders', OrderController::class)->only(['edit', 'update']);
+        Route::post('products/{product}/serials', [ProductController::class, 'addSerials'])->name('products.serials.store');
+        Route::delete('products/{product}/serials/{serial}', [ProductController::class, 'removeSerial'])->name('products.serials.destroy');
     });
 });

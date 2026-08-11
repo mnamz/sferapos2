@@ -57,8 +57,8 @@
                                         <InputError :message="form.errors.cost_price" class="mt-2" />
                                     </div>
 
-                                    <!-- Serial Number Tracking (admin only) -->
-                                    <div v-if="isAdmin">
+                                    <!-- Serial Number Tracking -->
+                                    <div>
                                         <Label for="serial_tracked" class="flex cursor-pointer items-center gap-2 text-gray-900 dark:text-gray-100">
                                             <Checkbox id="serial_tracked" v-model="form.serial_tracked" />
                                             <span>Track serial numbers</span>
@@ -213,7 +213,7 @@ import { Label } from '@/Components/ui/label';
 import { Select } from '@/Components/ui/select';
 import { Textarea } from '@/Components/ui/textarea';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 
 const props = defineProps({
     product: {
@@ -229,8 +229,6 @@ const props = defineProps({
         required: true,
     },
 });
-
-const isAdmin = (usePage().props.auth?.roles || []).includes('admin');
 
 const form = useForm({
     name: props.product.name,
