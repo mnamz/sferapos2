@@ -146,6 +146,9 @@ class OrderController extends Controller
     {
         $order->load(['customer', 'user', 'items.product', 'items.serials', 'myInvoisQueue', 'myInvoisInvoice', 'myInvoisInvoices', 'myInvoisCreditNotes']);
 
+        // Profit is visible to admins only; managers/staff see the order without it.
+        $canViewProfit = (bool) auth()->user()?->hasRole('admin');
+
         $orderData = [
             'id' => $order->id,
             'order_number' => $order->order_number,
@@ -160,25 +163,29 @@ class OrderController extends Controller
                 'id' => $order->user->id,
                 'name' => $order->user->name,
             ],
-            'items' => $order->items->map(function ($item) {
-                return [
+            'items' => $order->items->map(function ($item) use ($canViewProfit) {
+                $data = [
                     'id' => $item->id,
                     'product_id' => $item->product_id,
                     'product_name' => $item->product_name,
                     'quantity' => $item->quantity,
                     'price' => number_format($item->price, 2),
                     'total' => number_format($item->total, 2),
-                    'profit' => number_format($item->profit, 2),
                     'remark' => $item->remark,
                     'serials' => $item->serials->pluck('serial_number')->values(),
                 ];
+
+                if ($canViewProfit) {
+                    $data['profit'] = number_format($item->profit, 2);
+                }
+
+                return $data;
             }),
             'subtotal' => number_format($order->subtotal, 2),
             'tax' => number_format($order->tax, 2),
             'delivery_cost' => number_format($order->delivery_cost, 2),
             'discount' => number_format($order->discount, 2),
             'total' => number_format($order->total, 2),
-            'profit' => number_format($order->profit, 2),
             'paid_amount' => number_format($order->paid_amount, 2),
             'due_amount' => number_format($order->due_amount, 2),
             'change_amount' => number_format($order->change_amount, 2),
@@ -228,6 +235,10 @@ class OrderController extends Controller
                 ->values()
                 ->all(),
         ];
+
+        if ($canViewProfit) {
+            $orderData['profit'] = number_format($order->profit, 2);
+        }
 
         return Inertia::render('Orders/Show', [
             'order' => $orderData,

@@ -88,7 +88,7 @@
                         </div>
                     </div>
 
-                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
+                    <div v-if="isAdmin" class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm rounded-lg">
                         <div class="p-6">
                             <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Total Profit</h3>
                             <p class="text-3xl font-bold text-green-600 dark:text-green-400">{{ currency }}{{ formatNumber(summary.total_profit) }}</p>
@@ -104,22 +104,8 @@
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead class="bg-gray-50 dark:bg-gray-700">
                                     <tr>
-                                        <th 
-                                            v-for="column in [
-                                                { key: 'id', label: 'Order #' },
-                                                { key: 'customer_name', label: 'Customer' },
-                                                { key: 'subtotal', label: 'Subtotal' },
-                                                { key: 'tax', label: 'Tax' },
-                                                // { key: 'total', label: 'Total' },
-                                                { key: 'profit', label: 'Profit' },
-                                                { key: 'due', label: 'Due' },
-                                                { key: 'status', label: 'Status' },
-                                                { key: 'payment_status', label: 'Payment' },
-                                                { key: 'delivery_method', label: 'Delivery Method' },
-                                                { key: 'payment_method', label: 'Payment Method' },
-                                                // { key: 'cashier_name', label: 'Cashier' },
-                                                { key: 'created_at', label: 'Date' }
-                                            ]" 
+                                        <th
+                                            v-for="column in tableColumns"
                                             :key="column.key"
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                                             @click="handleSort(column.key)"
@@ -148,7 +134,7 @@
                                         <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ order.subtotal }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ order.tax }}</td>
                                         <!-- <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ order.total }}</td> -->
-                                        <td class="px-6 py-4 whitespace-nowrap text-green-600 dark:text-green-400">{{ currency }}{{ order.profit }}</td>
+                                        <td v-if="isAdmin" class="px-6 py-4 whitespace-nowrap text-green-600 dark:text-green-400">{{ currency }}{{ order.profit }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-red-600 dark:text-red-400">{{ currency }}{{ order.due }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <span :class="{
@@ -206,6 +192,23 @@ const page = usePage();
 const currency = computed(() => page.props.settings?.currency || 'USD');
 const salesChart = ref(null);
 const salesChartInstance = ref(null);
+
+// Profit is admin-only; managers/staff see the sales report without it.
+const isAdmin = computed(() => (page.props.auth?.roles ?? []).includes('admin'));
+
+const tableColumns = computed(() => [
+    { key: 'id', label: 'Order #' },
+    { key: 'customer_name', label: 'Customer' },
+    { key: 'subtotal', label: 'Subtotal' },
+    { key: 'tax', label: 'Tax' },
+    ...(isAdmin.value ? [{ key: 'profit', label: 'Profit' }] : []),
+    { key: 'due', label: 'Due' },
+    { key: 'status', label: 'Status' },
+    { key: 'payment_status', label: 'Payment' },
+    { key: 'delivery_method', label: 'Delivery Method' },
+    { key: 'payment_method', label: 'Payment Method' },
+    { key: 'created_at', label: 'Date' },
+]);
 
 // Initialize sort parameters from URL
 const sortColumn = ref(props.filters?.sort_column || '');

@@ -45,10 +45,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Add low stock products route
     Route::get('/products/low-stock', [ProductController::class, 'lowStock'])->name('products.low-stock');
-    Route::get('/products/inventory-cost', [ProductController::class, 'inventoryCost'])->name('products.inventory-cost');
-    Route::get('/products/inventory-cost/export', [ProductController::class, 'exportInventoryCost'])->name('products.inventory-cost.export');
-    Route::get('/products/report', [ProductController::class, 'report'])->name('products.report');
-    Route::get('/products/report/export', [ProductController::class, 'exportReport'])->name('products.report.export');
+
+    // Cost & profit reports are admin-only (hidden from manager/staff)
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/products/inventory-cost', [ProductController::class, 'inventoryCost'])->name('products.inventory-cost');
+        Route::get('/products/inventory-cost/export', [ProductController::class, 'exportInventoryCost'])->name('products.inventory-cost.export');
+        Route::get('/products/report', [ProductController::class, 'report'])->name('products.report');
+        Route::get('/products/report/export', [ProductController::class, 'exportReport'])->name('products.report.export');
+    });
     Route::post('/products/{product}/adjust-stock', [ProductController::class, 'adjustStock'])->name('products.adjust-stock');
     Route::get('/api/products/search', [ProductController::class, 'search'])->name('api.products.search');
 

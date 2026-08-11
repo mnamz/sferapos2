@@ -15,7 +15,7 @@
                     </Link>
                     <Link
                         :href="route('products.inventory-cost')"
-                        v-if="!roles.includes('staff')"
+                        v-if="roles.includes('admin')"
                         class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition text-center"
                     >
                         Inventory Cost

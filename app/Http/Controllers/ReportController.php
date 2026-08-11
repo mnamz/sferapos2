@@ -24,6 +24,9 @@ class ReportController extends Controller
         $startDate = $request->input('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
 
+        // Profit/cost figures are visible to admins only; managers/staff see sales only.
+        $canViewProfit = (bool) $request->user()?->hasRole('admin');
+
         $query = Order::query()
             ->whereBetween('orders.created_at', [$startDate.' 00:00:00', $endDate.' 23:59:59'])
             ->where('orders.status', '!=', 'cancelled')
@@ -41,8 +44,11 @@ class ReportController extends Controller
             'total_orders' => $query->clone()->count(),
             'average_order_value' => $query->clone()->avg('orders.total'),
             'total_tax' => $query->clone()->sum('orders.tax'),
-            'total_profit' => $query->clone()->sum('orders.profit'),
         ];
+
+        if ($canViewProfit) {
+            $summary['total_profit'] = $query->clone()->sum('orders.profit');
+        }
 
         // Get daily sales data for the chart
         $dailySales = $query->clone()
@@ -96,14 +102,13 @@ class ReportController extends Controller
             })
             ->paginate(10)
             ->withQueryString()
-            ->through(function ($order) {
-                return [
+            ->through(function ($order) use ($canViewProfit) {
+                $data = [
                     'id' => $order->id,
                     'customer_name' => $order->customer ? $order->customer->name : 'Walk-in Customer',
                     'subtotal' => number_format($order->subtotal, 2),
                     'total' => number_format($order->total, 2),
                     'tax' => number_format($order->tax, 2),
-                    'profit' => number_format($order->profit, 2),
                     'due' => number_format($order->due_amount, 2),
                     'status' => $order->status,
                     'payment_status' => $order->paid_amount >= $order->total ? 'paid' :
@@ -113,26 +118,34 @@ class ReportController extends Controller
                     'payment_method' => $order->payment_method,
                     'cashier_name' => $order->user->name,
                 ];
+
+                if ($canViewProfit) {
+                    $data['profit'] = number_format($order->profit, 2);
+                }
+
+                return $data;
             });
 
-        // Get profit details
-        $profitDetails = DB::table('order_items')
-            ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->whereBetween('orders.created_at', [$startDate.' 00:00:00', $endDate.' 23:59:59'])
-            ->where('orders.status', '!=', 'cancelled')
-            ->select(
-                'order_items.product_id',
-                'order_items.product_name',
-                DB::raw('SUM(order_items.quantity) as quantity_sold'),
-                DB::raw('AVG(order_items.cost_price) as cost_price'),
-                DB::raw('AVG(order_items.price) as selling_price'),
-                DB::raw('SUM(order_items.total) as total_revenue'),
-                DB::raw('SUM(order_items.cost_price * order_items.quantity) as total_cost'),
-                DB::raw('SUM(order_items.profit) as profit')
-            )
-            ->groupBy('order_items.product_id', 'order_items.product_name')
-            ->orderByDesc('profit')
-            ->get();
+        // Get profit details (cost breakdown) — admin only.
+        $profitDetails = $canViewProfit
+            ? DB::table('order_items')
+                ->join('orders', 'order_items.order_id', '=', 'orders.id')
+                ->whereBetween('orders.created_at', [$startDate.' 00:00:00', $endDate.' 23:59:59'])
+                ->where('orders.status', '!=', 'cancelled')
+                ->select(
+                    'order_items.product_id',
+                    'order_items.product_name',
+                    DB::raw('SUM(order_items.quantity) as quantity_sold'),
+                    DB::raw('AVG(order_items.cost_price) as cost_price'),
+                    DB::raw('AVG(order_items.price) as selling_price'),
+                    DB::raw('SUM(order_items.total) as total_revenue'),
+                    DB::raw('SUM(order_items.cost_price * order_items.quantity) as total_cost'),
+                    DB::raw('SUM(order_items.profit) as profit')
+                )
+                ->groupBy('order_items.product_id', 'order_items.product_name')
+                ->orderByDesc('profit')
+                ->get()
+            : [];
 
         return Inertia::render('Reports/Index', [
             'summary' => $summary,
@@ -168,61 +181,74 @@ class ReportController extends Controller
             ->latest()
             ->get();
 
+        // Profit is an admin-only column; managers/staff get the sales export without it.
+        $canViewProfit = (bool) $request->user()?->hasRole('admin');
+
+        // Ordered column definitions. The profit column is inserted only for admins,
+        // so every other column stays contiguous regardless of role.
+        $columns = [
+            ['header' => 'Order #', 'value' => fn ($o) => $o->id],
+            ['header' => 'Customer', 'value' => fn ($o) => $o->customer ? $o->customer->name : 'Walk-in Customer'],
+            ['header' => 'Total', 'value' => fn ($o) => $o->total, 'number' => true],
+            ['header' => 'Tax', 'value' => fn ($o) => $o->tax, 'number' => true],
+        ];
+
+        if ($canViewProfit) {
+            $columns[] = ['header' => 'Profit', 'value' => fn ($o) => $o->profit, 'number' => true];
+        }
+
+        $columns = array_merge($columns, [
+            ['header' => 'Due', 'value' => fn ($o) => $o->due_amount, 'number' => true],
+            ['header' => 'Payment', 'value' => fn ($o) => $o->payment_method],
+            ['header' => 'Status', 'value' => fn ($o) => ucfirst($o->status)],
+            ['header' => 'Payment Status', 'value' => fn ($o) => $o->paid_amount >= $o->total ? 'Paid' :
+                ($o->paid_amount > 0 ? 'Partial' : 'Pending')],
+            ['header' => 'Cashier', 'value' => fn ($o) => $o->user->name],
+            ['header' => 'Date', 'value' => fn ($o) => $o->created_at->format('Y-m-d H:i:s')],
+            ['header' => 'Items', 'value' => fn ($o) => json_encode($o->items->pluck('product_name')->toArray())],
+            ['header' => 'Item Remarks', 'value' => fn ($o) => json_encode($o->items->pluck('remark')->filter()->values()->all())],
+            ['header' => 'Delivery Method', 'value' => fn ($o) => $o->delivery_method],
+        ]);
+
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
-        // Set headers with styling
-        $headers = ['A1' => 'Order #', 'B1' => 'Customer', 'C1' => 'Total', 'D1' => 'Tax',
-            'E1' => 'Profit', 'F1' => 'Due', 'G1' => 'Payment', 'H1' => 'Status',
-            'I1' => 'Payment Status', 'J1' => 'Cashier', 'K1' => 'Date', 'L1' => 'Items', 'M1' => 'Item Remarks', 'N1' => 'Delivery Method'];
-
-        foreach ($headers as $cell => $value) {
-            $sheet->setCellValue($cell, $value);
-            $sheet->getStyle($cell)->getFont()->setBold(true);
+        // Header row
+        foreach ($columns as $index => $column) {
+            $letter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($index + 1);
+            $sheet->setCellValue($letter.'1', $column['header']);
+            $sheet->getStyle($letter.'1')->getFont()->setBold(true);
         }
 
-        // Add data
+        // Data rows
         $row = 2;
         foreach ($orders as $order) {
-            $itemRemarks = $order->items->pluck('remark')->filter()->values()->all();
-            $sheet->setCellValue('A'.$row, $order->id);
-            $sheet->setCellValue('B'.$row, $order->customer ? $order->customer->name : 'Walk-in Customer');
-            $sheet->setCellValue('C'.$row, $order->total);
-            $sheet->setCellValue('D'.$row, $order->tax);
-            $sheet->setCellValue('E'.$row, $order->profit);
-            $sheet->setCellValue('F'.$row, $order->due_amount);
-            $sheet->setCellValue('G'.$row, $order->payment_method);
-            $sheet->setCellValue('H'.$row, ucfirst($order->status));
-            $sheet->setCellValue('I'.$row, $order->paid_amount >= $order->total ? 'Paid' :
-                ($order->paid_amount > 0 ? 'Partial' : 'Pending'));
-            $sheet->setCellValue('J'.$row, $order->user->name);
-            $sheet->setCellValue('K'.$row, $order->created_at->format('Y-m-d H:i:s'));
-            $sheet->setCellValue('L'.$row, json_encode($order->items->pluck('product_name')->toArray()));
-            $sheet->setCellValue('M'.$row, json_encode($itemRemarks));
-            $sheet->setCellValue('N'.$row, $order->delivery_method);
+            foreach ($columns as $index => $column) {
+                $letter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($index + 1);
+                $sheet->setCellValue($letter.$row, ($column['value'])($order));
 
-            // Format numbers
-            $sheet->getStyle('C'.$row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
-            $sheet->getStyle('D'.$row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
-            $sheet->getStyle('E'.$row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
-            $sheet->getStyle('F'.$row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
+                if (! empty($column['number'])) {
+                    $sheet->getStyle($letter.$row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
+                }
+            }
             $row++;
         }
 
         // Auto-size columns
-        foreach (range('A', 'N') as $col) {
+        $lastLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($columns));
+        foreach (range('A', $lastLetter) as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
         $fileName = 'orders_report_'.$startDate.'_to_'.$endDate.'.xlsx';
 
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment;filename="'.$fileName.'"');
-        header('Cache-Control: max-age=0');
-
-        $writer = new Xlsx($spreadsheet);
-        $writer->save('php://output');
-        exit;
+        return response()->streamDownload(function () use ($spreadsheet) {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+        }, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 
     private function salesRegisterFilterOptions(): array
