@@ -100,17 +100,21 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($order->items as $item)
+                @foreach($order->items->groupBy(fn($item) => $item->product_id.'|'.$item->price.'|'.$item->remark) as $group)
+                @php
+                    $first = $group->first();
+                    $serials = $group->flatMap(fn($i) => $i->serials->pluck('serial_number'));
+                @endphp
                 <tr style="border-bottom: 1px solid #ccc;">
                     <td style="padding: 6px 4px; border: none; text-align: left;">
-                        {{ $item->product_name }} {{ $item->remark ? '('.$item->remark.')' : '' }}
-                        @if($item->serials->isNotEmpty())
-                            <br><span style="font-size: 11px; color: #555;">S/N: {{ $item->serials->pluck('serial_number')->implode(', ') }}</span>
+                        {{ $first->product_name }} {{ $first->remark ? '('.$first->remark.')' : '' }}
+                        @if($serials->isNotEmpty())
+                            <br><span style="font-size: 11px; color: #555;">S/N: {{ $serials->implode(', ') }}</span>
                         @endif
                     </td>
-                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ $item->quantity }}</td>
-                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ number_format($item->price, 2) }}</td>
-                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ number_format($item->total, 2) }}</td>
+                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ $group->sum('quantity') }}</td>
+                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ number_format($first->price, 2) }}</td>
+                    <td style="padding: 6px 4px; border: none; text-align: center;">{{ number_format($group->sum('total'), 2) }}</td>
                 </tr>
                 @endforeach
             </tbody>

@@ -163,24 +163,31 @@ class OrderController extends Controller
                 'id' => $order->user->id,
                 'name' => $order->user->name,
             ],
-            'items' => $order->items->map(function ($item) use ($canViewProfit) {
-                $data = [
-                    'id' => $item->id,
-                    'product_id' => $item->product_id,
-                    'product_name' => $item->product_name,
-                    'quantity' => $item->quantity,
-                    'price' => number_format($item->price, 2),
-                    'total' => number_format($item->total, 2),
-                    'remark' => $item->remark,
-                    'serials' => $item->serials->pluck('serial_number')->values(),
-                ];
+            // Group identical line items (same product, price and remark) into a
+            // single row, combining their quantities, totals and serial numbers.
+            'items' => $order->items
+                ->groupBy(fn ($item) => $item->product_id.'|'.$item->price.'|'.$item->remark)
+                ->map(function ($group) use ($canViewProfit) {
+                    $first = $group->first();
 
-                if ($canViewProfit) {
-                    $data['profit'] = number_format($item->profit, 2);
-                }
+                    $data = [
+                        'id' => $first->id,
+                        'product_id' => $first->product_id,
+                        'product_name' => $first->product_name,
+                        'quantity' => $group->sum('quantity'),
+                        'price' => number_format($first->price, 2),
+                        'total' => number_format($group->sum('total'), 2),
+                        'remark' => $first->remark,
+                        'serials' => $group->flatMap(fn ($item) => $item->serials->pluck('serial_number'))->values(),
+                    ];
 
-                return $data;
-            }),
+                    if ($canViewProfit) {
+                        $data['profit'] = number_format($group->sum('profit'), 2);
+                    }
+
+                    return $data;
+                })
+                ->values(),
             'subtotal' => number_format($order->subtotal, 2),
             'tax' => number_format($order->tax, 2),
             'delivery_cost' => number_format($order->delivery_cost, 2),
