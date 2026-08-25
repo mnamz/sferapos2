@@ -132,7 +132,7 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ order.customer_name }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ order.subtotal }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ order.tax }}</td>
+                                        <!-- <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ order.tax }}</td> -->
                                         <!-- <td class="px-6 py-4 whitespace-nowrap">{{ currency }}{{ order.total }}</td> -->
                                         <td v-if="isAdmin" class="px-6 py-4 whitespace-nowrap text-green-600 dark:text-green-400">{{ currency }}{{ order.profit }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-red-600 dark:text-red-400">{{ currency }}{{ order.due }}</td>
@@ -200,7 +200,7 @@ const tableColumns = computed(() => [
     { key: 'id', label: 'Order #' },
     { key: 'customer_name', label: 'Customer' },
     { key: 'subtotal', label: 'Subtotal' },
-    { key: 'tax', label: 'Tax' },
+    // { key: 'tax', label: 'Tax' },
     ...(isAdmin.value ? [{ key: 'profit', label: 'Profit' }] : []),
     { key: 'due', label: 'Due' },
     { key: 'status', label: 'Status' },

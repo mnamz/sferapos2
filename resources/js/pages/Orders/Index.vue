@@ -114,7 +114,7 @@
                                     </td>
                                     <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ order.customer_name }}</td>
                                     <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.subtotal }}</td>
-                                    <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.tax }}</td>
+                                    <!-- <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.tax }}</td> -->
                                     <!-- <td class="px-4 py-2 text-gray-900 dark:text-gray-100">{{ currency }}{{ order.total_amount }}</td> -->
                                     <td v-if="userRole.name == 'admin'" class="px-4 py-2 text-green-600 dark:text-green-400">{{ currency }}{{ order.profit }}</td>
                                     <td class="px-4 py-2 text-red-600 dark:text-red-400">{{ currency }}{{ order.due }}</td>
@@ -318,7 +318,7 @@ const columns = computed(() => {
         { key: 'id', label: 'Order #' },
         { key: 'customer_name', label: 'Customer' },
         { key: 'subtotal', label: 'Subtotal' },
-        { key: 'tax', label: 'Tax' },
+        // { key: 'tax', label: 'Tax' },
         // { key: 'total_amount', label: 'Total' },
         { key: 'due', label: 'Due' },
         // { key: 'items_count', label: 'Items' },
@@ -328,7 +328,7 @@ const columns = computed(() => {
         { key: 'created_at', label: 'Date' }
     ];
     if (userRole.value.name === 'admin') {
-        baseColumns.splice(4, 0, { key: 'profit', label: 'Profit' }); // Insert after 'tax'
+        baseColumns.splice(3, 0, { key: 'profit', label: 'Profit' }); // Insert after 'subtotal' (matches td order)
     }
     return baseColumns;
 });
