@@ -29,8 +29,13 @@ class OrderController extends Controller
                 });
             })
             ->when(request('remark'), function ($query, $remark) {
-                $query->whereHas('items', function ($q) use ($remark) {
-                    $q->where('remark', 'like', "%{$remark}%");
+                $query->where(function ($q) use ($remark) {
+                    $q->whereHas('items', function ($iq) use ($remark) {
+                        $iq->where('remark', 'like', "%{$remark}%");
+                    })
+                        ->orWhereHas('items.serials', function ($sq) use ($remark) {
+                            $sq->where('serial_number', 'like', "%{$remark}%");
+                        });
                 });
             })
             ->when(request('start_date'), function ($query, $startDate) {
@@ -40,8 +45,13 @@ class OrderController extends Controller
                 $query->whereDate('created_at', '<=', $endDate);
             })
             ->when(request('product_search'), function ($query, $productSearch) {
-                $query->whereHas('items.product', function ($q) use ($productSearch) {
-                    $q->where('name', 'like', "%{$productSearch}%");
+                $query->where(function ($q) use ($productSearch) {
+                    $q->whereHas('items.product', function ($pq) use ($productSearch) {
+                        $pq->where('name', 'like', "%{$productSearch}%");
+                    })
+                        ->orWhereHas('items.serials', function ($sq) use ($productSearch) {
+                            $sq->where('serial_number', 'like', "%{$productSearch}%");
+                        });
                 });
             })
             ->when(request('sort_column'), function ($query, $column) {
@@ -1176,8 +1186,13 @@ class OrderController extends Controller
                 });
             })
             ->when(request('remark'), function ($query, $remark) {
-                $query->whereHas('items', function ($q) use ($remark) {
-                    $q->where('remark', 'like', "%{$remark}%");
+                $query->where(function ($q) use ($remark) {
+                    $q->whereHas('items', function ($iq) use ($remark) {
+                        $iq->where('remark', 'like', "%{$remark}%");
+                    })
+                        ->orWhereHas('items.serials', function ($sq) use ($remark) {
+                            $sq->where('serial_number', 'like', "%{$remark}%");
+                        });
                 });
             })
             ->when(request('start_date'), function ($query, $startDate) {
@@ -1187,8 +1202,13 @@ class OrderController extends Controller
                 $query->whereDate('created_at', '<=', $endDate);
             })
             ->when(request('product_search'), function ($query, $productSearch) {
-                $query->whereHas('items.product', function ($q) use ($productSearch) {
-                    $q->where('name', 'like', "%{$productSearch}%");
+                $query->where(function ($q) use ($productSearch) {
+                    $q->whereHas('items.product', function ($pq) use ($productSearch) {
+                        $pq->where('name', 'like', "%{$productSearch}%");
+                    })
+                        ->orWhereHas('items.serials', function ($sq) use ($productSearch) {
+                            $sq->where('serial_number', 'like', "%{$productSearch}%");
+                        });
                 });
             })
             ->orderBy('created_at', 'desc')
