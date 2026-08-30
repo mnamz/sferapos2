@@ -30,6 +30,9 @@ class ProductController extends Controller
                             })
                             ->orWhereHas('supplier', function ($sq) use ($lower) {
                                 $sq->whereRaw('LOWER(name) LIKE ?', ["%{$lower}%"]);
+                            })
+                            ->orWhereHas('serials', function ($serialQuery) use ($lower) {
+                                $serialQuery->whereRaw('LOWER(serial_number) LIKE ?', ["%{$lower}%"]);
                             });
                     });
                 })

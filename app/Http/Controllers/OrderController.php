@@ -22,6 +22,9 @@ class OrderController extends Controller
                     $q->where('id', 'like', "%{$search}%")
                         ->orWhereHas('customer', function ($q) use ($search) {
                             $q->where('name', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('items.serials', function ($q) use ($search) {
+                            $q->where('serial_number', 'like', "%{$search}%");
                         });
                 });
             })
@@ -115,6 +118,9 @@ class OrderController extends Controller
                     $q->where('order_number', 'like', "%{$search}%")
                         ->orWhereHas('customer', function ($q) use ($search) {
                             $q->where('name', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('items.serials', function ($q) use ($search) {
+                            $q->where('serial_number', 'like', "%{$search}%");
                         });
                 });
             })
@@ -1163,6 +1169,9 @@ class OrderController extends Controller
                     $q->where('id', 'like', "%{$search}%")
                         ->orWhereHas('customer', function ($q) use ($search) {
                             $q->where('name', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('items.serials', function ($q) use ($search) {
+                            $q->where('serial_number', 'like', "%{$search}%");
                         });
                 });
             })
