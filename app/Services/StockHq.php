@@ -72,6 +72,49 @@ class StockHq
     }
 
     /**
+     * Snapshot current on-hand (and in-stock serials) to HQ. HQ reconciles each
+     * against its own ledger, so this is idempotent and safe to run repeatedly.
+     * $snapshotId is one token per run (shared across chunks) so HQ dedupes a
+     * retried delivery but still applies a genuinely new run.
+     *
+     * @param  iterable<Product>  $products
+     * @return array<string, mixed>  HQ's reconciliation summary (empty if nothing sent)
+     */
+    public function pushLevels(iterable $products, string $snapshotId): array
+    {
+        $levels = collect($products)->filter()->unique('id')->map(function (Product $p) {
+            $row = [
+                'sku' => $this->skuFor($p),
+                'on_hand' => (int) $p->stock,
+            ];
+
+            if ($p->serial_tracked) {
+                $serials = $p->relationLoaded('serials')
+                    ? $p->serials
+                    : $p->serials()->where('status', 'available')->get();
+
+                $row['serial_numbers'] = $serials
+                    ->where('status', 'available')
+                    ->pluck('serial_number')
+                    ->filter()
+                    ->values()
+                    ->all();
+            }
+
+            return $row;
+        })->values()->all();
+
+        if (empty($levels)) {
+            return [];
+        }
+
+        return $this->http()->post('/levels/snapshot', [
+            'snapshot_id' => $snapshotId,
+            'levels' => $levels,
+        ])->throw()->json() ?? [];
+    }
+
+    /**
      * Push a batch of stock events to HQ.
      *
      * @param  array<int, array<string, mixed>>  $events
