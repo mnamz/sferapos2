@@ -15,7 +15,7 @@ class ProductSerialService
         $product->forceFill(['stock' => $count])->save();
     }
 
-    public function addSerials(Product $product, array $serialNumbers): void
+    public function addSerials(Product $product, array $serialNumbers, bool $adjustPending = true): void
     {
         foreach ($serialNumbers as $serial) {
             $product->serials()->create([
@@ -24,9 +24,10 @@ class ProductSerialService
             ]);
         }
 
-        // Each keyed-in serial covers one unit that was awaiting assignment;
-        // tick the pending reminder down (never below zero).
-        if ($product->pending_serial_count > 0) {
+        // Each keyed-in serial covers one unit that was awaiting assignment; tick
+        // the pending reminder down (never below zero). Transfer receipts pass
+        // $adjustPending=false — those units were never "awaiting entry" here.
+        if ($adjustPending && $product->pending_serial_count > 0) {
             $product->pending_serial_count = max(0, $product->pending_serial_count - count($serialNumbers));
         }
 

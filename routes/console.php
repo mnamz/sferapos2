@@ -10,6 +10,8 @@ Artisan::command('inspire', function () {
 
 Schedule::command('backup:run')->dailyAt('00:00');
 Schedule::command('sales:check-daily')->dailyAt('23:30')->timezone('Asia/Kuala_Lumpur');
+// Pull + apply HQ stock-transfer commands (no-op unless STOCK_HQ_TRANSFERS is on).
+Schedule::command('stock:transfers-poll')->everyMinute()->withoutOverlapping();
 Schedule::command('myinvois:push-queue')->hourly()->timezone('Asia/Kuala_Lumpur');
 Schedule::command('tangent:push-sales')->hourly()->timezone('Asia/Kuala_Lumpur');
 // Daily belt-and-suspenders: force a full re-send of the past-7-days window

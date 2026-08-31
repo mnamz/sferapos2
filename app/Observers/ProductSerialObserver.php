@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Jobs\PushSerialToHq;
 use App\Models\ProductSerial;
+use App\Support\HqSyncMute;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -39,6 +40,11 @@ class ProductSerialObserver
     private function push(int $serialId, string $direction): void
     {
         if (! config('stockhq.enabled')) {
+            return;
+        }
+
+        // Don't echo a change HQ itself drove (transfer application) back to HQ.
+        if (HqSyncMute::isMuted()) {
             return;
         }
 

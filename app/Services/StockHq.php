@@ -116,6 +116,74 @@ class StockHq
     }
 
     /**
+     * Resolve the local product for an HQ sku (the reverse of skuFor): HQ's sku
+     * is this branch's barcode, or "B{branchId}-P{id}" for barcode-less products.
+     * Cross-store transfers therefore resolve only for barcoded products (the
+     * "B{id}-P" form is scoped to the branch that coined it).
+     */
+    public function productForSku(string $sku): ?Product
+    {
+        // A branch-scoped id (barcode-less product) resolves ONLY at the branch
+        // that coined it; a foreign one is undeliverable here and must NOT fall
+        // through to a barcode lookup (which could hit an unrelated product).
+        if (preg_match('/^B(\d+)-P(\d+)$/', $sku, $m)) {
+            return (int) $m[1] === $this->branchId() ? Product::find((int) $m[2]) : null;
+        }
+
+        return Product::where('barcode', $sku)->first();
+    }
+
+    /**
+     * Destination claims the add leg (deducted -> adding) at HQ before applying
+     * it locally, so a concurrent rollback cannot fire mid-add. Returns true
+     * only if HQ granted the claim (safe to proceed).
+     */
+    public function claimTransfer(int $transferId): bool
+    {
+        return $this->http()->post("/transfers/{$transferId}/claim", [
+            'branch_id' => $this->branchId(),
+        ])->successful();
+    }
+
+    /**
+     * Transfer commands awaiting this branch (deduct as source / add as dest).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function pendingTransfers(): array
+    {
+        return $this->http()->get('/transfers/pending', ['branch_id' => $this->branchId()])
+            ->throw()->json('pending') ?? [];
+    }
+
+    /**
+     * Confirm a completed leg back to HQ.
+     *
+     * @param  'deducted'|'added'  $action
+     * @param  array<int, array{product_sku:string, quantity_confirmed:int}>  $items
+     */
+    public function confirmTransfer(int $transferId, string $action, array $items): void
+    {
+        $this->http()->post("/transfers/{$transferId}/confirm", [
+            'branch_id' => $this->branchId(),
+            'action' => $action,
+            'items' => $items,
+        ])->throw();
+    }
+
+    /**
+     * Reject a leg this branch cannot fulfil (e.g. the product isn't in its
+     * catalogue). HQ moves the transfer to a resting/failed state HQ can act on.
+     */
+    public function rejectTransfer(int $transferId, string $reason): void
+    {
+        $this->http()->post("/transfers/{$transferId}/reject", [
+            'branch_id' => $this->branchId(),
+            'reason' => $reason,
+        ])->throw();
+    }
+
+    /**
      * Push a batch of stock events to HQ.
      *
      * @param  array<int, array<string, mixed>>  $events
