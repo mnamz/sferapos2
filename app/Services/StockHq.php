@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductSerial;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 
@@ -126,6 +127,48 @@ class StockHq
         }
 
         $this->http()->post('/events/batch', ['events' => $events])->throw();
+    }
+
+    /**
+     * Push one serial's arrival ('in' → purchase, lands in_stock at this branch)
+     * or removal ('out' → negative adjustment, written off) to HQ. Idempotent:
+     * the event_id is deterministic per serial + direction, so a retry is a
+     * no-op at HQ.
+     */
+    public function pushSerialEvent(ProductSerial $serial, string $direction): void
+    {
+        $product = $serial->product;
+        if (! $product || ! $product->serial_tracked) {
+            return;
+        }
+
+        $branch = $this->branchId();
+        $base = [
+            'branch_id' => $branch,
+            'product_sku' => $this->skuFor($product),
+            'created_by' => 'observer',
+            'serial_numbers' => [$serial->serial_number],
+        ];
+
+        if ($direction === 'in') {
+            $event = $base + [
+                'event_id' => 'B'.$branch.'-serialin-'.$serial->id,
+                'type' => 'purchase',
+                'quantity' => 1,
+                'reference' => 'serial-receipt',
+                'occurred_at' => optional($serial->created_at)->toIso8601String(),
+            ];
+        } else {
+            $event = $base + [
+                'event_id' => 'B'.$branch.'-serialout-'.$serial->id,
+                'type' => 'adjustment',
+                'quantity' => -1,
+                'reference' => 'serial-removal',
+                'occurred_at' => optional($serial->updated_at)->toIso8601String(),
+            ];
+        }
+
+        $this->pushEvents([$event]);
     }
 
     /**
