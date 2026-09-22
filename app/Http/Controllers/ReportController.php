@@ -168,7 +168,7 @@ class ReportController extends Controller
         $endDate = $request->input('end_date', Carbon::now()->format('Y-m-d'));
 
         $orders = Order::query()
-            ->with(['customer', 'user'])
+            ->with(['customer', 'user', 'items.serials'])
             ->whereBetween('created_at', [$startDate.' 00:00:00', $endDate.' 23:59:59'])
             ->where('status', '!=', 'cancelled')
             ->when($request->input('delivery_method'), function ($query, $method) {
@@ -207,6 +207,11 @@ class ReportController extends Controller
             ['header' => 'Date', 'value' => fn ($o) => $o->created_at->format('Y-m-d H:i:s')],
             ['header' => 'Items', 'value' => fn ($o) => json_encode($o->items->pluck('product_name')->toArray())],
             ['header' => 'Item Remarks', 'value' => fn ($o) => json_encode($o->items->pluck('remark')->filter()->values()->all())],
+            ['header' => 'Serial Numbers', 'value' => fn ($o) => $o->items
+                ->flatMap(fn ($item) => $item->serials->pluck('serial_number'))
+                ->filter()
+                ->values()
+                ->implode(', ')],
             ['header' => 'Delivery Method', 'value' => fn ($o) => $o->delivery_method],
         ]);
 
