@@ -14,6 +14,29 @@
                         <form @submit.prevent="submit">
                             <div class="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
                                 <div class="space-y-4 sm:space-y-6">
+                                    <!-- Item Type -->
+                                    <div>
+                                        <Label class="text-gray-900 dark:text-gray-100">Item Type</Label>
+                                        <div class="mt-1 grid grid-cols-3 gap-2">
+                                            <button
+                                                v-for="t in itemTypes"
+                                                :key="t.value"
+                                                type="button"
+                                                @click="setType(t.value)"
+                                                :class="[
+                                                    'rounded-lg border px-3 py-2 text-left text-sm transition',
+                                                    form.type === t.value
+                                                        ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-600 dark:bg-indigo-900/30'
+                                                        : 'border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700',
+                                                ]"
+                                            >
+                                                <div class="font-medium">{{ t.label }}</div>
+                                                <div class="text-xs text-gray-500 dark:text-gray-400">{{ t.hint }}</div>
+                                            </button>
+                                        </div>
+                                        <InputError :message="form.errors.type" class="mt-2" />
+                                    </div>
+
                                     <!-- Name -->
                                     <div>
                                         <Label for="name" class="text-gray-900 dark:text-gray-100">Name</Label>
@@ -58,7 +81,7 @@
                                     </div>
 
                                     <!-- Serial Number Tracking -->
-                                    <div>
+                                    <div v-if="form.type !== 'service'">
                                         <Label for="serial_tracked" class="flex cursor-pointer items-center gap-2 text-gray-900 dark:text-gray-100">
                                             <Checkbox
                                                 id="serial_tracked"
@@ -69,7 +92,7 @@
                                                     }
                                                 "
                                             />
-                                            <span>Track serial numbers</span>
+                                            <span>Track serial / IMEI numbers</span>
                                         </Label>
                                         <p v-if="form.serial_tracked" class="text-muted-foreground mt-1 text-xs">
                                             Stock is managed by adding serial numbers on the product page after saving.
@@ -78,7 +101,7 @@
                                     </div>
 
                                     <!-- Stock -->
-                                    <div v-if="!form.serial_tracked">
+                                    <div v-if="!form.serial_tracked && form.type !== 'service'">
                                         <Label for="stock" class="text-gray-900 dark:text-gray-100">Stock</Label>
                                         <Input
                                             id="stock"
@@ -133,6 +156,49 @@
                                             rows="3"
                                         />
                                         <InputError :message="form.errors.description" class="mt-2" />
+                                    </div>
+
+                                    <!-- SKU / Brand -->
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <Label for="sku" class="text-gray-900 dark:text-gray-100">SKU / Part No.</Label>
+                                            <Input id="sku" v-model="form.sku" type="text" class="mt-1 block w-full dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100" />
+                                            <InputError :message="form.errors.sku" class="mt-2" />
+                                        </div>
+                                        <div>
+                                            <Label for="brand" class="text-gray-900 dark:text-gray-100">Brand</Label>
+                                            <Input id="brand" v-model="form.brand" type="text" placeholder="e.g. Apple, Samsung" class="mt-1 block w-full dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100" />
+                                            <InputError :message="form.errors.brand" class="mt-2" />
+                                        </div>
+                                    </div>
+
+                                    <!-- Compatible models -->
+                                    <div v-if="form.type !== 'product' || form.compatible_models">
+                                        <Label for="compatible_models" class="text-gray-900 dark:text-gray-100">Compatible Models</Label>
+                                        <Input
+                                            id="compatible_models"
+                                            v-model="form.compatible_models"
+                                            type="text"
+                                            placeholder="e.g. iPhone 13, iPhone 13 Pro"
+                                            class="mt-1 block w-full dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                        />
+                                        <p class="text-muted-foreground mt-1 text-xs">Searchable at the counter, so staff can find parts by phone model.</p>
+                                        <InputError :message="form.errors.compatible_models" class="mt-2" />
+                                    </div>
+
+                                    <!-- Warranty -->
+                                    <div>
+                                        <Label for="warranty_days" class="text-gray-900 dark:text-gray-100">Warranty (days)</Label>
+                                        <Input
+                                            id="warranty_days"
+                                            v-model="form.warranty_days"
+                                            type="number"
+                                            min="0"
+                                            placeholder="Leave blank for no warranty"
+                                            class="mt-1 block w-full dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                        />
+                                        <p class="text-muted-foreground mt-1 text-xs">Printed on the receipt with its expiry date.</p>
+                                        <InputError :message="form.errors.warranty_days" class="mt-2" />
                                     </div>
 
                                     <!-- Supplier -->
@@ -223,8 +289,13 @@ const props = defineProps({
 });
 
 const form = useForm({
+    type: (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('type')) || 'product',
     name: '',
     description: '',
+    sku: '',
+    brand: '',
+    compatible_models: '',
+    warranty_days: '',
     price: '',
     cost_price: '',
     stock: '',
@@ -235,6 +306,21 @@ const form = useForm({
     image: null,
     serial_tracked: false,
 });
+
+const itemTypes = [
+    { value: 'product', label: 'Product', hint: 'Phones, accessories' },
+    { value: 'part', label: 'Spare Part', hint: 'Screens, batteries' },
+    { value: 'service', label: 'Service', hint: 'Labour, no stock' },
+];
+
+const setType = (type) => {
+    form.type = type;
+    if (type === 'service') {
+        form.serial_tracked = false;
+        form.stock = 0;
+        form.cost_price = form.cost_price === '' ? 0 : form.cost_price;
+    }
+};
 
 const submit = () => {
     form.post(route('products.store'), {

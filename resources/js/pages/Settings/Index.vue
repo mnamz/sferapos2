@@ -278,6 +278,32 @@
                                         />
                                         <InputError :message="form.errors.footer_text" class="mt-2" />
                                     </div>
+
+                                    <!-- Repair Terms -->
+                                    <div>
+                                        <Label for="repair_terms">Repair Terms &amp; Conditions</Label>
+                                        <Textarea
+                                            id="repair_terms"
+                                            v-model="form.repair_terms"
+                                            class="mt-1 block w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                                            rows="6"
+                                            placeholder="Printed on every repair job sheet (one term per line)"
+                                        />
+                                        <InputError :message="form.errors.repair_terms" class="mt-2" />
+                                    </div>
+
+                                    <!-- Default warranty -->
+                                    <div>
+                                        <Label for="default_warranty_days">Default Repair Warranty (days)</Label>
+                                        <Input
+                                            id="default_warranty_days"
+                                            v-model="form.default_warranty_days"
+                                            type="number"
+                                            min="0"
+                                            class="mt-1 block w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                                        />
+                                        <InputError :message="form.errors.default_warranty_days" class="mt-2" />
+                                    </div>
                                 </div>
                             </div>
 
@@ -327,6 +353,8 @@ const props = defineProps<{
         industry_classification_name?: string;
         payment_details?: string;
         footer_text?: string;
+        repair_terms?: string;
+        default_warranty_days?: number;
         invoice_logo_path?: string;
     };
 }>();
@@ -348,6 +376,8 @@ const form = useForm({
     industry_classification_name: props.settings.industry_classification_name || '',
     payment_details: props.settings.payment_details || '',
     footer_text: props.settings.footer_text || '',
+    repair_terms: props.settings.repair_terms || '',
+    default_warranty_days: props.settings.default_warranty_days ?? 30,
 });
 
 const submit = () => {

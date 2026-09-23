@@ -5,6 +5,16 @@ import { Head, Link, usePage } from '@inertiajs/vue3';
 import PlaceholderPattern from '../components/PlaceholderPattern.vue';
 import { onMounted, ref, computed } from 'vue';
 import Chart from 'chart.js/auto';
+import { ClipboardPlus, ShoppingCart, Wrench } from 'lucide-vue-next';
+
+const repairTiles = [
+    { key: 'open', label: 'On the bench', status: 'open', color: 'text-gray-900 dark:text-gray-100' },
+    { key: 'received_today', label: 'Received today', status: 'open', color: 'text-slate-600 dark:text-slate-300' },
+    { key: 'awaiting_approval', label: 'Awaiting approval', status: 'awaiting_approval', color: 'text-orange-600' },
+    { key: 'awaiting_parts', label: 'Awaiting parts', status: 'awaiting_parts', color: 'text-amber-600' },
+    { key: 'ready', label: 'Ready for pickup', status: 'ready', color: 'text-emerald-600' },
+    { key: 'overdue', label: 'Overdue', status: 'overdue', color: 'text-red-600' },
+];
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -14,6 +24,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const props = defineProps({
+    repairStats: Object,
     todayStats: Object,
     monthlyStats: Object,
     recentOrders: Array,
@@ -98,6 +109,30 @@ onMounted(() => {
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="py-6">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <!-- Service counter -->
+                <div class="mb-6 flex flex-wrap gap-3">
+                    <Link :href="route('orders.create')" class="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white shadow hover:bg-emerald-700">
+                        <ShoppingCart class="h-5 w-5" /> New Sale
+                    </Link>
+                    <Link :href="route('repairs.create')" class="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white shadow hover:bg-indigo-700">
+                        <ClipboardPlus class="h-5 w-5" /> New Repair
+                    </Link>
+                    <Link :href="route('repairs.index')" class="flex items-center gap-2 rounded-xl bg-white px-5 py-3 font-semibold text-gray-800 shadow hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-100">
+                        <Wrench class="h-5 w-5" /> Repair board
+                    </Link>
+                </div>
+                <div v-if="repairStats" class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    <Link
+                        v-for="tile in repairTiles"
+                        :key="tile.key"
+                        :href="route('repairs.index', { status: tile.status })"
+                        class="rounded-xl bg-white p-4 shadow-sm transition hover:shadow dark:bg-gray-800"
+                    >
+                        <div :class="['text-3xl font-bold', tile.color]">{{ repairStats[tile.key] }}</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400">{{ tile.label }}</div>
+                    </Link>
+                </div>
+
                 <!-- Stats Overview -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                     <!-- Today's Stats -->

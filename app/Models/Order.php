@@ -16,6 +16,7 @@ class Order extends Model implements Auditable
     protected $fillable = [
         'invoice_number',
         'customer_id',
+        'repair_job_id',
         'user_id',
         'order_number',
         'subtotal',
@@ -89,6 +90,11 @@ class Order extends Model implements Auditable
     public function customer()
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function repairJob()
+    {
+        return $this->belongsTo(RepairJob::class);
     }
 
     public function myInvoisInvoice()

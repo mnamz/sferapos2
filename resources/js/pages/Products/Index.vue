@@ -59,6 +59,22 @@
                             @input="debouncedSearch"
                         >
                     </div>
+                    <div class="mb-4 flex flex-wrap gap-2">
+                        <button
+                            v-for="t in typeTabs"
+                            :key="t.value"
+                            type="button"
+                            @click="setType(t.value)"
+                            :class="[
+                                'rounded-full px-3 py-1 text-sm',
+                                (filters?.type || '') === t.value
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200',
+                            ]"
+                        >
+                            {{ t.label }}
+                        </button>
+                    </div>
 
                     <!-- Desktop Table View -->
                     <div class="overflow-x-auto print-products-table">
@@ -91,7 +107,15 @@
                                         </div>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <div class="text-sm font-medium text-gray-900 dark:text-white">{{ product.name }}</div>
+                                        <div class="text-sm font-medium text-gray-900 dark:text-white">
+                                            {{ product.name }}
+                                            <span :class="['ml-1 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase', typeBadge(product.type)]">{{ typeLabel(product.type) }}</span>
+                                        </div>
+                                        <div v-if="product.brand || product.sku || product.compatible_models" class="text-xs text-gray-500 dark:text-gray-400">
+                                            <template v-if="product.brand">{{ product.brand }}</template>
+                                            <template v-if="product.sku"> · {{ product.sku }}</template>
+                                            <template v-if="product.compatible_models"> · fits {{ product.compatible_models }}</template>
+                                        </div>
                                         <div class="text-sm text-gray-500 dark:text-gray-300">{{ product.description }}</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
@@ -104,7 +128,8 @@
                                         <div class="text-sm text-gray-900 dark:text-white">RM {{ product.cost_price }}</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-900 dark:text-white">
+                                        <div v-if="product.type === 'service'" class="text-sm text-gray-400">—</div>
+                                        <div v-else class="text-sm text-gray-900 dark:text-white">
                                             {{ product.stock }}
                                             <span v-if="product.serial_tracked" class="ml-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200" title="Tracked by serial number">S/N</span>
                                         </div>
@@ -225,8 +250,6 @@ import 'vue3-toastify/dist/index.css';
 
 const page = usePage();
 const roles = page.props.auth?.roles || [];
-console.log('Auth:', page.props.auth);
-console.log('Roles:', roles);
 const props = defineProps({
     products: Object,
     filters: Object
@@ -234,10 +257,26 @@ const props = defineProps({
 
 const search = ref(props.filters?.search || '');
 
+const typeTabs = [
+    { value: '', label: 'All' },
+    { value: 'product', label: 'Products' },
+    { value: 'part', label: 'Spare Parts' },
+    { value: 'service', label: 'Services' },
+];
+const typeLabel = (t) => ({ product: 'Product', part: 'Part', service: 'Service' })[t] || 'Product';
+const typeBadge = (t) =>
+    ({
+        part: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+        service: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+    })[t] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200';
+const setType = (type) => {
+    router.get(route('products.index'), { search: search.value || undefined, type: type || undefined }, { preserveState: true, preserveScroll: true });
+};
+
 const debouncedSearch = debounce(() => {
     router.get(
         route('products.index'),
-        { search: search.value },
+        { search: search.value, type: props.filters?.type || undefined },
         { preserveState: true, preserveScroll: true }
     );
 }, 300);

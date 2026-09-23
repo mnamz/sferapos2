@@ -160,7 +160,7 @@ class OrderController extends Controller
 
     public function show(Order $order)
     {
-        $order->load(['customer', 'user', 'items.product', 'items.serials', 'myInvoisQueue', 'myInvoisInvoice', 'myInvoisInvoices', 'myInvoisCreditNotes']);
+        $order->load(['customer', 'user', 'repairJob', 'items.product', 'items.serials', 'myInvoisQueue', 'myInvoisInvoice', 'myInvoisInvoices', 'myInvoisCreditNotes']);
 
         // Profit is visible to admins only; managers/staff see the order without it.
         $canViewProfit = (bool) auth()->user()?->hasRole('admin');
@@ -194,6 +194,8 @@ class OrderController extends Controller
                         'price' => number_format($first->price, 2),
                         'total' => number_format($group->sum('total'), 2),
                         'remark' => $first->remark,
+                        'item_type' => $first->item_type,
+                        'warranty_days' => $first->warranty_days,
                         'serials' => $group->flatMap(fn ($item) => $item->serials->pluck('serial_number'))->values(),
                     ];
 
@@ -219,6 +221,11 @@ class OrderController extends Controller
             'payment_status' => $order->paid_amount >= $order->total ? 'paid' :
                 ($order->paid_amount > 0 ? 'partial' : 'pending'),
             'created_at' => $order->created_at->format('Y-m-d H:i:s'),
+            'repair_job' => $order->repairJob ? [
+                'id' => $order->repairJob->id,
+                'job_number' => $order->repairJob->job_number,
+                'device' => $order->repairJob->device_label,
+            ] : null,
             'myinvois_queue_status' => $order->myInvoisQueue ? $order->myInvoisQueue->status : null,
             'myinvois_id' => $order->myInvoisQueue ? $order->myInvoisQueue->myinvois_id : null,
             'myinvois_invoice' => $order->myInvoisInvoice ? [
@@ -488,14 +495,19 @@ class OrderController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'items' => 'required|array',
-            'items.*.id' => 'required|exists:products,id',
+            'items' => 'required|array|min:1',
+            // A line is either a catalogue product (id) or a custom/ad-hoc charge (name).
+            'items.*.id' => 'nullable|exists:products,id',
+            'items.*.name' => 'nullable|required_without:items.*.id|string|max:255',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.remark' => 'nullable|string',
             'items.*.price' => 'required|numeric|min:0',
+            'items.*.cost_price' => 'nullable|numeric|min:0',
+            'items.*.warranty_days' => 'nullable|integer|min:0|max:3650',
             'items.*.serials' => 'nullable|array',
             'items.*.serials.*' => 'string',
             'customer_id' => 'nullable|exists:customers,id',
+            'repair_job_id' => 'nullable|exists:repair_jobs,id',
             'subtotal' => 'required|numeric|min:0',
             'tax' => 'required|numeric|min:0',
             'delivery_cost' => 'required|numeric|min:0',
@@ -512,17 +524,40 @@ class OrderController extends Controller
         try {
             DB::beginTransaction();
 
-            // Calculate total profit and subtotal
+            $repairJob = ! empty($validated['repair_job_id'])
+                ? \App\Models\RepairJob::lockForUpdate()->find($validated['repair_job_id'])
+                : null;
+
+            if ($repairJob && $repairJob->order_id) {
+                throw new \Exception("Repair job {$repairJob->job_number} has already been checked out.");
+            }
+
+            // Resolve every line once: product (or null for custom lines),
+            // effective quantity, cost and type.
+            $lines = [];
             $totalProfit = 0;
-            $subtotal = 0;
             foreach ($validated['items'] as $item) {
-                $product = Product::find($item['id']);
-                $quantity = $product->serial_tracked
-                    ? count(array_unique(array_map('trim', $item['serials'] ?? [])))
-                    : $item['quantity'];
-                $itemProfit = ($item['price'] - $product->cost_price) * $quantity;
-                $totalProfit += $itemProfit;
-                $subtotal += $item['price'] * $quantity;
+                $product = ! empty($item['id']) ? Product::find($item['id']) : null;
+
+                $serials = [];
+                if ($product && $product->serial_tracked) {
+                    $serials = array_values(array_unique(array_filter(array_map('trim', $item['serials'] ?? []))));
+                    $quantity = count($serials);
+                    if ($quantity < 1) {
+                        throw new \Exception("No serial / IMEI selected for product: {$product->name}");
+                    }
+                } else {
+                    $quantity = (int) $item['quantity'];
+                }
+
+                $cost = $product ? (float) $product->cost_price : (float) ($item['cost_price'] ?? 0);
+                $type = $product ? $product->type : 'service';
+                $warranty = array_key_exists('warranty_days', $item) && $item['warranty_days'] !== null
+                    ? (int) $item['warranty_days']
+                    : $product?->warranty_days;
+
+                $lines[] = compact('item', 'product', 'serials', 'quantity', 'cost', 'type', 'warranty');
+                $totalProfit += ($item['price'] - $cost) * $quantity;
             }
 
             // Adjust profit based on discount
@@ -532,7 +567,8 @@ class OrderController extends Controller
 
             // Create the order
             $order = Order::create([
-                'customer_id' => $validated['customer_id'] ?? null,
+                'customer_id' => $validated['customer_id'] ?? $repairJob?->customer_id,
+                'repair_job_id' => $repairJob?->id,
                 'user_id' => auth()->id(),
                 'subtotal' => $validated['subtotal'],
                 'tax' => $validated['tax'],
@@ -552,52 +588,49 @@ class OrderController extends Controller
             // Create order items and update product stock
             $service = app(ProductSerialService::class);
 
-            foreach ($validated['items'] as $item) {
-                $product = Product::find($item['id']);
+            foreach ($lines as $line) {
+                ['item' => $item, 'product' => $product, 'quantity' => $quantity] = $line;
 
-                if ($product->serial_tracked) {
-                    $serials = array_values(array_unique(array_map('trim', $item['serials'] ?? [])));
-                    $quantity = count($serials);
-
-                    if ($quantity < 1) {
-                        throw new \Exception("No serial numbers selected for product: {$product->name}");
-                    }
-
-                    $orderItem = OrderItem::create([
-                        'order_id' => $order->id,
-                        'product_id' => $item['id'],
-                        'product_name' => $product->name,
-                        'quantity' => $quantity,
-                        'price' => $item['price'],
-                        'cost_price' => $product->cost_price,
-                        'total' => $item['price'] * $quantity,
-                        'profit' => ($item['price'] - $product->cost_price) * $quantity,
-                        'remark' => $item['remark'] ?? null,
-                    ]);
-
-                    $service->allocate($orderItem, $product, $serials);
-
-                    continue;
+                if ($product && $product->tracksStock() && $product->stock < $quantity) {
+                    throw new \Exception("Insufficient stock for product: {$product->name} (only {$product->stock} left)");
                 }
 
-                // Untracked product — existing aggregate-stock path
-                if ($product->stock < $item['quantity']) {
-                    throw new \Exception("Insufficient stock for product: {$product->name}");
-                }
-
-                OrderItem::create([
+                $orderItem = OrderItem::create([
                     'order_id' => $order->id,
-                    'product_id' => $item['id'],
-                    'product_name' => $product->name,
-                    'quantity' => $item['quantity'],
+                    'product_id' => $product?->id,
+                    'product_name' => $product ? $product->name : trim($item['name']),
+                    'item_type' => $line['type'],
+                    'quantity' => $quantity,
                     'price' => $item['price'],
-                    'cost_price' => $product->cost_price,
-                    'total' => $item['price'] * $item['quantity'],
-                    'profit' => ($item['price'] - $product->cost_price) * $item['quantity'],
+                    'cost_price' => $line['cost'],
+                    'total' => $item['price'] * $quantity,
+                    'profit' => ($item['price'] - $line['cost']) * $quantity,
                     'remark' => $item['remark'] ?? null,
+                    'warranty_days' => $line['warranty'],
                 ]);
 
-                $product->decrement('stock', $item['quantity']);
+                if ($product && $product->serial_tracked) {
+                    $service->allocate($orderItem, $product, $line['serials']);
+                } elseif ($product && $product->tracksStock()) {
+                    $product->decrement('stock', $quantity);
+                }
+            }
+
+            if ($repairJob) {
+                $from = $repairJob->status;
+                $repairJob->update([
+                    'order_id' => $order->id,
+                    'status' => 'collected',
+                    'collected_at' => now(),
+                    'completed_at' => $repairJob->completed_at ?? now(),
+                ]);
+                $repairJob->logs()->create([
+                    'user_id' => auth()->id(),
+                    'from_status' => $from,
+                    'to_status' => 'collected',
+                    'note' => "Checked out on invoice #{$order->formatted_invoice_number}",
+                    'customer_visible' => true,
+                ]);
             }
 
             // Queue invoice for MyInvois (configurable delay) - only for walk-in orders
@@ -662,6 +695,8 @@ class OrderController extends Controller
                         'price' => number_format($item->price, 2),
                         'total' => number_format($item->total, 2),
                         'remark' => $item->remark,
+                        'item_type' => $item->item_type,
+                        'warranty_days' => $item->warranty_days,
                     ];
                 }),
                 'subtotal' => number_format($order->subtotal, 2),
@@ -681,8 +716,9 @@ class OrderController extends Controller
                 'created_at' => $order->created_at->format('Y-m-d H:i:s'),
             ],
             'customers' => \App\Models\Customer::select('id', 'name', 'email', 'phone', 'address')->get(),
-            'products' => \App\Models\Product::select('id', 'name', 'price', 'stock', 'serial_tracked')
+            'products' => \App\Models\Product::select('id', 'name', 'type', 'price', 'stock', 'serial_tracked', 'warranty_days')
                 ->where('stock', '>', 0)
+                ->orWhere('type', 'service')
                 ->orWhereHas('serials', fn ($q) => $q->where('status', 'sold')->whereHas('order', fn ($o) => $o->where('id', $order->id)))
                 ->get(),
         ]);
@@ -699,6 +735,7 @@ class OrderController extends Controller
             'items.*.price' => 'required|numeric|min:0',
             'items.*.total' => 'required|numeric|min:0',
             'items.*.remark' => 'nullable|string',
+            'items.*.warranty_days' => 'nullable|integer|min:0|max:3650',
             'items.*.serials' => 'nullable|array',
             'items.*.serials.*' => 'string',
             'payment_method' => 'required|in:cash,card,e-wallet,online_transfer',
@@ -798,7 +835,7 @@ class OrderController extends Controller
             $service = app(ProductSerialService::class);
             $service->release($order->id);
             foreach ($order->items as $oldItem) {
-                if ($oldItem->product && ! $oldItem->product->serial_tracked) {
+                if ($oldItem->product && $oldItem->product->tracksStock()) {
                     $oldItem->product->increment('stock', $oldItem->quantity);
                 }
             }
@@ -826,6 +863,8 @@ class OrderController extends Controller
                         'total' => $item['price'] * $quantity,
                         'profit' => ($item['price'] - $costPrice) * $quantity,
                         'remark' => $item['remark'] ?? null,
+                        'item_type' => $product->type,
+                        'warranty_days' => $item['warranty_days'] ?? $product->warranty_days,
                     ]);
 
                     $service->allocate($orderItem, $product, $serials);
@@ -843,9 +882,11 @@ class OrderController extends Controller
                     'total' => $item['total'],
                     'profit' => ($item['price'] - $costPrice) * $item['quantity'],
                     'remark' => $item['remark'] ?? null,
+                    'item_type' => $product ? $product->type : 'service',
+                    'warranty_days' => $item['warranty_days'] ?? $product?->warranty_days,
                 ]);
 
-                if ($product) {
+                if ($product && $product->tracksStock()) {
                     $product->decrement('stock', $item['quantity']);
                 }
             }
@@ -866,8 +907,45 @@ class OrderController extends Controller
         $settings = ShopSettings::first();
         $taxPercentage = $settings ? $settings->tax_percentage : 0;
 
+        $repairJob = null;
+        if ($jobId = request('repair_job')) {
+            $job = \App\Models\RepairJob::with(['customer', 'items.product'])->find($jobId);
+            if ($job && ! $job->order_id) {
+                $repairJob = [
+                    'id' => $job->id,
+                    'job_number' => $job->job_number,
+                    'device' => $job->device_label,
+                    'imei' => $job->imei,
+                    'deposit' => (float) $job->deposit,
+                    'estimated_cost' => (float) $job->estimated_cost,
+                    'warranty_days' => $job->warranty_days,
+                    'customer' => $job->customer ? $job->customer->only(['id', 'name', 'email', 'phone']) : null,
+                    'items' => $job->items->map(fn ($i) => [
+                        'product' => $i->product ? [
+                            'id' => $i->product->id,
+                            'name' => $i->product->name,
+                            'type' => $i->product->type,
+                            'price' => $i->product->price,
+                            'stock' => $i->product->stock,
+                            'barcode' => $i->product->barcode,
+                            'serial_tracked' => $i->product->serial_tracked,
+                            'warranty_days' => $i->product->warranty_days,
+                        ] : null,
+                        'name' => $i->name,
+                        'item_type' => $i->item_type,
+                        'quantity' => $i->quantity,
+                        'price' => (float) $i->price,
+                        'cost_price' => (float) $i->cost_price,
+                        'warranty_days' => $i->warranty_days ?? $job->warranty_days,
+                    ])->values(),
+                ];
+            }
+        }
+
         return Inertia::render('Orders/Create', [
             'tax_percentage' => $taxPercentage,
+            'repair_job' => $repairJob,
+            'default_warranty_days' => (int) ($settings->default_warranty_days ?? 30),
         ]);
     }
 
@@ -880,7 +958,7 @@ class OrderController extends Controller
         if ($validated['status'] === 'cancelled' && $order->status !== 'cancelled') {
             app(ProductSerialService::class)->release($order->id);
             foreach ($order->items as $item) {
-                if ($item->product && ! $item->product->serial_tracked) {
+                if ($item->product && $item->product->tracksStock()) {
                     $item->product->increment('stock', $item->quantity);
                 }
             }
@@ -924,7 +1002,7 @@ class OrderController extends Controller
 
                     app(ProductSerialService::class)->release($order->id);
                     foreach ($order->items as $item) {
-                        if ($item->product && ! $item->product->serial_tracked) {
+                        if ($item->product && $item->product->tracksStock()) {
                             $item->product->increment('stock', $item->quantity);
                         }
                     }
@@ -951,7 +1029,7 @@ class OrderController extends Controller
                 // Restore product stock (untracked) and release serials (tracked)
                 app(ProductSerialService::class)->release($order->id);
                 foreach ($order->items as $item) {
-                    if ($item->product && ! $item->product->serial_tracked) {
+                    if ($item->product && $item->product->tracksStock()) {
                         $item->product->increment('stock', $item->quantity);
                     }
                 }

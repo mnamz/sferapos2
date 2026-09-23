@@ -68,6 +68,12 @@
                             @endif
                             <td style="border: none; text-align: right; padding: 1px 0;">{{ $order->user->name ?? '-' }}</td>
                         </tr>
+                        @if($order->repairJob)
+                        <tr>
+                            <td style="border: none; font-weight: bold; padding: 1px 0;">Repair Job</td>
+                            <td style="border: none; text-align: right; padding: 1px 0;">{{ $order->repairJob->job_number }} ({{ $order->repairJob->device_label }})</td>
+                        </tr>
+                        @endif
                         <tr>
                             <td style="border: none; font-weight: bold; padding: 1px 0;">Amount Due</td>
                             <td style="border: none; text-align: right; padding: 1px 0;">{{ $settings->currency }}{{ number_format($order->due_amount, 2) }}</td>
@@ -110,6 +116,9 @@
                         {{ $first->product_name }} {{ $first->remark ? '('.$first->remark.')' : '' }}
                         @if($serials->isNotEmpty())
                             <br><span style="font-size: 11px; color: #555;">S/N: {{ $serials->implode(', ') }}</span>
+                        @endif
+                        @if($first->warranty_days)
+                            <br><span style="font-size: 11px; color: #555;">Warranty: {{ $first->warranty_days }} days (until {{ $order->created_at->copy()->addDays($first->warranty_days)->format('d/m/Y') }})</span>
                         @endif
                     </td>
                     <td style="padding: 6px 4px; border: none; text-align: center;">{{ $group->sum('quantity') }}</td>

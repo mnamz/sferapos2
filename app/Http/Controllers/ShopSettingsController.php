@@ -27,6 +27,8 @@ class ShopSettingsController extends Controller
             'industry_classification_name' => null,
             'payment_details' => null,
             'footer_text' => null,
+            'repair_terms' => null,
+            'default_warranty_days' => 30,
         ]);
         
         return Inertia::render('Settings/Index', [
@@ -51,6 +53,8 @@ class ShopSettingsController extends Controller
             'industry_classification_name' => 'nullable|string|max:255',
             'payment_details' => 'nullable|string',
             'footer_text' => 'nullable|string',
+            'repair_terms' => 'nullable|string',
+            'default_warranty_days' => 'nullable|integer|min:0|max:3650',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'invoice_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);

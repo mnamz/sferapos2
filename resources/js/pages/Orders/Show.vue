@@ -98,6 +98,12 @@
                                 <p><span class="font-medium">Payment Method:</span> {{ order.payment_method }}</p>
                                 <p><span class="font-medium">Delivery Method:</span> {{ order.delivery_method }}</p>
                                 <p v-if="order.remarks"><span class="font-medium">Remarks:</span> {{ order.remarks }}</p>
+                                <p v-if="order.repair_job">
+                                    <span class="font-medium">Repair Job:</span>
+                                    <Link :href="route('repairs.show', order.repair_job.id)" class="text-indigo-600 hover:underline dark:text-indigo-400">
+                                        {{ order.repair_job.job_number }} ({{ order.repair_job.device }})
+                                    </Link>
+                                </p>
                             </div>
                         </div>
 
@@ -120,6 +126,9 @@
                                         <tr v-for="item in order.items" :key="item.id">
                                             <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                                                 {{ item.product_name }}
+                                                <span v-if="item.item_type === 'service'" class="ml-1 rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-800 uppercase dark:bg-purple-900/50 dark:text-purple-200">Service</span>
+                                                <span v-else-if="item.item_type === 'part'" class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 uppercase dark:bg-amber-900/50 dark:text-amber-200">Part</span>
+                                                <div v-if="item.warranty_days" class="text-xs text-emerald-700 dark:text-emerald-400">{{ item.warranty_days }} days warranty</div>
                                                 <div v-if="item.serials && item.serials.length" class="mt-1 flex flex-wrap gap-1">
                                                     <span
                                                         v-for="sn in item.serials"

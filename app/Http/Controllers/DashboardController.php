@@ -91,7 +91,21 @@ class DashboardController extends Controller
                 ];
             });
 
+        $repairCounts = \App\Models\RepairJob::query()
+            ->select('status', DB::raw('COUNT(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
+        $repairStats = [
+            'open' => \App\Models\RepairJob::open()->count(),
+            'awaiting_approval' => (int) ($repairCounts['awaiting_approval'] ?? 0),
+            'awaiting_parts' => (int) ($repairCounts['awaiting_parts'] ?? 0),
+            'ready' => (int) ($repairCounts['ready'] ?? 0),
+            'overdue' => \App\Models\RepairJob::open()->where('status', '!=', 'ready')->whereNotNull('promised_at')->where('promised_at', '<', now())->count(),
+            'received_today' => \App\Models\RepairJob::whereDate('created_at', $today)->count(),
+        ];
+
         return Inertia::render('Dashboard', [
+            'repairStats' => $repairStats,
             'todayStats' => $todayStats,
             'monthlyStats' => $monthlyStats,
             'recentOrders' => $recentOrders,

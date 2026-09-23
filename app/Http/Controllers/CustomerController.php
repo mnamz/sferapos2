@@ -33,6 +33,9 @@ class CustomerController extends Controller
 
     public function store(Request $request)
     {
+        // Accept local formats (012-345 6789) and store E.164 (+60123456789).
+        $request->merge(['phone' => Customer::normalizePhone($request->input('phone'))]);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|unique:customers',
@@ -63,6 +66,9 @@ class CustomerController extends Controller
 
     public function update(Request $request, Customer $customer)
     {
+        // Accept local formats (012-345 6789) and store E.164 (+60123456789).
+        $request->merge(['phone' => Customer::normalizePhone($request->input('phone'))]);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|unique:customers,email,' . $customer->id,
@@ -95,15 +101,50 @@ class CustomerController extends Controller
     public function search(Request $request)
     {
         $query = $request->get('q', '');
-        
+        // Phones are stored as +60…; let "012 345" match "+6012345…".
+        $digits = ltrim(preg_replace('/\D+/', '', $query), '0');
+
         return Customer::where('status', 'active')
-            ->where(function($q) use ($query) {
+            ->where(function($q) use ($query, $digits) {
                 $q->where('name', 'like', "%{$query}%")
                   ->orWhere('email', 'like', "%{$query}%")
                   ->orWhere('phone', 'like', "%{$query}%");
+                if (strlen($digits) >= 3) {
+                    $q->orWhere('phone', 'like', "%{$digits}%");
+                }
             })
             ->select('id', 'name', 'email', 'phone')
             ->limit(10)
             ->get();
     }
-} 
+
+    /**
+     * Counter quick-add used by the sale and repair intake screens: phone is the
+     * identity at a phone shop, so reuse an existing customer with that number.
+     */
+    public function quickStore(Request $request)
+    {
+        $request->merge(['phone' => Customer::normalizePhone($request->input('phone'))]);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => ['required', 'string', 'max:20', 'regex:/^\+[1-9]\d{6,14}$/'],
+            'email' => 'nullable|email',
+        ]);
+
+        $customer = Customer::where('phone', $validated['phone'])->first();
+
+        if ($customer) {
+            if (! empty($validated['email']) && empty($customer->email)) {
+                $customer->update(['email' => $validated['email']]);
+            }
+        } else {
+            if (! empty($validated['email']) && Customer::where('email', $validated['email'])->exists()) {
+                $validated['email'] = null;
+            }
+            $customer = Customer::create($validated + ['status' => 'active']);
+        }
+
+        return response()->json($customer->only(['id', 'name', 'email', 'phone']));
+    }
+}

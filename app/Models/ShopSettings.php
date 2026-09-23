@@ -24,7 +24,9 @@ class ShopSettings extends Model
         'industry_classification_code',
         'industry_classification_name',
         'payment_details',
-        'footer_text'
+        'footer_text',
+        'repair_terms',
+        'default_warranty_days',
     ];
 
     protected $casts = [

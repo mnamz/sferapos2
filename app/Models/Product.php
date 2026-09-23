@@ -16,6 +16,7 @@ class Product extends Model implements Auditable
 
     protected $fillable = [
         'name',
+        'type',
         'description',
         'price',
         'cost_price',
@@ -26,7 +27,17 @@ class Product extends Model implements Auditable
         'image',
         'status',
         'barcode',
+        'sku',
+        'brand',
+        'compatible_models',
+        'warranty_days',
         'supplier_id',
+    ];
+
+    public const TYPES = [
+        'product' => 'Product',
+        'part' => 'Spare Part',
+        'service' => 'Service',
     ];
 
     protected $casts = [
@@ -36,6 +47,7 @@ class Product extends Model implements Auditable
         'status' => 'boolean',
         'serial_tracked' => 'boolean',
         'pending_serial_count' => 'integer',
+        'warranty_days' => 'integer',
     ];
 
     protected $appends = ['image_url'];
@@ -53,6 +65,17 @@ class Product extends Model implements Auditable
     public function serials(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(ProductSerial::class);
+    }
+
+    /** Services are labour/non-stock charges: never checked or decremented. */
+    public function isService(): bool
+    {
+        return $this->type === 'service';
+    }
+
+    public function tracksStock(): bool
+    {
+        return ! $this->isService() && ! $this->serial_tracked;
     }
 
     public function getImageUrlAttribute()

@@ -5,7 +5,7 @@ import NavUser from '@/Components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/Components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { Settings, LayoutGrid, ShoppingCart, Package, ClipboardList, Tags, Users, Truck, Receipt, BarChart3, FolderTree, Users2, History, DollarSign } from 'lucide-vue-next';
+import { Settings, LayoutGrid, ShoppingCart, Package, Users, Truck, Receipt, BarChart3, FolderTree, Users2, History, Wrench, ClipboardPlus } from 'lucide-vue-next';
 import { onMounted, ref, watch, computed } from 'vue';
 import AppLogo from './AppLogo.vue';
 import { usePage } from '@inertiajs/vue3';
@@ -52,14 +52,19 @@ const mainNavItems: NavItem[] = [
         icon: LayoutGrid,
     },
     {
-        title: 'POS',
-        href: route('pos.index'),
+        title: 'New Sale',
+        href: route('orders.create'),
         icon: ShoppingCart,
     },
     {
-        title: 'Create Order',
-        href: route('orders.create'),
-        icon: ClipboardList,
+        title: 'Repairs',
+        href: route('repairs.index'),
+        icon: Wrench,
+    },
+    {
+        title: 'New Repair',
+        href: route('repairs.create'),
+        icon: ClipboardPlus,
     },
     {
         title: 'Orders',

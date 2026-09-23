@@ -25,6 +25,9 @@ class ProductController extends Controller
                         $q->whereNameMatchesNormalized($lower)
                             ->orWhereRaw('LOWER(description) LIKE ?', ["%{$lower}%"])
                             ->orWhereRaw('LOWER(barcode) LIKE ?', ["%{$lower}%"])
+                            ->orWhereRaw('LOWER(sku) LIKE ?', ["%{$lower}%"])
+                            ->orWhereRaw('LOWER(brand) LIKE ?', ["%{$lower}%"])
+                            ->orWhereRaw('LOWER(compatible_models) LIKE ?', ["%{$lower}%"])
                             ->orWhereHas('category', function ($cq) use ($lower) {
                                 $cq->whereRaw('LOWER(name) LIKE ?', ["%{$lower}%"]);
                             })
@@ -37,12 +40,14 @@ class ProductController extends Controller
                     });
                 })
                 ->when($request->input('filter') === 'low-stock', function ($query) {
-                    $query->where('stock', '<=', 10);
+                    $query->where('stock', '<=', 10)->where('type', '!=', 'service');
                 })
+                ->when($request->input('type'), fn ($query, $type) => $query->where('type', $type))
                 ->latest()
                 ->paginate(10)
                 ->withQueryString(),
-            'filters' => $request->only(['search', 'filter']),
+            'filters' => $request->only(['search', 'filter', 'type']),
+            'types' => Product::TYPES,
         ]);
     }
 
@@ -61,20 +66,33 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
             'cost_price' => 'required|numeric|min:0',
-            'stock' => 'required|integer|min:0',
+            'stock' => 'required_unless:type,service|nullable|integer|min:0',
             'category_id' => 'required|exists:categories,id',
             'supplier_id' => 'nullable|exists:suppliers,id',
             'barcode' => 'nullable|string|unique:products',
             'image' => 'nullable|image|max:1024', // max 1MB
             'status' => 'required|in:active,inactive',
             'serial_tracked' => 'boolean',
+            'type' => 'nullable|in:product,part,service',
+            'sku' => 'nullable|string|max:100',
+            'brand' => 'nullable|string|max:100',
+            'compatible_models' => 'nullable|string|max:255',
+            'warranty_days' => 'nullable|integer|min:0|max:3650',
         ]);
+
+        $validated['type'] = $validated['type'] ?? ($product->type ?? 'product');
+
+        // Services are non-stock labour charges.
+        if ($validated['type'] === 'service') {
+            $validated['serial_tracked'] = false;
+            $validated['stock'] = 0;
+        }
 
         if ($request->hasFile('image')) {
             $validated['image'] = $request->file('image')->store('products', 'public');
         }
 
-        if ($request->boolean('serial_tracked')) {
+        if (! empty($validated['serial_tracked'])) {
             $validated['stock'] = 0;
         }
 
@@ -99,21 +117,34 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
             'cost_price' => 'required|numeric|min:0',
-            'stock' => 'required|integer|min:0',
+            'stock' => 'required_unless:type,service|nullable|integer|min:0',
             'category_id' => 'required|exists:categories,id',
             'supplier_id' => 'nullable|exists:suppliers,id',
             'barcode' => ['nullable', 'string', Rule::unique('products')->ignore($product->id)],
             'image' => 'nullable|image|max:1024',
             'status' => 'required|in:active,inactive',
             'serial_tracked' => 'boolean',
+            'type' => 'nullable|in:product,part,service',
+            'sku' => 'nullable|string|max:100',
+            'brand' => 'nullable|string|max:100',
+            'compatible_models' => 'nullable|string|max:255',
+            'warranty_days' => 'nullable|integer|min:0|max:3650',
         ]);
+
+        $validated['type'] = $validated['type'] ?? ($product->type ?? 'product');
+
+        // Services are non-stock labour charges.
+        if ($validated['type'] === 'service') {
+            $validated['serial_tracked'] = false;
+            $validated['stock'] = 0;
+        }
 
         // Enabling serial tracking is always allowed. A serial-tracked product's
         // stock is defined by its serials, so we reset stock to the current
         // available-serial count (0 when newly enabled). When converting a product
         // that had anonymous stock, remember that quantity as a "pending serial
         // entry" reminder so staff know how many units still need serials.
-        if ($request->boolean('serial_tracked')) {
+        if (! empty($validated['serial_tracked'])) {
             if (! $product->serial_tracked && $product->stock > 0) {
                 $validated['pending_serial_count'] = $product->stock;
             }
@@ -150,11 +181,14 @@ class ProductController extends Controller
 
     public function getPosProducts()
     {
+        // Services are always sellable; stocked goods only when on hand.
         $products = Product::with('category')
             ->where('status', 'active')
-            ->where('stock', '>', 0)
-            ->select('id', 'name', 'price', 'stock', 'barcode', 'category_id', 'image', 'serial_tracked')
-            ->get();
+            ->where(fn ($q) => $q->where('stock', '>', 0)->orWhere('type', 'service'))
+            ->select('id', 'name', 'type', 'price', 'cost_price', 'stock', 'barcode', 'sku', 'brand', 'compatible_models', 'warranty_days', 'category_id', 'image', 'serial_tracked')
+            ->orderBy('name')
+            ->get()
+            ->each(fn ($p) => $p->makeHidden(auth()->user()?->hasRole('admin') ? [] : ['cost_price']));
 
         $categories = Category::where('status', 'active')
             ->select('id', 'name')
@@ -180,6 +214,7 @@ class ProductController extends Controller
                 ->with(['category:id,name', 'supplier:id,name'])
                 ->where('stock', '<=', 10)
                 ->where('status', 'active')
+                ->where('type', '!=', 'service')
                 ->when($request->input('search'), function ($query, $search) {
                     $lower = strtolower($search);
                     $query->where(function ($q) use ($lower) {
@@ -431,8 +466,15 @@ class ProductController extends Controller
         $lower = strtolower($query);
 
         return Product::query()
-            ->select('id', 'name', 'price', 'stock', 'barcode')
-            ->whereNameMatchesNormalized($lower)
+            ->select('id', 'name', 'type', 'price', 'cost_price', 'stock', 'barcode', 'sku', 'brand', 'compatible_models', 'warranty_days', 'serial_tracked')
+            ->where('status', 'active')
+            ->where(function ($q) use ($lower) {
+                $q->whereNameMatchesNormalized($lower)
+                    ->orWhereRaw('LOWER(barcode) LIKE ?', ["%{$lower}%"])
+                    ->orWhereRaw('LOWER(sku) LIKE ?', ["%{$lower}%"])
+                    ->orWhereRaw('LOWER(compatible_models) LIKE ?', ["%{$lower}%"]);
+            })
+            ->when($request->get('types'), fn ($q, $types) => $q->whereIn('type', explode(',', $types)))
             ->orderBy('name')
             ->limit(20)
             ->get();

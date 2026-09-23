@@ -17,6 +17,10 @@ Route::get('/', function () {
     return redirect()->route('dashboard');
 })->name('home');
 
+// Public repair status lookup for customers (job number + last 4 of phone).
+Route::get('/track', [\App\Http\Controllers\RepairJobController::class, 'trackForm'])->name('track.index');
+Route::post('/track', [\App\Http\Controllers\RepairJobController::class, 'track'])->middleware('throttle:10,1')->name('track.lookup');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
