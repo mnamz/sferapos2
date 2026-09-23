@@ -68,6 +68,15 @@ return [
     'timezone' => 'Asia/Kuala_Lumpur',
 
     /*
+    | Public demo login shown on the login page (DEMO_MODE=true).
+    */
+    'demo' => [
+        'enabled' => (bool) env('DEMO_MODE', false),
+        'email' => env('DEMO_LOGIN_EMAIL', 'demo@sfera.my'),
+        'password' => env('DEMO_LOGIN_PASSWORD', 'demo1234'),
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------

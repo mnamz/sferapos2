@@ -12,7 +12,7 @@ import { LoaderCircle } from 'lucide-vue-next';
 defineProps<{
     status?: string;
     canResetPassword: boolean;
-    demoMode: boolean;
+    demoLogin?: { email: string; password: string } | null;
 }>();
 
 const form = useForm({
@@ -20,6 +20,11 @@ const form = useForm({
     password: '',
     remember: false,
 });
+
+const useDemo = (demo: { email: string; password: string }) => {
+    form.email = demo.email;
+    form.password = demo.password;
+};
 
 const submit = () => {
     form.post(route('login'), {
@@ -36,10 +41,21 @@ const submit = () => {
             {{ status }}
         </div>
 
-        <div v-if="demoMode" class="mb-4 rounded border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-800 shadow-sm">
-            <div class="font-semibold mb-1">Demo Credentials</div>
-            <div><span class="font-medium">Email:</span> test@example.com</div>
-            <div><span class="font-medium">Password:</span> password</div>
+        <div v-if="demoLogin" class="mb-2 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 shadow-sm dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
+            <div class="mb-2 font-semibold">Sample login</div>
+            <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                <span class="font-medium">Email</span>
+                <code class="font-mono select-all">{{ demoLogin.email }}</code>
+                <span class="font-medium">Password</span>
+                <code class="font-mono select-all">{{ demoLogin.password }}</code>
+            </div>
+            <button
+                type="button"
+                @click="useDemo(demoLogin)"
+                class="mt-3 w-full rounded-md bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-600"
+            >
+                Use sample login
+            </button>
         </div>
 
         <form @submit.prevent="submit" class="flex flex-col gap-6">
