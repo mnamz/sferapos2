@@ -46,6 +46,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Add low stock products route
     Route::get('/products/low-stock', [ProductController::class, 'lowStock'])->name('products.low-stock');
 
+    // Stock-check product list (no cost) for admins and managers
+    Route::get('/products/export-list', [ProductController::class, 'exportList'])
+        ->middleware('role:admin|manager')
+        ->name('products.export-list');
+
     // Cost & profit reports are admin-only (hidden from manager/staff)
     Route::middleware('role:admin')->group(function () {
         Route::get('/products/inventory-cost', [ProductController::class, 'inventoryCost'])->name('products.inventory-cost');

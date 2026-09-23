@@ -13,6 +13,13 @@
                     >
                         Add New Product
                     </Link>
+                    <a
+                        :href="route('products.export-list')"
+                        v-if="roles.includes('admin') || roles.includes('manager')"
+                        class="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition text-center"
+                    >
+                        Export Product List
+                    </a>
                     <Link
                         :href="route('products.inventory-cost')"
                         v-if="roles.includes('admin')"

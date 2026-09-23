@@ -420,6 +420,42 @@ class ProductController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 
+    /**
+     * Stock-check export for admins and managers: no cost figures.
+     */
+    public function exportList()
+    {
+        $products = Product::query()
+            ->select('name', 'price', 'stock', 'category_id')
+            ->with('category:id,name')
+            ->orderBy('name')
+            ->get();
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="product-list-'.now()->format('Y-m-d').'.csv"',
+        ];
+
+        $callback = function () use ($products) {
+            $file = fopen('php://output', 'w');
+
+            fputcsv($file, ['Name', 'Category', 'Price', 'Stock']);
+
+            foreach ($products as $product) {
+                fputcsv($file, [
+                    $product->name,
+                    $product->category?->name,
+                    number_format($product->price, 2, '.', ''),
+                    $product->stock,
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
     public function search(Request $request)
     {
         $query = $request->get('q', '');
