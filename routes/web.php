@@ -25,11 +25,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/api/suppliers/search', [SupplierController::class, 'search'])->name('api.suppliers.search');
     Route::resource('users', UserController::class)->except(['edit', 'update']);
 
-    // Admin-only routes
-    Route::middleware('role:admin')->group(function () {
+    // Sales register has no cost/profit figures, so managers can use it too
+    Route::middleware('role:admin|manager')->group(function () {
         Route::get('reports/sales-register', [ReportController::class, 'salesRegister'])->name('reports.sales-register');
         Route::get('reports/sales-register/export', [ReportController::class, 'salesRegisterExport'])->name('reports.sales-register.export');
         Route::get('reports/sales-register/invoices', [ReportController::class, 'salesRegisterInvoices'])->name('reports.sales-register.invoices');
+    });
+
+    // Admin-only routes
+    Route::middleware('role:admin')->group(function () {
         Route::get('activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index');
         Route::get('/shop-settings', [ShopSettingsController::class, 'index'])->name('settings.index');
         Route::post('/shop-settings', [ShopSettingsController::class, 'update'])->name('settings.update');

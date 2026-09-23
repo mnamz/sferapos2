@@ -285,18 +285,25 @@ it('exports multiple categories with per-category totals', function () {
     expect($response->headers->get('content-disposition'))->toContain('.xlsx');
 });
 
-it('forbids non-admin users from all sales register routes', function () {
+it('lets managers open the sales register and its export', function () {
     \Spatie\Permission\Models\Role::findOrCreate('manager');
+    $user = User::factory()->create();
+    $user->assignRole('manager');
+
+    $range = ['start_date' => '2026-06-01', 'end_date' => '2026-06-30'];
+
+    $this->actingAs($user)->get(route('reports.sales-register', $range))->assertOk();
+    $this->actingAs($user)->get(route('reports.sales-register.export', $range))->assertOk();
+});
+
+it('forbids staff from all sales register routes', function () {
     \Spatie\Permission\Models\Role::findOrCreate('staff');
+    $user = User::factory()->create();
+    $user->assignRole('staff');
 
-    foreach (['manager', 'staff'] as $roleName) {
-        $user = User::factory()->create();
-        $user->assignRole($roleName);
-
-        foreach (['reports.sales-register', 'reports.sales-register.export', 'reports.sales-register.invoices'] as $routeName) {
-            $this->actingAs($user)
-                ->get(route($routeName, ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']))
-                ->assertForbidden();
-        }
+    foreach (['reports.sales-register', 'reports.sales-register.export', 'reports.sales-register.invoices'] as $routeName) {
+        $this->actingAs($user)
+            ->get(route($routeName, ['start_date' => '2026-06-01', 'end_date' => '2026-06-30']))
+            ->assertForbidden();
     }
 });
