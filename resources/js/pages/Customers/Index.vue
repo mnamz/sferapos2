@@ -13,7 +13,7 @@
                         Add New Customer
                     </Link>
                     <button
-                        v-if="userRole.name !== 'staff'"
+                        v-if="roles.includes('admin')"
                         @click="exportCSV"
                         class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition text-center"
                     >
