@@ -18,7 +18,7 @@ use Illuminate\Console\Command;
  */
 class StockSyncCommand extends Command
 {
-    protected $signature = 'stock:sync {--products : only sync products} {--orders : only sync orders} {--since= : only orders on/after this date}';
+    protected $signature = 'stock:sync {--products : only sync products} {--orders : only sync orders} {--headers : only sync order headers (customer, totals, payment, status)} {--since= : only orders on/after this date}';
 
     protected $description = 'Backfill products and/or orders to the central Stock HQ dashboard';
 
@@ -28,6 +28,10 @@ class StockSyncCommand extends Command
             $this->error('StockHq is not enabled/configured. Set STOCK_HQ_* in .env.');
 
             return self::FAILURE;
+        }
+
+        if ($this->option('headers')) {
+            return $this->syncHeaders($hq);
         }
 
         $doProducts = $this->option('products') || ! $this->option('orders');
@@ -47,7 +51,7 @@ class StockSyncCommand extends Command
 
         if ($doOrders) {
             $this->info('Syncing orders…');
-            $query = Order::with(['items.product.category', 'items.serials', 'user'])->orderBy('id');
+            $query = Order::with(['items.product.category', 'items.serials', 'user', 'customer' => fn ($q) => $q->withTrashed()])->orderBy('id');
             if ($since = $this->option('since')) {
                 $query->whereDate('created_at', '>=', $since);
             }
@@ -68,6 +72,7 @@ class StockSyncCommand extends Command
                 }
 
                 $hq->pushEvents($batch);
+                $hq->pushOrderHeaders($chunk->map(fn ($o) => $hq->orderHeader($o))->values()->all());
                 $lines += count($batch);
                 $this->output->write('.');
             });
@@ -76,6 +81,30 @@ class StockSyncCommand extends Command
         }
 
         $this->info('Done.');
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Backfill order headers only (no sale lines) — including deleted orders,
+     * so HQ can flag them.
+     */
+    private function syncHeaders(StockHq $hq): int
+    {
+        $this->info('Syncing order headers…');
+        $query = Order::withTrashed()->with(['customer' => fn ($q) => $q->withTrashed()])->orderBy('id');
+        if ($since = $this->option('since')) {
+            $query->whereDate('created_at', '>=', $since);
+        }
+
+        $count = 0;
+        $query->chunkById(500, function ($chunk) use ($hq, &$count) {
+            $hq->pushOrderHeaders($chunk->map(fn ($o) => $hq->orderHeader($o))->values()->all());
+            $count += $chunk->count();
+            $this->output->write('.');
+        });
+        $this->newLine();
+        $this->info("Order headers synced: {$count}");
 
         return self::SUCCESS;
     }

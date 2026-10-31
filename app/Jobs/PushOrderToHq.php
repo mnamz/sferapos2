@@ -11,7 +11,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * Pushes one order's sale lines to the HQ dashboard. Runs on the queue, so a
+ * Pushes one order's sale lines and header to the HQ dashboard. Runs on the queue, so a
  * slow or down HQ never affects the sale. Retries with backoff; idempotent at
  * HQ (dedupe on event_id).
  */
@@ -32,7 +32,7 @@ class PushOrderToHq implements ShouldQueue
             return;
         }
 
-        $order = Order::with(['items.product.category', 'items.serials', 'user'])->find($this->orderId);
+        $order = Order::with(['items.product.category', 'items.serials', 'user', 'customer' => fn ($q) => $q->withTrashed()])->find($this->orderId);
         if (! $order) {
             return;
         }
@@ -41,5 +41,6 @@ class PushOrderToHq implements ShouldQueue
         $hq->syncProducts($order->items->map->product->filter());
 
         $hq->pushEvents($hq->saleEventsForOrder($order));
+        $hq->pushOrderHeaders([$hq->orderHeader($order)]);
     }
 }

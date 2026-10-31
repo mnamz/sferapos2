@@ -198,6 +198,57 @@ class StockHq
     }
 
     /**
+     * The reference HQ files this order's sale lines under — the order header
+     * must use the same value so HQ can join the two.
+     */
+    public function referenceFor(Order $order): string
+    {
+        return $order->invoice_number ?: ($order->order_number ?: ('ORD-'.$order->id));
+    }
+
+    /**
+     * HQ order header for an order: customer, money, payment and status, as
+     * the POS order list shows them. Re-sent on every change; HQ keeps the
+     * newest by updated_at.
+     *
+     * @return array<string, mixed>
+     */
+    public function orderHeader(Order $order): array
+    {
+        return [
+            'pos_order_id' => $order->id,
+            'reference' => $this->referenceFor($order),
+            'customer_name' => optional($order->customer)->name,
+            'subtotal' => (float) $order->subtotal,
+            'discount' => (float) $order->discount,
+            'tax' => (float) $order->tax,
+            'delivery_cost' => (float) $order->delivery_cost,
+            'total' => (float) $order->total,
+            'profit' => (float) $order->profit,
+            'paid_amount' => (float) $order->paid_amount,
+            'due_amount' => (float) $order->due_amount,
+            'payment_method' => $order->payment_method,
+            'delivery_method' => $order->delivery_method,
+            'status' => $order->status,
+            'occurred_at' => optional($order->created_at)->toIso8601String(),
+            'updated_at' => optional($order->updated_at)->toIso8601String(),
+            'deleted_at' => optional($order->deleted_at)->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Push a batch of order headers to HQ (max 500 per call).
+     *
+     * @param  array<int, array<string, mixed>>  $headers
+     */
+    public function pushOrderHeaders(array $headers): void
+    {
+        foreach (array_chunk($headers, 500) as $chunk) {
+            $this->http()->post('/orders', ['orders' => $chunk])->throw();
+        }
+    }
+
+    /**
      * Push one serial's arrival ('in' → purchase, lands in_stock at this branch)
      * or removal ('out' → negative adjustment, written off) to HQ. Idempotent:
      * the event_id is deterministic per serial + direction, so a retry is a
@@ -247,7 +298,7 @@ class StockHq
     public function saleEventsForOrder(Order $order): array
     {
         $branch = $this->branchId();
-        $reference = $order->invoice_number ?: ($order->order_number ?: ('ORD-'.$order->id));
+        $reference = $this->referenceFor($order);
         $cashier = optional($order->user)->name ?? ('user#'.$order->user_id);
 
         $events = [];
