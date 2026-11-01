@@ -139,6 +139,8 @@
                                                 <span v-if="s.deletion_requested_at" class="flex items-center gap-3">
                                                     <span class="font-sans text-xs text-amber-600 dark:text-amber-400">
                                                         deletion requested<template v-if="s.deletion_requester"> by {{ s.deletion_requester.name }}</template>
+                                                        <template v-if="s.deletion_reason">: “{{ s.deletion_reason }}”</template>
+                                                        <span class="text-gray-400"> · awaiting approval here or at HQ</span>
                                                     </span>
                                                     <template v-if="isAdmin">
                                                         <button
@@ -158,13 +160,38 @@
                                                     </template>
                                                 </span>
 
+                                                <!-- Manager: say why before requesting deletion -->
+                                                <form
+                                                    v-else-if="reasonFor === s.id"
+                                                    class="ml-4 flex flex-1 items-center justify-end gap-2 font-sans"
+                                                    @submit.prevent="requestDeletion(s)"
+                                                >
+                                                    <input
+                                                        v-model="reasonText"
+                                                        type="text"
+                                                        maxlength="500"
+                                                        placeholder="Reason for deleting (e.g. wrong SN keyed in)"
+                                                        class="w-72 rounded-md border border-gray-300 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-800"
+                                                        autofocus
+                                                    />
+                                                    <button
+                                                        type="submit"
+                                                        :disabled="reasonText.trim().length < 3"
+                                                        class="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-40"
+                                                    >
+                                                        Request
+                                                    </button>
+                                                    <button type="button" class="text-xs text-gray-500 hover:text-gray-700" @click="reasonFor = null">Cancel</button>
+                                                    <span v-if="page.props.errors?.reason" class="text-xs text-red-600">{{ page.props.errors.reason }}</span>
+                                                </form>
+
                                                 <!-- No request: delete (admin = immediate, manager = request approval) -->
                                                 <button
                                                     v-else
                                                     type="button"
                                                     class="ml-4 text-red-500 transition hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                                                    :title="isAdmin ? 'Remove serial' : 'Request deletion (needs admin approval)'"
-                                                    @click="removeSerial(s)"
+                                                    :title="isAdmin ? 'Remove serial' : 'Request deletion (needs approval here or at HQ)'"
+                                                    @click="isAdmin ? removeSerial(s) : openReason(s)"
                                                 >
                                                     ×
                                                 </button>
@@ -301,6 +328,23 @@ function addSerials() {
             serialInput.value = '';
             serialForm.reset();
         },
+    });
+}
+
+// Managers request deletion with a reason; admins delete straight away.
+const reasonFor = ref(null);
+const reasonText = ref('');
+
+function openReason(serial) {
+    reasonFor.value = serial.id;
+    reasonText.value = '';
+}
+
+function requestDeletion(serial) {
+    router.delete(route('products.serials.destroy', [props.product.id, serial.id]), {
+        data: { reason: reasonText.value.trim() },
+        preserveScroll: true,
+        onSuccess: () => (reasonFor.value = null),
     });
 }
 

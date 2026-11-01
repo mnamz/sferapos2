@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductSerial;
 use App\Services\StockHq;
 use Illuminate\Console\Command;
 
@@ -18,7 +19,7 @@ use Illuminate\Console\Command;
  */
 class StockSyncCommand extends Command
 {
-    protected $signature = 'stock:sync {--products : only sync products} {--orders : only sync orders} {--headers : only sync order headers (customer, totals, payment, status)} {--since= : only orders on/after this date}';
+    protected $signature = 'stock:sync {--products : only sync products} {--orders : only sync orders} {--headers : only sync order headers (customer, totals, payment, status)} {--serial-deletions : only send pending serial-deletion requests} {--since= : only orders on/after this date}';
 
     protected $description = 'Backfill products and/or orders to the central Stock HQ dashboard';
 
@@ -32,6 +33,14 @@ class StockSyncCommand extends Command
 
         if ($this->option('headers')) {
             return $this->syncHeaders($hq);
+        }
+
+        if ($this->option('serial-deletions')) {
+            $pending = ProductSerial::whereNotNull('deletion_requested_at')->get();
+            $hq->pushSerialDeletions($pending->map(fn ($s) => $hq->serialDeletionPayload($s, 'pending'))->values()->all());
+            $this->info("Pending serial-deletion requests sent to HQ: {$pending->count()}");
+
+            return self::SUCCESS;
         }
 
         $doProducts = $this->option('products') || ! $this->option('orders');

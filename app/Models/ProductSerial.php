@@ -21,6 +21,7 @@ class ProductSerial extends Model implements Auditable
         'order_id',
         'deletion_requested_at',
         'deletion_requested_by',
+        'deletion_reason',
     ];
 
     protected $casts = [

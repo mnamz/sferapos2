@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\PushSerialDeletionToHq;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductSerial;
 use App\Models\Supplier;
 use App\Services\ProductSerialService;
+use App\Services\StockHq;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -278,7 +280,7 @@ class ProductController extends Controller
         return back()->with('success', 'Serials added successfully.');
     }
 
-    public function removeSerial(Product $product, ProductSerial $serial, ProductSerialService $service)
+    public function removeSerial(Request $request, Product $product, ProductSerial $serial, ProductSerialService $service)
     {
         if ($serial->product_id !== $product->id) {
             abort(404);
@@ -295,9 +297,13 @@ class ProductController extends Controller
             return back()->with('success', 'Serial removed successfully.');
         }
 
-        $service->requestDeletion($serial, auth()->id());
+        // Managers must say why; approvers here and at HQ see it.
+        $reason = $request->validate(['reason' => ['required', 'string', 'min:3', 'max:500']])['reason'];
 
-        return back()->with('success', 'Deletion requested — awaiting admin approval.');
+        $service->requestDeletion($serial, auth()->id(), trim($reason));
+        PushSerialDeletionToHq::send(app(StockHq::class)->serialDeletionPayload($serial->fresh(), 'pending'));
+
+        return back()->with('success', 'Deletion requested — awaiting approval (here or at HQ).');
     }
 
     public function approveSerialDeletion(Product $product, ProductSerial $serial, ProductSerialService $service)
@@ -306,11 +312,23 @@ class ProductController extends Controller
             abort(404);
         }
 
+        if (! $serial->deletion_requested_at) {
+            return back()->with('error', 'This request was already decided (here or at HQ).');
+        }
+
+        // Snapshot the request before approving deletes it, so HQ hears the outcome.
+        $hq = app(StockHq::class);
+        $approved = $hq->serialDeletionPayload($serial, 'approved', auth()->user()?->name);
+
         try {
             $service->approveDeletion($serial);
         } catch (\RuntimeException $e) {
+            PushSerialDeletionToHq::send([...$approved, 'state' => 'void']);
+
             return back()->with('error', $e->getMessage());
         }
+
+        PushSerialDeletionToHq::send($approved);
 
         return back()->with('success', 'Serial deletion approved and removed.');
     }
@@ -321,7 +339,13 @@ class ProductController extends Controller
             abort(404);
         }
 
+        if (! $serial->deletion_requested_at) {
+            return back()->with('error', 'This request was already decided (here or at HQ).');
+        }
+
+        $rejected = app(StockHq::class)->serialDeletionPayload($serial, 'rejected', auth()->user()?->name);
         $service->rejectDeletion($serial);
+        PushSerialDeletionToHq::send($rejected);
 
         return back()->with('success', 'Deletion request rejected.');
     }

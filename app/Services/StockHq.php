@@ -249,6 +249,56 @@ class StockHq
     }
 
     /**
+     * A serial-deletion request as HQ records it. `state` is pending for a new
+     * request, or what the outlet decided (approved / rejected / void when the
+     * unit sold first). Build it BEFORE approving/rejecting, while the request
+     * fields are still on the serial.
+     *
+     * @return array<string, mixed>
+     */
+    public function serialDeletionPayload(ProductSerial $serial, string $state, ?string $decidedBy = null): array
+    {
+        $serial->loadMissing(['product.category', 'deletionRequester:id,name']);
+
+        return [
+            'pos_serial_id' => $serial->id,
+            'requested_at' => optional($serial->deletion_requested_at)->toIso8601String(),
+            'serial_number' => $serial->serial_number,
+            'product_sku' => $serial->product ? $this->skuFor($serial->product) : null,
+            'product_name' => optional($serial->product)->name,
+            'reason' => $serial->deletion_reason,
+            'requested_by' => optional($serial->deletionRequester)->name,
+            'state' => $state,
+            'decided_by' => $decidedBy,
+            'decided_at' => $state === 'pending' ? null : now()->toIso8601String(),
+        ];
+    }
+
+    /** @param  array<int, array<string, mixed>>  $requests */
+    public function pushSerialDeletions(array $requests): void
+    {
+        foreach (array_chunk($requests, 500) as $chunk) {
+            $this->http()->post('/serial-deletions', ['requests' => $chunk])->throw();
+        }
+    }
+
+    /**
+     * HQ approve/reject decisions this outlet hasn't carried out yet.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function serialDeletionDecisions(): array
+    {
+        return $this->http()->get('/serial-deletions/decisions')->throw()->json('decisions') ?? [];
+    }
+
+    /** Report what actually happened to the serial after applying an HQ decision. */
+    public function serialDeletionApplied(int $id, string $outcome, ?string $message = null): void
+    {
+        $this->http()->post("/serial-deletions/{$id}/applied", ['outcome' => $outcome, 'message' => $message])->throw();
+    }
+
+    /**
      * Push one serial's arrival ('in' → purchase, lands in_stock at this branch)
      * or removal ('out' → negative adjustment, written off) to HQ. Idempotent:
      * the event_id is deterministic per serial + direction, so a retry is a

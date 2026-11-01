@@ -9,19 +9,21 @@ use App\Services\ProductSerialService;
 use App\Services\StockHq;
 use App\Support\HqSyncMute;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Pull pending transfer commands from HQ and execute them against this branch's
- * own inventory, then confirm back. Scheduled every minute.
+ * Pull pending transfer commands — and serial-deletion decisions — from HQ and
+ * execute them against this branch's own inventory, then confirm back.
+ * Scheduled every minute.
  *
  *  - deduct (as source): release the named serials / decrement stock.
  *  - add    (as destination): create the named serials / increment stock.
  *
  * Safety:
- *  - No-op unless STOCK_HQ_ENABLED and STOCK_HQ_TRANSFERS are both on.
+ *  - No-op unless STOCK_HQ_ENABLED; transfers additionally need STOCK_HQ_TRANSFERS.
  *  - Each leg is applied at most once (HqTransferLeg), so a failed confirm that
  *    leaves the transfer pending at HQ cannot double-apply on the next poll.
  *  - Local writes run under HqSyncMute so they aren't echoed back to HQ (HQ
@@ -36,7 +38,7 @@ class StockTransfersPollCommand extends Command
 
     public function handle(StockHq $hq, ProductSerialService $serials): int
     {
-        if (! $hq->enabled() || ! config('stockhq.transfers_enabled')) {
+        if (! $hq->enabled()) {
             return self::SUCCESS; // inert until explicitly enabled
         }
 
@@ -46,16 +48,71 @@ class StockTransfersPollCommand extends Command
         }
 
         try {
-            foreach ($hq->pendingTransfers() as $transfer) {
-                $this->process($hq, $serials, $transfer);
+            if (config('stockhq.transfers_enabled')) {
+                try {
+                    foreach ($hq->pendingTransfers() as $transfer) {
+                        $this->process($hq, $serials, $transfer);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('[StockHq] transfer poll failed: '.$e->getMessage());
+                }
             }
-        } catch (\Throwable $e) {
-            Log::warning('[StockHq] transfer poll failed: '.$e->getMessage());
+
+            // Serial-deletion decisions made at HQ ride on the same tick, so no
+            // extra cron entry is needed at any outlet.
+            try {
+                foreach ($hq->serialDeletionDecisions() as $decision) {
+                    $this->applySerialDeletionDecision($hq, $serials, $decision);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('[StockHq] serial-deletion poll failed: '.$e->getMessage());
+            }
         } finally {
             $lock->release();
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Carry out an HQ approve/reject on a serial-deletion request, then tell HQ
+     * what actually happened. Idempotent: re-running after a lost confirmation
+     * reports the same outcome without touching the serial again. Only acts on
+     * the exact request HQ decided — if the outlet already decided it, or a new
+     * request was raised since, the outlet's state is reported as-is.
+     *
+     * @param  array<string, mixed>  $d
+     */
+    private function applySerialDeletionDecision(StockHq $hq, ProductSerialService $serials, array $d): void
+    {
+        $serial = ProductSerial::withTrashed()->find($d['pos_serial_id']);
+        $sameRequest = $serial && $serial->deletion_requested_at
+            && $serial->deletion_requested_at->timestamp === Carbon::parse($d['requested_at'])->timestamp;
+
+        [$outcome, $message] = match (true) {
+            ! $serial => ['void', 'Serial no longer exists at the outlet.'],
+            $serial->trashed() => ['approved', null],                                  // already deleted
+            ! $sameRequest && $serial->status !== 'available' => ['void', 'Unit was sold before the decision.'],
+            ! $sameRequest => ['rejected', 'Request was no longer pending at the outlet.'],
+            default => [null, null],
+        };
+
+        if ($outcome === null) {
+            if ($d['decision'] === 'approved') {
+                try {
+                    $serials->approveDeletion($serial);   // deletes → HQ gets the -1 write-off as usual
+                    [$outcome, $message] = ['approved', null];
+                } catch (\RuntimeException $e) {
+                    [$outcome, $message] = ['void', 'Unit was sold before the decision.'];
+                }
+            } else {
+                $serials->rejectDeletion($serial);
+                [$outcome, $message] = ['rejected', null];
+            }
+            $this->info("Serial {$serial->serial_number}: HQ {$d['decision']} → {$outcome}");
+        }
+
+        $hq->serialDeletionApplied((int) $d['id'], $outcome, $message);
     }
 
     /**
