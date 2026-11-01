@@ -45,7 +45,13 @@ class StockHq
     {
         $barcode = trim((string) $product->barcode);
 
-        return $barcode !== '' ? $barcode : 'B'.$this->branchId().'-P'.$product->id;
+        return $barcode !== '' ? $barcode : $this->placeholderSku($product);
+    }
+
+    /** The branch-scoped SKU a product has while it has no barcode. */
+    public function placeholderSku(Product $product): string
+    {
+        return 'B'.$this->branchId().'-P'.$product->id;
     }
 
     /**
@@ -57,6 +63,10 @@ class StockHq
     {
         $payload = collect($products)->filter()->unique('id')->map(fn (Product $p) => [
             'sku' => $this->skuFor($p),
+            // Once a product has a barcode, also name the placeholder it was
+            // known by before, so HQ folds any old placeholder product into
+            // this one instead of keeping a duplicate.
+            'legacy_sku' => $this->skuFor($p) !== $this->placeholderSku($p) ? $this->placeholderSku($p) : null,
             'name' => $p->name,
             'category' => optional($p->category)->name,
             'unit' => 'pcs',
