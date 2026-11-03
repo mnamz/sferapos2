@@ -71,6 +71,9 @@ class StockHq
             'category' => optional($p->category)->name,
             'unit' => 'pcs',
             'price' => (float) $p->price,
+            // This outlet's cost for the item (null when not filled in), so HQ
+            // can show it on transfers and flag products with no cost.
+            'cost_price' => (float) $p->cost_price > 0 ? (float) $p->cost_price : null,
             'is_active' => filter_var($p->status, FILTER_VALIDATE_BOOLEAN) || $p->status === 'active',
             'serial_tracked' => (bool) ($p->serial_tracked ?? false),
         ])->values()->all();

@@ -22,7 +22,7 @@ class ProductObserver
      *
      * @var array<int, string>
      */
-    private const HQ_FIELDS = ['name', 'price', 'barcode', 'category_id', 'status', 'serial_tracked'];
+    private const HQ_FIELDS = ['name', 'price', 'cost_price', 'barcode', 'category_id', 'status', 'serial_tracked'];
 
     public function created(Product $product): void
     {
