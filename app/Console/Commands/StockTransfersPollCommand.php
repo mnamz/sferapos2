@@ -193,7 +193,7 @@ class StockTransfersPollCommand extends Command
      * human-readable reason string when the transfer must be rejected.
      *
      * @param  array<int, array<string, mixed>>  $items
-     * @return array<int, array{product:Product, qty:int, serials:array<int,string>}>|string
+     * @return array<int, array{product:Product, qty:int, serials:array<int,string>, unit_cost:?float}>|string
      */
     private function resolveAndValidate(StockHq $hq, string $leg, array $items): array|string
     {
@@ -238,7 +238,10 @@ class StockTransfersPollCommand extends Command
                 return "Insufficient stock at source for {$sku}: have {$product->stock}, need {$qty}.";
             }
 
-            $resolved[] = ['product' => $product, 'qty' => $qty, 'serials' => $reqSerials];
+            // HQ stock receipts may carry a unit cost to set at this outlet.
+            $unitCost = isset($item['unit_cost']) && is_numeric($item['unit_cost']) ? (float) $item['unit_cost'] : null;
+
+            $resolved[] = ['product' => $product, 'qty' => $qty, 'serials' => $reqSerials, 'unit_cost' => $unitCost];
         }
 
         return $resolved;
@@ -275,11 +278,16 @@ class StockTransfersPollCommand extends Command
     }
 
     /**
-     * @param  array{product:Product, qty:int, serials:array<int,string>}  $r
+     * @param  array{product:Product, qty:int, serials:array<int,string>, unit_cost:?float}  $r
      */
     private function applyAdd(ProductSerialService $serials, array $r): void
     {
         $product = $r['product'];
+
+        // A receipt from HQ sets this outlet's cost (HQ mirrors it on confirm).
+        if ($r['unit_cost'] !== null) {
+            $product->forceFill(['cost_price' => $r['unit_cost']])->save();
+        }
 
         if ($product->serial_tracked) {
             // Receipt: create the named units without touching pending_serial_count.
