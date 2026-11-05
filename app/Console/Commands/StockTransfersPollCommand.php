@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Category;
 use App\Models\HqTransferLeg;
 use App\Models\Product;
 use App\Models\ProductSerial;
@@ -131,7 +132,10 @@ class StockTransfersPollCommand extends Command
             if (! $alreadyApplied) {
                 // Resolve + validate EVERY line before touching inventory: an
                 // unfulfillable transfer is rejected whole, never half-applied.
-                $resolved = $this->resolveAndValidate($hq, $leg, $items);
+                // A receipt (new stock from HQ, no source outlet) may introduce
+                // products this outlet doesn't have yet.
+                $fromHq = ($transfer['branch_from'] ?? null) === 'HQ';
+                $resolved = $this->resolveAndValidate($hq, $leg, $items, $fromHq);
                 if (is_string($resolved)) {
                     $hq->rejectTransfer($id, $resolved);
                     $this->warn("Rejected {$number}: {$resolved}");
@@ -193,9 +197,9 @@ class StockTransfersPollCommand extends Command
      * human-readable reason string when the transfer must be rejected.
      *
      * @param  array<int, array<string, mixed>>  $items
-     * @return array<int, array{product:Product, qty:int, serials:array<int,string>, unit_cost:?float}>|string
+     * @return array<int, array{product:?Product, create:?array<string,mixed>, qty:int, serials:array<int,string>, unit_cost:?float}>|string
      */
-    private function resolveAndValidate(StockHq $hq, string $leg, array $items): array|string
+    private function resolveAndValidate(StockHq $hq, string $leg, array $items, bool $fromHq = false): array|string
     {
         $resolved = [];
 
@@ -205,11 +209,23 @@ class StockTransfersPollCommand extends Command
             $reqSerials = array_values(array_filter(array_map('strval', $item['serial_numbers'] ?? []), fn ($s) => $s !== ''));
 
             $product = $hq->productForSku($sku);
+            $create = null;
             if (! $product) {
-                return "This branch has no product for SKU {$sku}.";
+                // Only a barcoded product from an HQ receipt, with its details.
+                $details = $fromHq && $leg === 'add' && ! preg_match('/^B\d+-P\d+$/', $sku) ? ($item['product'] ?? null) : null;
+                if (! is_array($details) || blank($details['name'] ?? null)) {
+                    return "This branch has no product for SKU {$sku}.";
+                }
+                $create = [
+                    'barcode' => $sku,
+                    'name' => (string) $details['name'],
+                    'category' => (string) ($details['category'] ?? ''),
+                    'price' => (float) ($details['price'] ?? 0),
+                    'serial_tracked' => (bool) ($details['serial_tracked'] ?? false),
+                ];
             }
 
-            if ($product->serial_tracked) {
+            if ($product ? $product->serial_tracked : $create['serial_tracked']) {
                 // A serial-tracked line must carry exactly one serial per unit.
                 if (count($reqSerials) !== $qty) {
                     return "Serial count for {$sku} (".count($reqSerials).") does not match quantity {$qty}.";
@@ -241,7 +257,7 @@ class StockTransfersPollCommand extends Command
             // HQ stock receipts may carry a unit cost to set at this outlet.
             $unitCost = isset($item['unit_cost']) && is_numeric($item['unit_cost']) ? (float) $item['unit_cost'] : null;
 
-            $resolved[] = ['product' => $product, 'qty' => $qty, 'serials' => $reqSerials, 'unit_cost' => $unitCost];
+            $resolved[] = ['product' => $product, 'create' => $create, 'qty' => $qty, 'serials' => $reqSerials, 'unit_cost' => $unitCost];
         }
 
         return $resolved;
@@ -278,11 +294,11 @@ class StockTransfersPollCommand extends Command
     }
 
     /**
-     * @param  array{product:Product, qty:int, serials:array<int,string>, unit_cost:?float}  $r
+     * @param  array{product:?Product, create:?array<string,mixed>, qty:int, serials:array<int,string>, unit_cost:?float}  $r
      */
     private function applyAdd(ProductSerialService $serials, array $r): void
     {
-        $product = $r['product'];
+        $product = $r['product'] ?? $this->createFromHq($r['create'], $r['unit_cost']);
 
         // A receipt from HQ sets this outlet's cost (HQ mirrors it on confirm).
         if ($r['unit_cost'] !== null) {
@@ -297,5 +313,40 @@ class StockTransfersPollCommand extends Command
         }
 
         $product->increment('stock', $r['qty']);
+    }
+
+    /**
+     * Create a product HQ is sending that this outlet doesn't stock yet, from
+     * HQ's details. Its category is matched by name (created if missing). A
+     * product deleted here earlier still holds the barcode, so it's restored.
+     *
+     * @param  array{barcode:string, name:string, category:string, price:float, serial_tracked:bool}  $d
+     */
+    private function createFromHq(array $d, ?float $cost): Product
+    {
+        $trashed = Product::onlyTrashed()->where('barcode', $d['barcode'])->first();
+        if ($trashed) {
+            $trashed->restore();
+            if (! $trashed->serial_tracked) {
+                $trashed->forceFill(['stock' => 0])->save();   // whatever it held when deleted is gone
+            }
+
+            return $trashed->refresh();
+        }
+
+        $name = trim($d['category']) ?: 'Uncategorized';
+        $category = Category::whereRaw('LOWER(name) = ?', [mb_strtolower($name)])->first()
+            ?? Category::create(['name' => $name, 'status' => 'active']);
+
+        return Product::create([
+            'name' => $d['name'],
+            'barcode' => $d['barcode'],
+            'category_id' => $category->id,
+            'price' => $d['price'],
+            'cost_price' => $cost ?? 0,
+            'stock' => 0,
+            'status' => 'active',
+            'serial_tracked' => $d['serial_tracked'],
+        ]);
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Support\Facades\Http;
 
@@ -16,14 +17,14 @@ beforeEach(function () {
     ]);
 });
 
-function fakeHqReceipt(array $items): void
+function fakeHqReceipt(array $items, string $from = 'HQ'): void
 {
     Http::fake([
         'hq.test/api/stock/transfers/pending*' => Http::response(['pending' => [[
             'id' => 77,
             'transfer_number' => 'RCV-000077',
             'action' => 'add',
-            'branch_from' => 'HQ',
+            'branch_from' => $from,
             'branch_to' => 'KL',
             'items' => $items,
         ]]]),
@@ -76,4 +77,72 @@ it('creates the received serials for a serial-tracked product', function () {
     expect($product->stock)->toBe(2);
     expect($product->serials()->pluck('serial_number')->sort()->values()->all())->toBe(['SN-A', 'SN-B']);
     expect((float) $product->cost_price)->toBe(1500.0);
+});
+
+function newProductLine(array $overrides = []): array
+{
+    return array_merge([
+        'product_sku' => '6977644768273', 'product_name' => 'Throwpod Remote Kit', 'quantity' => 4,
+        'serial_numbers' => [], 'unit_cost' => 95,
+        'product' => ['name' => 'Throwpod Remote Kit', 'category' => 'insta360 accessories', 'price' => 149, 'serial_tracked' => false],
+    ], $overrides);
+}
+
+it('creates a product it does not stock yet, in the matching category', function () {
+    $category = Category::factory()->create(['name' => 'Insta360 Accessories']);
+    fakeHqReceipt([newProductLine()]);
+
+    $this->artisan('stock:transfers-poll')->assertSuccessful();
+
+    $product = Product::where('barcode', '6977644768273')->firstOrFail();
+    expect($product->name)->toBe('Throwpod Remote Kit');
+    expect($product->category_id)->toBe($category->id);   // matched case-insensitively
+    expect((float) $product->price)->toBe(149.0);
+    expect((float) $product->cost_price)->toBe(95.0);
+    expect($product->stock)->toBe(4);
+    Http::assertSent(fn ($r) => str_ends_with($r->url(), '/transfers/77/confirm'));
+});
+
+it('creates the category when the outlet has none by that name', function () {
+    fakeHqReceipt([newProductLine(['product' => ['name' => 'Kit', 'category' => '', 'price' => 10, 'serial_tracked' => false]])]);
+
+    $this->artisan('stock:transfers-poll')->assertSuccessful();
+
+    expect(Product::where('barcode', '6977644768273')->first()->category->name)->toBe('Uncategorized');
+});
+
+it('creates a serial-tracked product with the received serials', function () {
+    fakeHqReceipt([newProductLine([
+        'quantity' => 2, 'serial_numbers' => ['LUNA-1', 'LUNA-2'],
+        'product' => ['name' => 'Luna Pro', 'category' => 'Cameras', 'price' => 2999, 'serial_tracked' => true],
+    ])]);
+
+    $this->artisan('stock:transfers-poll')->assertSuccessful();
+
+    $product = Product::where('barcode', '6977644768273')->firstOrFail();
+    expect($product->serial_tracked)->toBeTrue();
+    expect($product->stock)->toBe(2);
+    expect($product->serials()->count())->toBe(2);
+});
+
+it('restores a product deleted here that still holds the barcode', function () {
+    $old = Product::factory()->create(['barcode' => '6977644768273', 'stock' => 7, 'serial_tracked' => false]);
+    $old->delete();
+    fakeHqReceipt([newProductLine()]);
+
+    $this->artisan('stock:transfers-poll')->assertSuccessful();
+
+    $old->refresh();
+    expect($old->trashed())->toBeFalse();
+    expect($old->stock)->toBe(4);   // stale count dropped, then the 4 received
+    expect(Product::withTrashed()->where('barcode', '6977644768273')->count())->toBe(1);
+});
+
+it('does not create products for a transfer from another outlet', function () {
+    fakeHqReceipt([newProductLine()], from: 'SC');
+
+    $this->artisan('stock:transfers-poll')->assertSuccessful();
+
+    expect(Product::where('barcode', '6977644768273')->exists())->toBeFalse();
+    Http::assertSent(fn ($r) => str_ends_with($r->url(), '/transfers/77/reject'));
 });
