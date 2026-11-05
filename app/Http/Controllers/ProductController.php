@@ -300,7 +300,9 @@ class ProductController extends Controller
         // Managers must say why; approvers here and at HQ see it.
         $reason = $request->validate(['reason' => ['required', 'string', 'min:3', 'max:500']])['reason'];
 
-        $service->requestDeletion($serial, auth()->id(), trim($reason));
+        if (! $service->requestDeletion($serial, auth()->id(), trim($reason))) {
+            return back()->with('success', 'Deletion already requested — awaiting approval.');
+        }
         PushSerialDeletionToHq::send(app(StockHq::class)->serialDeletionPayload($serial->fresh(), 'pending'));
 
         return back()->with('success', 'Deletion requested — awaiting approval (here or at HQ).');

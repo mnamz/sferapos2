@@ -176,7 +176,7 @@
                                                     />
                                                     <button
                                                         type="submit"
-                                                        :disabled="reasonText.trim().length < 3"
+                                                        :disabled="requesting || reasonText.trim().length < 3"
                                                         class="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-40"
                                                     >
                                                         Request
@@ -334,6 +334,7 @@ function addSerials() {
 // Managers request deletion with a reason; admins delete straight away.
 const reasonFor = ref(null);
 const reasonText = ref('');
+const requesting = ref(false);
 
 function openReason(serial) {
     reasonFor.value = serial.id;
@@ -341,10 +342,13 @@ function openReason(serial) {
 }
 
 function requestDeletion(serial) {
+    if (requesting.value) return;
+    requesting.value = true;
     router.delete(route('products.serials.destroy', [props.product.id, serial.id]), {
         data: { reason: reasonText.value.trim() },
         preserveScroll: true,
         onSuccess: () => (reasonFor.value = null),
+        onFinish: () => (requesting.value = false),
     });
 }
 

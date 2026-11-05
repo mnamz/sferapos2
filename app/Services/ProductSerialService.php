@@ -47,17 +47,28 @@ class ProductSerialService
 
     // Manager-initiated deletion: flag the serial for admin approval instead of
     // removing it. The serial stays available/sellable until an admin approves.
-    public function requestDeletion(ProductSerial $serial, int $userId, ?string $reason = null): void
+    // Returns false if a request is already pending — re-stamping it would raise
+    // a second request at HQ (double-clicks did exactly that).
+    public function requestDeletion(ProductSerial $serial, int $userId, ?string $reason = null): bool
     {
-        if ($serial->status !== 'available') {
-            throw new \RuntimeException('Only available serials can be deleted.');
-        }
+        return DB::transaction(function () use ($serial, $userId, $reason) {
+            $locked = ProductSerial::whereKey($serial->id)->lockForUpdate()->firstOrFail();
 
-        $serial->update([
-            'deletion_requested_at' => now(),
-            'deletion_requested_by' => $userId,
-            'deletion_reason' => $reason,
-        ]);
+            if ($locked->status !== 'available') {
+                throw new \RuntimeException('Only available serials can be deleted.');
+            }
+            if ($locked->deletion_requested_at) {
+                return false;
+            }
+
+            $locked->update([
+                'deletion_requested_at' => now(),
+                'deletion_requested_by' => $userId,
+                'deletion_reason' => $reason,
+            ]);
+
+            return true;
+        });
     }
 
     // Admin approves a pending request → the serial is actually removed.

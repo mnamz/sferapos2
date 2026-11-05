@@ -43,7 +43,7 @@ it('a manager deleting a serial files a pending request instead of removing it',
     $serial = $product->serials()->first();
 
     $this->actingAs($manager)
-        ->delete(route('products.serials.destroy', [$product, $serial]))
+        ->delete(route('products.serials.destroy', [$product, $serial]), ['reason' => 'wrong SN keyed in'])
         ->assertRedirect();
 
     $serial->refresh();
@@ -51,6 +51,28 @@ it('a manager deleting a serial files a pending request instead of removing it',
     expect($serial->deletion_requested_at)->not->toBeNull(); // request recorded
     expect($serial->deletion_requested_by)->toBe($manager->id);
     expect($product->fresh()->stock)->toBe(1);             // still counted / sellable
+});
+
+it('a repeated manager request keeps the first request instead of raising another', function () {
+    $manager = serialManager();
+    $product = Product::factory()->create(['serial_tracked' => true]);
+    app(ProductSerialService::class)->addSerials($product, ['SN-1']);
+    $serial = $product->serials()->first();
+
+    $this->actingAs($manager)
+        ->delete(route('products.serials.destroy', [$product, $serial]), ['reason' => 'wrong SN keyed in'])
+        ->assertRedirect();
+    $first = $serial->fresh()->deletion_requested_at;
+
+    $this->travel(30)->seconds();
+    $this->actingAs($manager)
+        ->delete(route('products.serials.destroy', [$product, $serial]), ['reason' => 'clicked again'])
+        ->assertRedirect();
+
+    $serial->refresh();
+    expect($serial->deletion_requested_at->equalTo($first))->toBeTrue();
+    expect($serial->deletion_reason)->toBe('wrong SN keyed in');
+    expect(app(ProductSerialService::class)->requestDeletion($serial, $manager->id))->toBeFalse();
 });
 
 it('an admin deleting a serial removes it immediately', function () {
