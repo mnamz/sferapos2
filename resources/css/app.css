@@ -88,7 +88,9 @@
   }
 }
 
-:root {
+/* .force-light: the light palette inside any element, even when <html> is .dark (auth pages). */
+:root,
+.force-light {
   --background: hsl(0 0% 100%);
   --foreground: hsl(0 0% 3.9%);
   --card: hsl(0 0% 100%);

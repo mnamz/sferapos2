@@ -29,10 +29,10 @@ const submit = () => {
 </script>
 
 <template>
-    <AuthBase title="Log in to your account" description="Enter your email and password below to log in">
+    <AuthBase title="Sign in" description="Enter your email and password to continue.">
         <Head title="Log in" />
 
-        <div v-if="status" class="mb-4 text-center text-sm font-medium text-green-600">
+        <div v-if="status" class="mb-4 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
             {{ status }}
         </div>
 
@@ -42,10 +42,10 @@ const submit = () => {
             <div><span class="font-medium">Password:</span> password</div>
         </div>
 
-        <form @submit.prevent="submit" class="flex flex-col gap-6">
-            <div class="grid gap-6">
+        <form @submit.prevent="submit" class="flex flex-col gap-4">
+            <div class="grid gap-4">
                 <div class="grid gap-2">
-                    <Label for="email">Email address</Label>
+                    <Label for="email">Email</Label>
                     <Input
                         id="email"
                         type="email"
@@ -60,6 +60,7 @@ const submit = () => {
                 </div>
 
                 <div class="grid gap-2">
+                    <Label for="password">Password</Label>
                     <Input
                         id="password"
                         type="password"
@@ -67,7 +68,6 @@ const submit = () => {
                         :tabindex="2"
                         autocomplete="current-password"
                         v-model="form.password"
-                        placeholder="Password"
                     />
                     <InputError :message="form.errors.password" />
                 </div>
@@ -79,9 +79,14 @@ const submit = () => {
                     </Label>
                 </div>
 
-                <Button type="submit" class="mt-4 w-full" :tabindex="4" :disabled="form.processing">
+                <Button
+                    type="submit"
+                    class="h-10 w-full rounded-lg bg-indigo-600 font-semibold text-white hover:bg-indigo-500 focus-visible:ring-indigo-500/50"
+                    :tabindex="4"
+                    :disabled="form.processing"
+                >
                     <LoaderCircle v-if="form.processing" class="h-4 w-4 animate-spin" />
-                    Log in
+                    {{ form.processing ? 'Signing in…' : 'Sign in' }}
                 </Button>
             </div>
 
