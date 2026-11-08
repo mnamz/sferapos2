@@ -147,6 +147,11 @@ class ProductController extends Controller
 
         $product->delete();
 
+        // A deleted product keeps its row, so its barcode would stay taken by the
+        // unique index forever. Release it — after the delete, so the delete's
+        // audit still records the old barcode. Quietly: HQ ignores trashed products.
+        $product->forceFill(['barcode' => null])->saveQuietly();
+
         return redirect()->route('products.index')->with('success', 'Product deleted successfully');
     }
 
