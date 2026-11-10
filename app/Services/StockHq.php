@@ -69,6 +69,7 @@ class StockHq
             'legacy_sku' => $this->skuFor($p) !== $this->placeholderSku($p) ? $this->placeholderSku($p) : null,
             'name' => $p->name,
             'category' => optional($p->category)->name,
+            'description' => $p->description,
             'unit' => 'pcs',
             'price' => (float) $p->price,
             // This outlet's cost for the item (null when not filled in), so HQ
@@ -303,6 +304,22 @@ class StockHq
     public function serialDeletionDecisions(): array
     {
         return $this->http()->get('/serial-deletions/decisions')->throw()->json('decisions') ?? [];
+    }
+
+    /**
+     * Products made at HQ that this outlet should create (stock 0).
+     *
+     * @return array<int, array{id:int, sku:string, name:string, category:?string, description:?string, price:float, serial_tracked:bool}>
+     */
+    public function productPushes(): array
+    {
+        return $this->http()->get('/product-pushes')->throw()->json('products') ?? [];
+    }
+
+    /** Tell HQ what this outlet did with a product it sent: created | existed | failed. */
+    public function productPushApplied(int $id, string $outcome, ?string $message = null): void
+    {
+        $this->http()->post("/product-pushes/{$id}/applied", ['outcome' => $outcome, 'message' => $message])->throw();
     }
 
     /** Report what actually happened to the serial after applying an HQ decision. */

@@ -16,8 +16,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Pull pending transfer commands — and serial-deletion decisions — from HQ and
- * execute them against this branch's own inventory, then confirm back.
+ * Pull pending transfer commands — plus serial-deletion decisions and products
+ * made at HQ — from HQ and execute them against this branch's own inventory,
+ * then confirm back.
  * Scheduled every minute.
  *
  *  - deduct (as source): release the named serials / decrement stock.
@@ -68,11 +69,57 @@ class StockTransfersPollCommand extends Command
             } catch (\Throwable $e) {
                 Log::warning('[StockHq] serial-deletion poll failed: '.$e->getMessage());
             }
+
+            // Products made at HQ: created here with no stock, so the shop can
+            // sell and transfer them before any arrives.
+            try {
+                foreach ($hq->productPushes() as $push) {
+                    $this->applyProductPush($hq, $push);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('[StockHq] product push poll failed: '.$e->getMessage());
+            }
         } finally {
             $lock->release();
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Create a product HQ sent, unless this outlet already has its barcode, and
+     * report back. Not muted: the new product's catalogue push is how HQ learns
+     * this outlet carries it.
+     *
+     * @param  array<string, mixed>  $p
+     */
+    private function applyProductPush(StockHq $hq, array $p): void
+    {
+        $sku = trim((string) $p['sku']);
+
+        if ($sku === '' || preg_match('/^B\d+-P\d+$/', $sku)) {
+            [$outcome, $message] = ['failed', 'No barcode to create it under.'];
+        } elseif ($hq->productForSku($sku)) {
+            [$outcome, $message] = ['existed', null];
+        } else {
+            try {
+                $this->createFromHq([
+                    'barcode' => $sku,
+                    'name' => (string) $p['name'],
+                    'category' => (string) ($p['category'] ?? ''),
+                    'description' => $p['description'] ?? null,
+                    'price' => (float) ($p['price'] ?? 0),
+                    'serial_tracked' => (bool) ($p['serial_tracked'] ?? false),
+                ], null);
+                [$outcome, $message] = ['created', null];
+                $this->info("Product {$sku}: created from HQ.");
+            } catch (\Throwable $e) {
+                Log::warning("[StockHq] product {$sku} from HQ not created: ".$e->getMessage());
+                [$outcome, $message] = ['failed', mb_substr($e->getMessage(), 0, 450)];
+            }
+        }
+
+        $hq->productPushApplied((int) $p['id'], $outcome, $message);
     }
 
     /**
@@ -220,6 +267,7 @@ class StockTransfersPollCommand extends Command
                     'barcode' => $sku,
                     'name' => (string) $details['name'],
                     'category' => (string) ($details['category'] ?? ''),
+                    'description' => $details['description'] ?? null,
                     'price' => (float) ($details['price'] ?? 0),
                     'serial_tracked' => (bool) ($details['serial_tracked'] ?? false),
                 ];
@@ -320,7 +368,7 @@ class StockTransfersPollCommand extends Command
      * HQ's details. Its category is matched by name (created if missing). A
      * product deleted here earlier still holds the barcode, so it's restored.
      *
-     * @param  array{barcode:string, name:string, category:string, price:float, serial_tracked:bool}  $d
+     * @param  array{barcode:string, name:string, category:string, description:?string, price:float, serial_tracked:bool}  $d
      */
     private function createFromHq(array $d, ?float $cost): Product
     {
@@ -340,6 +388,7 @@ class StockTransfersPollCommand extends Command
 
         return Product::create([
             'name' => $d['name'],
+            'description' => $d['description'] ?? null,
             'barcode' => $d['barcode'],
             'category_id' => $category->id,
             'price' => $d['price'],
