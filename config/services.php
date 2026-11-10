@@ -49,6 +49,10 @@ return [
         'cancellation_window_hours' => (int) env('MYINVOIS_CANCELLATION_WINDOW_HOURS', 72),
         'einvoice_claim_url' => env('EINVOICE_CLAIM_URL', 'https://einvoice.myrccornertrading.com'),
         'branch' => env('EINVOICE_BRANCH', ''),
+        // Supplier (shop) structured address; shop settings only hold a free-text address
+        'supplier_city' => env('MYINVOIS_SUPPLIER_CITY', 'Kuala Lumpur'),
+        'supplier_postcode' => env('MYINVOIS_SUPPLIER_POSTCODE', '50480'),
+        'supplier_state_code' => env('MYINVOIS_SUPPLIER_STATE_CODE', '14'),
     ],
 
     'tangent' => [
