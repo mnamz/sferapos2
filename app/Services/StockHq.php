@@ -322,6 +322,22 @@ class StockHq
         $this->http()->post("/product-pushes/{$id}/applied", ['outcome' => $outcome, 'message' => $message])->throw();
     }
 
+    /**
+     * Product edits made at HQ for this outlet to apply.
+     *
+     * @return array<int, array{id:int, sku:string, fields:array<string, mixed>}>
+     */
+    public function productEdits(): array
+    {
+        return $this->http()->get('/product-edits')->throw()->json('edits') ?? [];
+    }
+
+    /** Tell HQ what this outlet did with an edit: applied | missing | failed. */
+    public function productEditApplied(int $id, string $outcome, ?string $message = null): void
+    {
+        $this->http()->post("/product-edits/{$id}/applied", ['outcome' => $outcome, 'message' => $message])->throw();
+    }
+
     /** Report what actually happened to the serial after applying an HQ decision. */
     public function serialDeletionApplied(int $id, string $outcome, ?string $message = null): void
     {

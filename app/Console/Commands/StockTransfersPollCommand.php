@@ -16,8 +16,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Pull pending transfer commands — plus serial-deletion decisions and products
- * made at HQ — from HQ and execute them against this branch's own inventory,
+ * Pull pending transfer commands — plus serial-deletion decisions, and products
+ * made or edited at HQ — from HQ and execute them against this branch's own inventory,
  * then confirm back.
  * Scheduled every minute.
  *
@@ -79,6 +79,15 @@ class StockTransfersPollCommand extends Command
             } catch (\Throwable $e) {
                 Log::warning('[StockHq] product push poll failed: '.$e->getMessage());
             }
+
+            // Edits made at HQ to products this outlet carries.
+            try {
+                foreach ($hq->productEdits() as $edit) {
+                    $this->applyProductEdit($hq, $edit);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('[StockHq] product edit poll failed: '.$e->getMessage());
+            }
         } finally {
             $lock->release();
         }
@@ -120,6 +129,58 @@ class StockTransfersPollCommand extends Command
         }
 
         $hq->productPushApplied((int) $p['id'], $outcome, $message);
+    }
+
+    /**
+     * Apply an HQ edit to the product with that barcode: name, plus category,
+     * description and price when HQ sent them (price only when HQ set it for
+     * every outlet). Not muted, so the catalogue push brings HQ this outlet's
+     * values.
+     *
+     * @param  array<string, mixed>  $e
+     */
+    private function applyProductEdit(StockHq $hq, array $e): void
+    {
+        $sku = trim((string) $e['sku']);
+        $fields = (array) ($e['fields'] ?? []);
+        $product = $sku !== '' ? $hq->productForSku($sku) : null;
+
+        if (! $product) {
+            [$outcome, $message] = ['missing', null];
+        } else {
+            try {
+                $changes = [];
+                if (filled($fields['name'] ?? null)) {
+                    $changes['name'] = (string) $fields['name'];
+                }
+                if (filled($fields['category'] ?? null)) {
+                    $changes['category_id'] = $this->categoryFor((string) $fields['category'])->id;
+                }
+                if (array_key_exists('description', $fields)) {
+                    $changes['description'] = $fields['description'];
+                }
+                if (isset($fields['price']) && is_numeric($fields['price'])) {
+                    $changes['price'] = (float) $fields['price'];
+                }
+                $product->update($changes);
+                [$outcome, $message] = ['applied', null];
+                $this->info("Product {$sku}: HQ edit applied.");
+            } catch (\Throwable $ex) {
+                Log::warning("[StockHq] HQ edit of {$sku} not applied: ".$ex->getMessage());
+                [$outcome, $message] = ['failed', mb_substr($ex->getMessage(), 0, 450)];
+            }
+        }
+
+        $hq->productEditApplied((int) $e['id'], $outcome, $message);
+    }
+
+    /** A category by name, any case; created when this outlet has none by that name. */
+    private function categoryFor(string $name): Category
+    {
+        $name = trim($name) ?: 'Uncategorized';
+
+        return Category::whereRaw('LOWER(name) = ?', [mb_strtolower($name)])->first()
+            ?? Category::create(['name' => $name, 'status' => 'active']);
     }
 
     /**
@@ -382,9 +443,7 @@ class StockTransfersPollCommand extends Command
             return $trashed->refresh();
         }
 
-        $name = trim($d['category']) ?: 'Uncategorized';
-        $category = Category::whereRaw('LOWER(name) = ?', [mb_strtolower($name)])->first()
-            ?? Category::create(['name' => $name, 'status' => 'active']);
+        $category = $this->categoryFor($d['category']);
 
         return Product::create([
             'name' => $d['name'],
