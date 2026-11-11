@@ -119,7 +119,7 @@ class StockTransfersPollCommand extends Command
                     'description' => $p['description'] ?? null,
                     'price' => (float) ($p['price'] ?? 0),
                     'serial_tracked' => (bool) ($p['serial_tracked'] ?? false),
-                ], null);
+                ], isset($p['cost_price']) && is_numeric($p['cost_price']) ? (float) $p['cost_price'] : null);
                 [$outcome, $message] = ['created', null];
                 $this->info("Product {$sku}: created from HQ.");
             } catch (\Throwable $e) {

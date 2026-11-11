@@ -79,3 +79,33 @@ it('sends the description with the catalogue', function () {
 
     Http::assertSent(fn ($r) => str_ends_with($r->url(), '/products') && $r['products'][0]['description'] === 'Fits X5');
 });
+
+it('creates the product at the cost price HQ sent', function () {
+    Queue::fake();
+    fakeHqProductPush([
+        'sku' => '6942590203505', 'name' => 'Insta360 Spin Stick', 'category' => null,
+        'price' => 369, 'cost_price' => 295.5, 'serial_tracked' => false,
+    ]);
+
+    $this->artisan('stock:transfers-poll')->assertSuccessful();
+
+    expect((float) Product::where('barcode', '6942590203505')->firstOrFail()->cost_price)->toBe(295.5);
+});
+
+it('starts the cost at 0 when HQ sent none', function () {
+    Queue::fake();
+    fakeHqProductPush(['sku' => '6942590203505', 'name' => 'Insta360 Spin Stick', 'category' => null, 'price' => 369, 'serial_tracked' => false]);
+
+    $this->artisan('stock:transfers-poll')->assertSuccessful();
+
+    expect((float) Product::where('barcode', '6942590203505')->firstOrFail()->cost_price)->toBe(0.0);
+});
+
+it('keeps its own cost for a barcode it already has', function () {
+    $existing = Product::factory()->create(['barcode' => '6942590203505', 'cost_price' => 280]);
+    fakeHqProductPush(['sku' => '6942590203505', 'name' => 'Insta360 Spin Stick', 'category' => null, 'price' => 369, 'cost_price' => 295.5, 'serial_tracked' => false]);
+
+    $this->artisan('stock:transfers-poll')->assertSuccessful();
+
+    expect((float) $existing->refresh()->cost_price)->toBe(280.0);
+});

@@ -309,7 +309,7 @@ class StockHq
     /**
      * Products made at HQ that this outlet should create (stock 0).
      *
-     * @return array<int, array{id:int, sku:string, name:string, category:?string, description:?string, price:float, serial_tracked:bool}>
+     * @return array<int, array{id:int, sku:string, name:string, category:?string, description:?string, price:float, cost_price:?float, serial_tracked:bool}>
      */
     public function productPushes(): array
     {
