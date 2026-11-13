@@ -1,8 +1,10 @@
 #!/bin/bash
 # Throwaway phone-service POS demos at https://demo-<name>.sfera.my
-# Runs as mnamz on the sfera VPS (one-time root prep: setup-once.sh).
+# Runs as mnamz on sfera1 (one-time root prep: setup-once.sh). The box is too
+# small to build assets, so create reads a prebuilt app bundle (.tar.gz) on
+# stdin; the GitHub workflow builds and pipes it in.
 #
-#   demo.sh create <name> [days]   Cloudflare A record + app + DB + cert (default 14 days)
+#   demo.sh create <name> [days] < app.tgz   A record + app + SQLite + cert (default 14 days)
 #   demo.sh destroy <name>         remove everything create made
 #   demo.sh list                   show live demos and their expiry
 #   demo.sh expire                 destroy demos past expiry (nightly cron)
@@ -11,13 +13,11 @@ set -euo pipefail
 
 CONF="${SFERA_DEMO_CONF:-$HOME/.config/sfera-demo}"
 # shellcheck source=/dev/null
-source "$CONF/env" # CF_API_TOKEN CF_ZONE_ID DEMO_IP DEMO_DB_USER DEMO_DB_PASS
+source "$CONF/env" # CF_API_TOKEN CF_ZONE_ID DEMO_IP
 
 ROOT=/var/www/demos
-TEMPLATE="$ROOT/_template"
 META="$ROOT/_meta"
 DOMAIN=sfera.my
-BRANCH="${DEMO_BRANCH:-service-pos-ph}"
 DEFAULT_DAYS=14
 MAX_DAYS=90
 CF_API="https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records"
@@ -27,8 +27,6 @@ log() { echo "==> $*"; }
 
 valid_name() { [[ $1 =~ ^[a-z0-9]([a-z0-9-]{0,22}[a-z0-9])?$ ]]; }
 host_of() { echo "demo-$1.$DOMAIN"; }
-db_of() { echo "demo_${1//-/_}"; }
-sql() { mysql --defaults-extra-file="$CONF/my.cnf" -N -e "$1"; }
 json() { php -r '$d = json_decode(stream_get_contents(STDIN), true); echo eval("return $argv[1];");' "$1" 2>/dev/null; }
 
 cf() {
@@ -72,21 +70,6 @@ wait_for_dns() {
     die "$host never resolved to $DEMO_IP on $ns"
 }
 
-# Keep one built checkout of $BRANCH; demos are copies of it.
-refresh_template() {
-    [[ -d $TEMPLATE/.git ]] || die "$TEMPLATE missing; run setup-once.sh"
-    git -C "$TEMPLATE" fetch -q origin "$BRANCH"
-    local want built
-    want=$(git -C "$TEMPLATE" rev-parse "origin/$BRANCH")
-    built=$(cat "$TEMPLATE/.demo-built" 2>/dev/null || true)
-    [[ $want == "$built" ]] && return 0
-
-    log "building template at ${want:0:7}"
-    git -C "$TEMPLATE" reset -q --hard "$want"
-    (cd "$TEMPLATE" && composer install -q --no-dev -o --no-interaction && npm ci --silent && npm run build --silent) >/dev/null
-    echo "$want" > "$TEMPLATE/.demo-built"
-}
-
 write_env() {
     local dir=$1 name=$2 host=$3
     cat > "$dir/.env" <<ENV
@@ -99,12 +82,8 @@ APP_URL=https://$host
 LOG_CHANNEL=single
 LOG_LEVEL=warning
 
-DB_CONNECTION=mariadb
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=$(db_of "$name")
-DB_USERNAME=$DEMO_DB_USER
-DB_PASSWORD="$DEMO_DB_PASS"
+DB_CONNECTION=sqlite
+DB_DATABASE=$dir/database/database.sqlite
 
 SESSION_DRIVER=file
 CACHE_STORE=file
@@ -127,27 +106,25 @@ cmd_create() {
     valid_name "$name" || die "name must be 1-24 chars of a-z, 0-9, '-' (got '$name')"
     [[ $days =~ ^[0-9]+$ && $days -ge 1 && $days -le $MAX_DAYS ]] || die "days must be 1-$MAX_DAYS"
 
-    local host dir db expires record
-    host=$(host_of "$name"); dir="$ROOT/$host"; db=$(db_of "$name")
+    [[ ! -t 0 ]] || die "pipe the app bundle in: demo.sh create $name $days < app.tgz"
+
+    local host dir expires record
+    host=$(host_of "$name"); dir="$ROOT/$host"
     [[ -e $dir || -e $META/$name ]] && die "$host already exists (destroy it first)"
     [[ -e /var/www/$host || -e /etc/nginx/sites-available/$host ]] && die "$host is a real site, pick another name"
     expires=$(date -d "+$days days" +%F)
 
-    # Template builds and copies must not overlap between concurrent runs.
-    exec 9>"$ROOT/.lock"; flock 9
-
     log "DNS: $host -> $DEMO_IP"
     record=$(dns_create "$host" "$expires")
-    printf 'HOST=%s\nDB=%s\nRECORD=%s\nEXPIRES=%s\nCREATED=%s\n' "$host" "$db" "$record" "$expires" "$(date +%F)" > "$META/$name"
+    printf 'HOST=%s\nRECORD=%s\nEXPIRES=%s\nCREATED=%s\n' "$host" "$record" "$expires" "$(date +%F)" > "$META/$name"
 
-    refresh_template
-    log "copying app to $dir"
+    log "unpacking app to $dir"
     mkdir "$dir"
-    tar -C "$TEMPLATE" --exclude=./.git --exclude=./node_modules --exclude=./.env --exclude=./.demo-built -cf - . | tar -C "$dir" -xf -
-    flock -u 9
+    tar -C "$dir" -xzf -
+    [[ -f $dir/artisan && -f $dir/public/build/manifest.json ]] || die "bundle is missing artisan or public/build"
 
     write_env "$dir" "$name" "$host"
-    sql "CREATE DATABASE \`$db\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+    touch "$dir/database/database.sqlite"
     (
         cd "$dir"
         php artisan key:generate --force -q
@@ -160,7 +137,7 @@ cmd_create() {
     log "nginx + certificate"
     sudo -n /usr/local/sbin/sfera-demo-vhost create "$host"
 
-    curl -fsS -o /dev/null "https://$host/login" || die "https://$host/login is not answering"
+    curl -fsS --retry 3 -o /dev/null "https://$host/login" || die "https://$host/login is not answering"
     cat <<DONE
 
 Demo ready: https://$host
@@ -172,14 +149,13 @@ DONE
 cmd_destroy() {
     local name=${1:-}
     valid_name "$name" || die "invalid name '$name'"
-    local HOST DB
-    HOST=$(host_of "$name"); DB=$(db_of "$name")
+    local HOST
+    HOST=$(host_of "$name")
     # shellcheck source=/dev/null
     [[ -f $META/$name ]] && source "$META/$name"
 
     log "removing $HOST"
     sudo -n /usr/local/sbin/sfera-demo-vhost destroy "$HOST"
-    sql "DROP DATABASE IF EXISTS \`$DB\`"
     dns_delete "$HOST"
     rm -f "$META/$name"
     echo "Destroyed $HOST"
