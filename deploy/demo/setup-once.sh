@@ -14,6 +14,7 @@ RAW="https://raw.githubusercontent.com/mnamz/sferapos2/$REF/deploy/demo"
 
 OWNER=mnamz
 HOME_DIR=$(getent passwd "$OWNER" | cut -d: -f6)
+GROUP=$(id -gn "$OWNER")
 ROOT=/var/www/demos
 
 echo "==> root helper + sudoers"
@@ -27,10 +28,10 @@ visudo -cf /etc/sudoers.d/sfera-demo
 
 echo "==> dirs + demo.sh"
 install -d -o "$OWNER" -g www-data -m 755 "$ROOT" "$ROOT/_meta"
-install -d -o "$OWNER" -g "$OWNER" -m 755 "$HOME_DIR/bin"
-install -d -o "$OWNER" -g "$OWNER" -m 700 "$HOME_DIR/.config" "$HOME_DIR/.config/sfera-demo" "$HOME_DIR/.ssh"
+install -d -o "$OWNER" -g "$GROUP" -m 755 "$HOME_DIR/bin"
+install -d -o "$OWNER" -g "$GROUP" -m 700 "$HOME_DIR/.config" "$HOME_DIR/.config/sfera-demo" "$HOME_DIR/.ssh"
 curl -fsSL "$RAW/demo.sh" -o "$HOME_DIR/bin/demo.sh"
-chown "$OWNER:$OWNER" "$HOME_DIR/bin/demo.sh"
+chown "$OWNER:$GROUP" "$HOME_DIR/bin/demo.sh"
 chmod 755 "$HOME_DIR/bin/demo.sh"
 
 echo "==> nightly expiry cron for $OWNER"
@@ -45,7 +46,7 @@ fi
 if [[ -n ${ADMIN_PUBKEY:-} ]] && ! grep -qF "$ADMIN_PUBKEY" "$AK"; then
     echo "$ADMIN_PUBKEY" >> "$AK"
 fi
-chown "$OWNER:$OWNER" "$AK"
+chown "$OWNER:$GROUP" "$AK"
 chmod 600 "$AK"
 
 echo "Done. Next, as $OWNER: write $HOME_DIR/.config/sfera-demo/env (CF_API_TOKEN, CF_ZONE_ID, DEMO_IP)."

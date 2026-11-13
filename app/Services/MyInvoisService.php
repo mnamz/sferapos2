@@ -89,10 +89,12 @@ class MyInvoisService
         // Remove all non-digit characters except +
         $cleaned = preg_replace('/[^\d+]/', '', $phone);
 
-        // If doesn't start with +, add it
+        // If doesn't start with +, treat it as Malaysian: 0172689996 -> +60172689996
         if (! str_starts_with($cleaned, '+')) {
-            // Remove leading zeros if any
             $cleaned = ltrim($cleaned, '0');
+            if (! str_starts_with($cleaned, '60')) {
+                $cleaned = '60'.$cleaned;
+            }
             $cleaned = '+'.$cleaned;
         }
 
@@ -483,9 +485,9 @@ class MyInvoisService
                             'addressLines' => [
                                 $this->settings->shop_address,
                             ],
-                            'cityName' => 'Kuala Lumpur',
-                            'postalZone' => '50480',
-                            'countrySubentityCode' => '14',
+                            'cityName' => config('services.myinvois.supplier_city', 'Kuala Lumpur'),
+                            'postalZone' => config('services.myinvois.supplier_postcode', '50480'),
+                            'countrySubentityCode' => config('services.myinvois.supplier_state_code', '14'),
                             'countryCode' => 'MYS',
                         ],
                     ],
@@ -542,7 +544,8 @@ class MyInvoisService
             $identificationNumber = $customer->brn;
         } elseif ($customer->nric) {
             $identificationScheme = 'NRIC';
-            $identificationNumber = $customer->nric;
+            // LHDN only accepts the 12 bare digits (CF324 for "900101-14-5678")
+            $identificationNumber = preg_replace('/\D/', '', $customer->nric);
         } else {
             // If neither BRN nor NRIC provided, use default
             $identificationScheme = 'BRN';
@@ -579,7 +582,7 @@ class MyInvoisService
             $identificationNumber = $customerInfo['brn'];
         } elseif (! empty($customerInfo['nric'])) {
             $identificationScheme = 'NRIC';
-            $identificationNumber = $customerInfo['nric'];
+            $identificationNumber = preg_replace('/\D/', '', $customerInfo['nric']);
         } else {
             // If neither BRN nor NRIC provided, use default
             $identificationScheme = 'BRN';
