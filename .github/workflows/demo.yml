@@ -1,6 +1,7 @@
 # Spin up / tear down a phone-service POS demo at https://demo-<name>.sfera.my
-# Actions -> "Phone POS demo" -> Run workflow. The SSH key can only run
-# deploy/demo/demo.sh (forced command on the VPS), never a shell.
+# Actions -> "Phone POS demo" -> Run workflow. Builds service-pos-ph here (sfera1
+# is too small to run vite) and pipes the bundle to deploy/demo/demo.sh over an
+# SSH key that is forced to that script, never a shell.
 name: Phone POS demo
 
 on:
@@ -22,6 +23,9 @@ on:
 
 concurrency: phone-pos-demo
 
+env:
+  DEMO_HOST: mnamz@sfera1.vps.webdock.cloud
+
 jobs:
   demo:
     runs-on: ubuntu-latest
@@ -38,7 +42,35 @@ jobs:
           fi
           [[ $DAYS =~ ^[0-9]+$ ]] || { echo "::error::days must be a number"; exit 1; }
 
-      - name: Run on VPS
+      - uses: actions/checkout@v4
+        if: inputs.action == 'create'
+        with:
+          ref: service-pos-ph
+
+      - uses: shivammathur/setup-php@v2
+        if: inputs.action == 'create'
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+
+      - uses: actions/setup-node@v4
+        if: inputs.action == 'create'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Build app bundle
+        if: inputs.action == 'create'
+        run: |
+          composer install --no-dev -o --no-interaction --no-progress
+          npm ci --no-audit --no-fund
+          npm run build
+          tar -czf "$RUNNER_TEMP/app.tgz" \
+            --exclude=./.git --exclude=./node_modules --exclude=./tests --exclude=./.github \
+            --exclude=./.env --exclude='./storage/logs/*' --exclude='./bootstrap/cache/*.php' .
+          ls -lh "$RUNNER_TEMP/app.tgz"
+
+      - name: Run on sfera1
         env:
           SSH_KEY: ${{ secrets.DEMO_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.DEMO_SSH_KNOWN_HOSTS }}
@@ -46,14 +78,14 @@ jobs:
           NAME: ${{ inputs.name }}
           DAYS: ${{ inputs.days }}
         run: |
+          set -o pipefail
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_demo && chmod 600 ~/.ssh/id_demo
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh_demo() { ssh -i ~/.ssh/id_demo -o IdentitiesOnly=yes -o ServerAliveInterval=30 "$DEMO_HOST" "$@"; }
           case $ACTION in
-            create) CMD="create $NAME $DAYS" ;;
-            destroy) CMD="destroy $NAME" ;;
-            list) CMD="list" ;;
-          esac
-          ssh -i ~/.ssh/id_demo -o IdentitiesOnly=yes -o ServerAliveInterval=30 \
-            mnamz@sfera.vps.webdock.cloud "$CMD" | tee out.txt
+            create) ssh_demo "create $NAME $DAYS" < "$RUNNER_TEMP/app.tgz" ;;
+            destroy) ssh_demo "destroy $NAME" < /dev/null ;;
+            list) ssh_demo list < /dev/null ;;
+          esac | tee out.txt
           { echo '```'; cat out.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
