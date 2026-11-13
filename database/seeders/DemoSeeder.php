@@ -21,19 +21,22 @@ class DemoSeeder extends Seeder
     {
         $this->call(RoleSeeder::class);
 
-        $demo = User::factory()->create([
+        // No factories: Faker is a dev dependency and demos run --no-dev.
+        $demo = User::forceCreate([
             'name' => 'Demo Owner',
             'email' => config('app.demo.email'),
             'password' => Hash::make(config('app.demo.password')),
             'status' => true,
+            'email_verified_at' => now(),
         ]);
         $demo->assignRole('admin');
 
-        $tech = User::factory()->create([
+        $tech = User::forceCreate([
             'name' => 'Hafiz (Technician)',
             'email' => 'tech@demo.local',
             'password' => Hash::make(str()->random(32)),
             'status' => true,
+            'email_verified_at' => now(),
         ]);
         $tech->assignRole('staff');
 
