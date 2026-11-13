@@ -5,6 +5,7 @@ import { Button } from '@/Components/ui/button';
 import { Checkbox } from '@/Components/ui/checkbox';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
+import DemoBanner from '@/Components/DemoBanner.vue';
 import AuthBase from '@/Layouts/AuthLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { LoaderCircle } from 'lucide-vue-next';
@@ -40,6 +41,8 @@ const submit = () => {
         <div v-if="status" class="mb-4 text-center text-sm font-medium text-green-600">
             {{ status }}
         </div>
+
+        <DemoBanner class="-mb-2 rounded-lg" />
 
         <div v-if="demoLogin" class="mb-2 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 shadow-sm dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
             <div class="mb-2 font-semibold">Sample login</div>

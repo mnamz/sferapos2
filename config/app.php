@@ -74,6 +74,8 @@ return [
         'enabled' => (bool) env('DEMO_MODE', false),
         'email' => env('DEMO_LOGIN_EMAIL', 'demo@sfera.my'),
         'password' => env('DEMO_LOGIN_PASSWORD', 'demo1234'),
+        // Date (Y-m-d) the demo instance is torn down; set by deploy/demo/demo.sh.
+        'expires_at' => env('DEMO_EXPIRES_AT'),
     ],
 
     /*

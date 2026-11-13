@@ -29,3 +29,17 @@ it('stops the demo account from managing users or its password', function () {
     // Normal POS work is still allowed.
     $this->actingAs($demo)->get(route('repairs.index'))->assertOk();
 });
+
+it('shares the demo banner with days left only in demo mode', function () {
+    $this->travelTo(now()->setDate(2026, 11, 14));
+    config(['app.demo.enabled' => false]);
+    $this->get(route('login'))->assertInertia(fn ($page) => $page->where('demo', null));
+
+    config(['app.demo.enabled' => true, 'app.demo.expires_at' => '2026-11-20']);
+    $this->get(route('login'))->assertInertia(fn ($page) => $page
+        ->where('demo.expires_at', '2026-11-20')
+        ->where('demo.days_left', 6));
+
+    config(['app.demo.expires_at' => '2026-11-01']);
+    $this->get(route('login'))->assertInertia(fn ($page) => $page->where('demo.days_left', 0));
+});

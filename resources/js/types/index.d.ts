@@ -24,6 +24,7 @@ export interface SharedData extends PageProps {
     auth: Auth;
     ziggy: Config & { location: string };
     sidebarOpen: boolean;
+    demo: { expires_at: string | null; days_left: number | null } | null;
 }
 
 export interface User {

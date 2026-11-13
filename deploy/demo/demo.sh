@@ -71,7 +71,7 @@ wait_for_dns() {
 }
 
 write_env() {
-    local dir=$1 name=$2 host=$3
+    local dir=$1 name=$2 host=$3 expires=$4
     cat > "$dir/.env" <<ENV
 APP_NAME="Demo Phone Repair"
 APP_ENV=production
@@ -97,6 +97,7 @@ TANGENT_ENABLED=false
 DEMO_MODE=true
 DEMO_LOGIN_EMAIL=demo@sfera.my
 DEMO_LOGIN_PASSWORD=demo1234
+DEMO_EXPIRES_AT=$expires
 ENV
     chmod 640 "$dir/.env"
 }
@@ -123,7 +124,7 @@ cmd_create() {
     tar -C "$dir" -xzf -
     [[ -f $dir/artisan && -f $dir/public/build/manifest.json ]] || die "bundle is missing artisan or public/build"
 
-    write_env "$dir" "$name" "$host"
+    write_env "$dir" "$name" "$host" "$expires"
     touch "$dir/database/database.sqlite"
     (
         cd "$dir"

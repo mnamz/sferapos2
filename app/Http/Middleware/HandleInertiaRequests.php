@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\ShopSettings;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
 
@@ -61,6 +62,22 @@ class HandleInertiaRequests extends Middleware
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'success' => fn () => $request->session()->get('success'),
             'error' => fn () => $request->session()->get('error'),
+            'demo' => fn () => $this->demo(),
+        ];
+    }
+
+    /** Banner data for a throwaway demo instance, or null on a real shop. */
+    private function demo(): ?array
+    {
+        if (! config('app.demo.enabled')) {
+            return null;
+        }
+
+        $expires = config('app.demo.expires_at');
+
+        return [
+            'expires_at' => $expires,
+            'days_left' => $expires ? max(0, (int) today()->diffInDays(Carbon::parse($expires), false)) : null,
         ];
     }
 }

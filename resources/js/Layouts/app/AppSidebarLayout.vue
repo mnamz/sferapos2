@@ -3,6 +3,7 @@ import AppContent from '@/Components/AppContent.vue';
 import AppShell from '@/Components/AppShell.vue';
 import AppSidebar from '@/Components/AppSidebar.vue';
 import AppSidebarHeader from '@/Components/AppSidebarHeader.vue';
+import DemoBanner from '@/Components/DemoBanner.vue';
 import type { BreadcrumbItemType } from '@/types';
 
 interface Props {
@@ -20,6 +21,7 @@ withDefaults(defineProps<Props>(), {
     <AppShell variant="sidebar">
         <AppSidebar :collapsed="collapseSidebar" />
         <AppContent variant="sidebar">
+            <DemoBanner />
             <AppSidebarHeader :breadcrumbs="breadcrumbs">
                 <template v-if="$slots.header" #header>
                     <slot name="header" />
