@@ -1,0 +1,80 @@
+#!/bin/bash
+# Root half of demo provisioning: file ownership, nginx vhost, Let's Encrypt cert.
+# Installed root-owned to /usr/local/sbin by setup-once.sh; mnamz may run only this
+# via sudo NOPASSWD, so it trusts nothing but a strictly validated hostname.
+#
+#   sfera-demo-vhost create  demo-acme.sfera.my
+#   sfera-demo-vhost destroy demo-acme.sfera.my
+set -euo pipefail
+
+ROOT=/var/www/demos
+OWNER=mnamz
+PHP_SOCK=/run/php/php8.4-fpm.sock
+
+die() { echo "sfera-demo-vhost: $*" >&2; exit 1; }
+
+action=${1:-}
+host=${2:-}
+[[ $host =~ ^demo-[a-z0-9]([a-z0-9-]{0,22}[a-z0-9])?\.sfera\.my$ ]] || die "invalid host '$host'"
+
+dir="$ROOT/$host"
+avail="/etc/nginx/sites-available/$host"
+enabled="/etc/nginx/sites-enabled/$host"
+
+# Never touch a vhost this script did not write (e.g. the real demo-calc.sfera.my).
+ours() { grep -qF "root $dir/public;" "$avail"; }
+[[ ! -e $avail ]] || ours || die "$avail is not a demo vhost; refusing"
+
+case $action in
+create)
+    [[ -d $dir && ! -L $dir && -d $dir/public ]] || die "$dir is not a provisioned app"
+    [[ $(stat -c %U "$dir") == "$OWNER" ]] || die "$dir not owned by $OWNER"
+
+    chown -R "$OWNER:www-data" "$dir"
+    chmod -R ug+rwX "$dir/storage" "$dir/bootstrap/cache"
+    find "$dir/storage" "$dir/bootstrap/cache" -type d -exec chmod g+s {} +
+
+    if [[ ! -f $avail ]]; then
+        cat > "$avail" <<NGINX
+server {
+    listen 80;
+    listen [::]:80;
+    server_name $host;
+    root $dir/public;
+    index index.php;
+    client_max_body_size 20M;
+    add_header X-Robots-Tag "noindex, nofollow" always;
+
+    location / {
+        try_files \$uri \$uri/ /index.php?\$query_string;
+    }
+
+    location ~ \.php\$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:$PHP_SOCK;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}
+NGINX
+        ln -sf "$avail" "$enabled"
+    fi
+    nginx -t -q
+    systemctl reload nginx
+    certbot --nginx -d "$host" --redirect --non-interactive --keep-until-expiring
+    ;;
+destroy)
+    rm -f "$enabled" "$avail"
+    nginx -t -q && systemctl reload nginx
+    certbot delete --cert-name "$host" --non-interactive >/dev/null 2>&1 || true
+    if [[ -e $dir ]]; then
+        [[ ! -L $dir ]] || die "$dir is a symlink"
+        rm -rf --one-file-system "$dir"
+    fi
+    ;;
+*)
+    die "usage: sfera-demo-vhost create|destroy demo-<name>.sfera.my"
+    ;;
+esac
