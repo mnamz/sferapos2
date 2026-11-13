@@ -10,6 +10,7 @@
 #   demo.sh expire                 destroy demos past expiry (nightly cron)
 #   demo.sh gate                   SSH forced command for the GitHub Actions key
 set -euo pipefail
+export TZ=Asia/Kuala_Lumpur # same clock as the app, so "expires in N days" matches
 
 CONF="${SFERA_DEMO_CONF:-$HOME/.config/sfera-demo}"
 # shellcheck source=/dev/null

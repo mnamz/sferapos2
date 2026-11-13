@@ -9,7 +9,7 @@ const demo = computed(() => usePage<SharedData>().props.demo);
 const expiry = computed(() => {
     const days = demo.value?.days_left;
     if (days == null) return null;
-    if (days === 0) return 'It will be deleted tonight.';
+    if (days === 0) return 'It will be deleted today.';
     if (days === 1) return 'It will be deleted in 1 day.';
     return `It will be deleted in ${days} days.`;
 });
