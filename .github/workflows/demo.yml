@@ -1,0 +1,59 @@
+# Spin up / tear down a phone-service POS demo at https://demo-<name>.sfera.my
+# Actions -> "Phone POS demo" -> Run workflow. The SSH key can only run
+# deploy/demo/demo.sh (forced command on the VPS), never a shell.
+name: Phone POS demo
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: What to do
+        type: choice
+        options: [create, destroy, list]
+        default: create
+      name:
+        description: "Demo name (a-z, 0-9, -) -> demo-<name>.sfera.my"
+        type: string
+        required: false
+      days:
+        description: Days before it auto-expires (create only)
+        type: number
+        default: 14
+
+concurrency: phone-pos-demo
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Validate input
+        env:
+          ACTION: ${{ inputs.action }}
+          NAME: ${{ inputs.name }}
+          DAYS: ${{ inputs.days }}
+        run: |
+          if [ "$ACTION" != list ]; then
+            [[ $NAME =~ ^[a-z0-9]([a-z0-9-]{0,22}[a-z0-9])?$ ]] || { echo "::error::name must be 1-24 chars of a-z, 0-9, '-'"; exit 1; }
+          fi
+          [[ $DAYS =~ ^[0-9]+$ ]] || { echo "::error::days must be a number"; exit 1; }
+
+      - name: Run on VPS
+        env:
+          SSH_KEY: ${{ secrets.DEMO_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEMO_SSH_KNOWN_HOSTS }}
+          ACTION: ${{ inputs.action }}
+          NAME: ${{ inputs.name }}
+          DAYS: ${{ inputs.days }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_demo && chmod 600 ~/.ssh/id_demo
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          case $ACTION in
+            create) CMD="create $NAME $DAYS" ;;
+            destroy) CMD="destroy $NAME" ;;
+            list) CMD="list" ;;
+          esac
+          ssh -i ~/.ssh/id_demo -o IdentitiesOnly=yes -o ServerAliveInterval=30 \
+            mnamz@sfera.vps.webdock.cloud "$CMD" | tee out.txt
+          { echo '```'; cat out.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
