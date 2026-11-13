@@ -26,6 +26,20 @@ chmod 440 /etc/sudoers.d/sfera-demo
 visudo -cf /etc/sudoers.d/sfera-demo
 [[ -S /run/php/php8.3-fpm.sock ]] || echo "WARNING: /run/php/php8.3-fpm.sock missing; fix PHP_SOCK in the helper"
 
+echo "==> catch-all HTTPS vhost"
+# Without a default_server on 443, an unknown hostname (a demo mid-rebuild or just
+# destroyed) is answered by whichever site sorts first, e.g. easyacupuncture.
+cat > /etc/nginx/sites-available/00-default-tls <<'NGINX'
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name _;
+    ssl_reject_handshake on;
+}
+NGINX
+ln -sf /etc/nginx/sites-available/00-default-tls /etc/nginx/sites-enabled/00-default-tls
+if nginx -t -q; then systemctl reload nginx; else rm -f /etc/nginx/sites-enabled/00-default-tls; echo "WARNING: catch-all vhost failed nginx -t; removed"; fi
+
 echo "==> dirs + demo.sh"
 install -d -o "$OWNER" -g www-data -m 755 "$ROOT" "$ROOT/_meta"
 install -d -o "$OWNER" -g "$GROUP" -m 755 "$HOME_DIR/bin"
