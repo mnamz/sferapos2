@@ -50,8 +50,10 @@ server {
     }
 
     location ~ \.php\$ {
-        include snippets/fastcgi-php.conf;
         fastcgi_pass unix:$PHP_SOCK;
+        fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_hide_header X-Powered-By;
     }
 
     location ~ /\.(?!well-known).* {
@@ -61,7 +63,8 @@ server {
 NGINX
         ln -sf "$avail" "$enabled"
     fi
-    nginx -t -q
+    # A broken vhost would block every later reload (incl. other sites' cert renewals).
+    nginx -t -q || { rm -f "$enabled" "$avail"; die "nginx -t failed; vhost removed"; }
     systemctl reload nginx
     certbot --nginx -d "$host" --redirect --non-interactive --keep-until-expiring
     ;;
