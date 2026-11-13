@@ -16,6 +16,8 @@ class User extends Authenticatable implements Auditable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasRoles, AuditableTrait;
 
+    public const INACTIVE_MESSAGE = 'This account is inactive. Ask a manager to reactivate it.';
+
     /**
      * The attributes that are mass assignable.
      *
@@ -51,6 +53,15 @@ class User extends Authenticatable implements Auditable
             'password' => 'hashed',
             'status' => 'boolean'
         ];
+    }
+
+    /**
+     * Inactive users can't log in. A null status (unsaved model, column
+     * default not yet loaded) counts as active, matching the DB default.
+     */
+    public function isActive(): bool
+    {
+        return $this->status !== false;
     }
 
     public function auditEvent($event)

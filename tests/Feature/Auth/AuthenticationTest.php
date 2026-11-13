@@ -39,3 +39,42 @@ test('users can logout', function () {
     $this->assertGuest();
     $response->assertRedirect('/');
 });
+test('inactive users can not authenticate', function () {
+    $user = User::factory()->inactive()->create();
+
+    $response = $this->post('/login', [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertGuest();
+    $response->assertSessionHasErrors(['email' => User::INACTIVE_MESSAGE]);
+});
+
+test('inactive users with a wrong password get the generic error', function () {
+    $user = User::factory()->inactive()->create();
+
+    $response = $this->post('/login', [
+        'email' => $user->email,
+        'password' => 'wrong-password',
+    ]);
+
+    $this->assertGuest();
+    $response->assertSessionHasErrors(['email' => trans('auth.failed')]);
+});
+
+test('a user deactivated mid-session is signed out on the next request', function () {
+    $this->withoutVite();
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->get('/dashboard')->assertOk();
+
+    $user->update(['status' => false]);
+
+    $this->get('/dashboard')
+        ->assertRedirect(route('login'))
+        ->assertSessionHasErrors(['email' => User::INACTIVE_MESSAGE]);
+
+    $this->assertGuest();
+});
