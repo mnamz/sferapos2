@@ -77,6 +77,20 @@
                                             <Label for="status" class="text-gray-900 dark:text-gray-100">Active</Label>
                                         </div>
                                     </div>
+
+                                    <div v-if="selectedRole === 'staff'">
+                                        <div class="flex items-center space-x-2">
+                                            <input
+                                                id="can_view_sales_register"
+                                                v-model="form.can_view_sales_register"
+                                                type="checkbox"
+                                                class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600"
+                                            />
+                                            <Label for="can_view_sales_register" class="text-gray-900 dark:text-gray-100">Can view Sales Register</Label>
+                                        </div>
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">For store supervisors. Admins and managers always have access.</p>
+                                        <InputError :message="form.errors.can_view_sales_register" class="mt-2" />
+                                    </div>
                                 </div>
                             </div>
 
@@ -111,7 +125,8 @@ import { ref, watch } from 'vue';
 
 const props = defineProps({
     user: Object,
-    roles: Array
+    roles: Array,
+    canViewSalesRegister: Boolean
 });
 
 const selectedRole = ref(props.user.roles?.[0]?.name || '');
@@ -121,7 +136,8 @@ const form = useForm({
     email: props.user.email,
     password: '',
     roles: props.user.roles?.map(role => role.name) || [],
-    status: props.user.status
+    status: props.user.status,
+    can_view_sales_register: props.canViewSalesRegister ?? false
 });
 
 // Watch for changes in selectedRole and update form.roles

@@ -18,6 +18,9 @@ class User extends Authenticatable implements Auditable
 
     public const INACTIVE_MESSAGE = 'This account is inactive. Ask a manager to reactivate it.';
 
+    // Lets a staff account (e.g. a store supervisor) open the Sales Register
+    public const PERMISSION_VIEW_SALES_REGISTER = 'view-sales-register';
+
     /**
      * The attributes that are mass assignable.
      *

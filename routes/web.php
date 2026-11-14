@@ -25,8 +25,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/api/suppliers/search', [SupplierController::class, 'search'])->name('api.suppliers.search');
     Route::resource('users', UserController::class)->except(['edit', 'update']);
 
-    // Sales register has no cost/profit figures, so managers can use it too
-    Route::middleware('role:admin|manager')->group(function () {
+    // Sales register has no cost/profit figures, so managers can use it too,
+    // as can staff given the per-user permission (store supervisors)
+    Route::middleware('role_or_permission:admin|manager|view-sales-register')->group(function () {
         Route::get('reports/sales-register', [ReportController::class, 'salesRegister'])->name('reports.sales-register');
         Route::get('reports/sales-register/export', [ReportController::class, 'salesRegisterExport'])->name('reports.sales-register.export');
         Route::get('reports/sales-register/invoices', [ReportController::class, 'salesRegisterInvoices'])->name('reports.sales-register.invoices');

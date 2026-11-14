@@ -63,6 +63,9 @@
                                         <span v-for="role in user.roles" :key="role" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 mr-1">
                                             {{ role.name }}
                                         </span>
+                                        <span v-if="user.can_view_sales_register" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 mr-1">
+                                            Sales Register
+                                        </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <span :class="[
@@ -111,6 +114,9 @@
                                 <div class="flex items-center space-x-2">
                                     <span v-for="role in user.roles" :key="role" class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 mr-1">
                                         {{ role }}
+                                    </span>
+                                    <span v-if="user.can_view_sales_register" class="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 mr-1">
+                                        Sales Register
                                     </span>
                                 </div>
                                 <div class="flex justify-end space-x-3 pt-2 border-t dark:border-gray-700">

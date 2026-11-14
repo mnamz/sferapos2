@@ -28,11 +28,13 @@ interface PageProps extends InertiaPageProps {
     auth: {
         user: User;
         roles?: string[];
+        permissions?: string[];
     };
 }
 
 const page = usePage<PageProps>();
 const roles = page.props.auth?.roles || [];
+const permissions = page.props.auth?.permissions || [];
 
 const isCollapsed = ref(props.collapsed);
 
@@ -108,7 +110,7 @@ const filteredNavItems = computed(() => {
         if (item.title === 'Reports' && roles.includes('staff')) {
             return false;
         }
-        if (item.title === 'Sales Register' && !roles.includes('admin') && !roles.includes('manager')) {
+        if (item.title === 'Sales Register' && !roles.includes('admin') && !roles.includes('manager') && !permissions.includes('view-sales-register')) {
             return false;
         }
         if (item.title === 'Suppliers' && roles.includes('staff')) {

@@ -7,13 +7,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
     public function index(Request $request)
     {
-        $users = User::with('roles')
+        $users = User::with('roles', 'permissions')
             ->when($request->input('search'), function ($query, $search) {
                 $query->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%");
@@ -23,6 +24,8 @@ class UserController extends Controller
 
         $users->getCollection()->transform(function ($user) {
             $user->roles = $user->roles->pluck('name');
+            $user->can_view_sales_register = $user->permissions->contains('name', User::PERMISSION_VIEW_SALES_REGISTER);
+            $user->unsetRelation('permissions');
             return $user;
         });
 
@@ -47,7 +50,8 @@ class UserController extends Controller
             'password' => ['required', 'string', 'min:8'],
             'roles' => ['required', 'array'],
             'roles.*' => ['exists:roles,name'],
-            'status' => ['boolean']
+            'status' => ['boolean'],
+            'can_view_sales_register' => ['boolean'],
         ]);
 
         $user = User::create([
@@ -58,6 +62,7 @@ class UserController extends Controller
         ]);
 
         $user->syncRoles($validated['roles']);
+        $this->syncSalesRegisterAccess($user, $validated['can_view_sales_register'] ?? false);
 
         return redirect()->route('users.index')
             ->with('success', 'User created successfully.');
@@ -67,7 +72,8 @@ class UserController extends Controller
     {
         return Inertia::render('Users/Edit', [
             'user' => $user->load('roles'),
-            'roles' => Role::all()
+            'roles' => Role::all(),
+            'canViewSalesRegister' => $user->hasDirectPermission(User::PERMISSION_VIEW_SALES_REGISTER),
         ]);
     }
 
@@ -79,7 +85,8 @@ class UserController extends Controller
             'password' => ['nullable', 'string', 'min:8'],
             'roles' => ['required', 'array'],
             'roles.*' => ['exists:roles,name'],
-            'status' => ['boolean']
+            'status' => ['boolean'],
+            'can_view_sales_register' => ['boolean'],
         ]);
 
         $userData = [
@@ -94,9 +101,19 @@ class UserController extends Controller
 
         $user->update($userData);
         $user->syncRoles($validated['roles']);
+        if (array_key_exists('can_view_sales_register', $validated)) {
+            $this->syncSalesRegisterAccess($user, $validated['can_view_sales_register']);
+        }
 
         return redirect()->route('users.index')
             ->with('success', 'User updated successfully.');
+    }
+
+    private function syncSalesRegisterAccess(User $user, bool $allowed): void
+    {
+        $permission = Permission::findOrCreate(User::PERMISSION_VIEW_SALES_REGISTER, 'web');
+
+        $allowed ? $user->givePermissionTo($permission) : $user->revokePermissionTo($permission);
     }
 
     public function destroy(User $user)
