@@ -277,6 +277,11 @@ class ProductController extends Controller
                 'required', 'string', 'max:255', 'distinct',
                 \Illuminate\Validation\Rule::unique('product_serials', 'serial_number')->whereNull('deleted_at'),
             ],
+        ], [
+            'serials.required' => 'Enter at least one serial number.',
+            'serials.*.unique' => 'Serial ":input" already exists in the system (in stock or already sold).',
+            'serials.*.distinct' => 'Serial ":input" is entered more than once.',
+            'serials.*.max' => 'Serial ":input" is too long (max 255 characters).',
         ]);
 
         $serials = array_map('trim', $validated['serials']);

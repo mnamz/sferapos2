@@ -243,7 +243,7 @@ it('rejects a globally-duplicate serial on add', function () {
 
     $this->actingAs($admin)
         ->post(route('products.serials.store', $p2), ['serials' => ['DUP']])
-        ->assertSessionHasErrors('serials.0');
+        ->assertSessionHasErrors(['serials.0' => 'Serial "DUP" already exists in the system (in stock or already sold).']);
 
     expect($p2->fresh()->stock)->toBe(0);
 });

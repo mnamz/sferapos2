@@ -117,9 +117,21 @@
                                                 class="inline-flex items-center rounded-md bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700"
                                                 :disabled="serialForm.processing"
                                             >
-                                                Add Serials
+                                                {{ serialForm.processing ? 'Adding…' : 'Add Serials' }}
                                             </button>
                                         </div>
+                                        <ul
+                                            v-if="serialErrors.length"
+                                            class="space-y-1 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200"
+                                        >
+                                            <li v-for="(msg, i) in serialErrors" :key="i">{{ msg }}</li>
+                                        </ul>
+                                        <p
+                                            v-if="serialSuccess"
+                                            class="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-700 dark:bg-green-900/30 dark:text-green-200"
+                                        >
+                                            {{ serialSuccess }}
+                                        </p>
                                     </form>
 
                                     <!-- Serial List -->
@@ -269,7 +281,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 const page = usePage();
 const roles = page.props.auth?.roles || [];
@@ -315,18 +327,43 @@ function captureScan() {
     }
 }
 
+// Feedback for the add-serials form. Previously validation failures (e.g. a
+// serial that already exists) and server flash messages were never rendered,
+// so a rejected submit looked like the button did nothing.
+const serialSuccess = ref('');
+const serialClientError = ref('');
+const serialErrors = computed(() => {
+    const msgs = [];
+    if (serialClientError.value) msgs.push(serialClientError.value);
+    msgs.push(...Object.values(serialForm.errors));
+    if (page.props.error) msgs.push(page.props.error);
+    return [...new Set(msgs)];
+});
+
 function addSerials() {
+    serialSuccess.value = '';
+    serialClientError.value = '';
+    serialForm.clearErrors();
     const serials = serialInput.value
-        .split('\n')
+        .split(/\r?\n/)
         .map((s) => s.trim())
         .filter(Boolean);
-    if (!serials.length) return;
+    if (!serials.length) {
+        serialClientError.value = 'Enter or scan at least one serial number first.';
+        return;
+    }
     serialForm.serials = serials;
     serialForm.post(route('products.serials.store', props.product.id), {
         preserveScroll: true,
-        onSuccess: () => {
+        onSuccess: (p) => {
+            if (p.props.error) return; // e.g. product not serial-tracked
             serialInput.value = '';
             serialForm.reset();
+            serialSuccess.value = `${serials.length} serial${serials.length === 1 ? '' : 's'} added.`;
+            setTimeout(() => (serialSuccess.value = ''), 4000);
+        },
+        onError: () => {
+            // Keep the textarea so the user can fix the offending line(s).
         },
     });
 }
