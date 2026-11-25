@@ -1,6 +1,6 @@
 # Spin up / tear down a phone-service POS demo at https://demo-<name>.sfera.my
-# Actions -> "Phone POS demo" -> Run workflow. Builds service-pos-ph here (sfera1
-# is too small to run vite) and pipes the bundle to deploy/demo/demo.sh over an
+# Actions -> "Phone POS demo" -> Run workflow. Builds service-pos-ph here (sfera0
+# is too small to run vite) and pipes the bundle to ~sfera-demo/bin/demo.sh over an
 # SSH key that is forced to that script, never a shell.
 name: Phone POS demo
 
@@ -24,7 +24,7 @@ on:
 concurrency: phone-pos-demo
 
 env:
-  DEMO_HOST: mnamz@sfera1.vps.webdock.cloud
+  DEMO_HOST: sfera-demo@sfera0.vps.webdock.cloud
 
 jobs:
   demo:
@@ -70,7 +70,7 @@ jobs:
             --exclude=./.env --exclude='./storage/logs/*' --exclude='./bootstrap/cache/*.php' .
           ls -lh "$RUNNER_TEMP/app.tgz"
 
-      - name: Run on sfera1
+      - name: Run on sfera0
         env:
           SSH_KEY: ${{ secrets.DEMO_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.DEMO_SSH_KNOWN_HOSTS }}
