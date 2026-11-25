@@ -80,7 +80,12 @@ class ProductController extends Controller
             $validated['stock'] = 0;
         }
 
-        Product::create($validated);
+        $product = Product::create($validated);
+
+        // Opening stock: tell HQ now rather than at the next hourly snapshot.
+        if ((int) $product->stock > 0) {
+            app(StockHq::class)->queueLevelPush($product);
+        }
 
         return redirect()->route('products.index')->with('success', 'Product created successfully');
     }
@@ -134,6 +139,11 @@ class ProductController extends Controller
         }
 
         $product->update($validated);
+
+        // Stock typed into the edit form is a manual change HQ must hear about now.
+        if ($product->wasChanged('stock')) {
+            app(StockHq::class)->queueLevelPush($product);
+        }
 
         return redirect()->route('products.index')->with('success', 'Product updated successfully');
     }
@@ -251,6 +261,9 @@ class ProductController extends Controller
 
         // Create the audit record
         $product->audits()->create($auditData);
+
+        // Restock / withdraw: update HQ now so transfers see the real figure.
+        app(StockHq::class)->queueLevelPush($product);
 
         return back()->with('success', 'Stock updated successfully.');
     }

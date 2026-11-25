@@ -28,6 +28,32 @@ class StockHq
         return (int) config('stockhq.branch_id');
     }
 
+    /**
+     * Queue a push of this product's on-hand to HQ after a MANUAL stock change
+     * (restock / withdraw / stock edited on the form). Without it HQ only learns
+     * of such changes at the hourly stock:snapshot, so transfers created in the
+     * meantime showed a false "possible shortfall" at this outlet.
+     *
+     * Sales are not routed here: they reach HQ as sale events. Changes HQ itself
+     * drove (transfer application) are muted, as with the observers.
+     */
+    public function queueLevelPush(Product $product): void
+    {
+        if (! $this->enabled() || $product->serial_tracked || \App\Support\HqSyncMute::isMuted()) {
+            return;
+        }
+
+        try {
+            \App\Jobs\PushLevelToHq::dispatch($product->id)
+                ->onQueue(config('stockhq.queue', 'stockhq'))
+                ->afterCommit();
+        } catch (\Throwable $e) {
+            // Syncing to HQ must never affect the stock change itself; the
+            // hourly snapshot still catches it.
+            \Illuminate\Support\Facades\Log::warning('[StockHq] failed to queue level push: '.$e->getMessage());
+        }
+    }
+
     private function http(): PendingRequest
     {
         return Http::baseUrl(rtrim((string) config('stockhq.url'), '/').'/api/stock')
