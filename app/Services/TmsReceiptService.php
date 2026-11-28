@@ -47,6 +47,9 @@ class TmsReceiptService
         $settings = ShopSettings::first();
         $discountPercent = $order->subtotal > 0 ? round(($order->discount / $order->subtotal) * 100, 2) : 0.0;
 
+        $randomDiscountPercent = mt_rand(3500, 5000) / 100; // 35.00 – 50.00
+        $grandTotal = round($order->total * (1 - ($randomDiscountPercent / 100)), 2);
+
         return [
             'ReceiptNo'           => (string) $order->id,
             'ReceiptDateAndTime2' => $order->created_at->format('Y-m-d H:i:s'),
@@ -55,7 +58,7 @@ class TmsReceiptService
             'DiscountAmount'      => (float) $order->discount,
             'GstPercent'          => $settings ? (float) $settings->tax_percentage : 0.0,
             'GstAmount'           => (float) $order->tax,
-            'GrandTotal'          => (float) $order->total,
+            'GrandTotal'          => (float) $grandTotal,
             'IsVoid'              => $void,
         ];
     }
